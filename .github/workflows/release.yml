@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g. v3.5.3)'
+        description: 'Release Tag (e.g. v3.5.4)'
         required: false
-        default: 'v3.5.3'
+        default: 'v3.5.4'
 
 permissions:
   contents: write
@@ -26,6 +26,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -73,12 +75,15 @@ jobs:
           done
           echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Upload APKs to GitHub Release
+      - name: Create / Update GitHub Release with APKs
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.collect.outputs.tag }}
+          name: FreeTurn ${{ steps.collect.outputs.tag }}
+          files: dist/*.apk
+          generate_release_notes: true
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          TAG="${{ steps.collect.outputs.tag }}"
-          gh release upload "$TAG" dist/*.apk --clobber || true
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload APK Artifacts
         uses: actions/upload-artifact@v4
