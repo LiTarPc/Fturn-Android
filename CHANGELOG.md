@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.3](https://github.com/LiTarPc/Fturn-Android/compare/v3.5.2...v3.5.3) (2026-08-21)
+
+
+### Fixes
+
+* обязательная проверка поля provider при парсинге ссылки ([dd804b2](https://github.com/LiTarPc/Fturn-Android/commit/dd804b2d7acd7386b572b0319d37fa1c7b18b108))
+
 ## [3.5.2](https://github.com/samosvalishe/turn-proxy-android/compare/v3.5.1...v3.5.2) (2026-08-04)
 
 
