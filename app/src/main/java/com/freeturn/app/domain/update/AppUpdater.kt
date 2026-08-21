@@ -7,20 +7,29 @@ import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.os.Build
 import androidx.core.content.FileProvider
+import com.freeturn.app.data.AppPreferences
+import com.freeturn.app.data.config.ClientConfig
 import com.freeturn.app.domain.UpdateState
+import com.freeturn.app.domain.proxy.ProxyServiceState
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
+import java.net.InetSocketAddress
+import java.net.Proxy
 import java.net.URL
 import java.security.MessageDigest
 
-class AppUpdater(private val context: Context) {
+class AppUpdater(
+    private val context: Context,
+    private val prefs: AppPreferences? = null
+) {
 
     private val _state = MutableStateFlow<UpdateState>(UpdateState.Idle)
     val state: StateFlow<UpdateState> = _state.asStateFlow()
@@ -80,7 +89,7 @@ class AppUpdater(private val context: Context) {
         _state.value = UpdateState.Downloading(0)
         try {
             withContext(Dispatchers.IO) {
-                val connection = URL(url).openConnection() as HttpURLConnection
+                val connection = createConnection(url)
                 connection.instanceFollowRedirects = true
                 connection.connectTimeout = 15_000
                 connection.readTimeout = 30_000
@@ -152,19 +161,58 @@ class AppUpdater(private val context: Context) {
 
     // Private
 
-    private fun fetchLatestRelease(): JSONObject? {
-        val connection = URL(RELEASES_URL).openConnection() as HttpURLConnection
-        connection.setRequestProperty("Accept", "application/vnd.github+json")
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 10_000
-
-        return try {
-            if (connection.responseCode == 200) {
-                JSONObject(connection.inputStream.bufferedReader().readText())
-            } else null
-        } finally {
-            connection.disconnect()
+    private suspend fun createConnection(urlString: String): HttpURLConnection {
+        val running = ProxyServiceState.isRunning.value
+        val p = prefs
+        if (running && p != null) {
+            val server = runCatching { p.serversSnapshot.first().active }.getOrNull()
+            val proxyAddress = server?.client?.localPort?.ifBlank { ClientConfig.DEFAULT_LOCAL_PORT }
+                ?: ClientConfig.DEFAULT_LOCAL_PORT
+            val host = proxyAddress.substringBeforeLast(":", "127.0.0.1").ifBlank { "127.0.0.1" }
+            val port = proxyAddress.substringAfterLast(":", "9000").toIntOrNull() ?: 9000
+            val proxyConn = runCatching {
+                val socksProxy = Proxy(Proxy.Type.SOCKS, InetSocketAddress(host, port))
+                val conn = URL(urlString).openConnection(socksProxy) as HttpURLConnection
+                conn.connectTimeout = 10_000
+                conn.readTimeout = 20_000
+                conn
+            }.getOrNull()
+            if (proxyConn != null) return proxyConn
         }
+        val conn = URL(urlString).openConnection() as HttpURLConnection
+        conn.connectTimeout = 10_000
+        conn.readTimeout = 20_000
+        return conn
+    }
+
+    private suspend fun fetchLatestRelease(): JSONObject? {
+        val primary = runCatching {
+            val connection = createConnection(RELEASES_URL)
+            connection.setRequestProperty("Accept", "application/vnd.github+json")
+            try {
+                if (connection.responseCode == 200) {
+                    JSONObject(connection.inputStream.bufferedReader().readText())
+                } else null
+            } finally {
+                connection.disconnect()
+            }
+        }.getOrNull()
+
+        if (primary != null) return primary
+
+        return runCatching {
+            val connection = URL(RELEASES_URL).openConnection() as HttpURLConnection
+            connection.setRequestProperty("Accept", "application/vnd.github+json")
+            connection.connectTimeout = 8_000
+            connection.readTimeout = 8_000
+            try {
+                if (connection.responseCode == 200) {
+                    JSONObject(connection.inputStream.bufferedReader().readText())
+                } else null
+            } finally {
+                connection.disconnect()
+            }
+        }.getOrNull()
     }
 
     /** [apk] подписан тем же сертификатом и тем же packageName, что установленное приложение. */

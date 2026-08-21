@@ -30,7 +30,7 @@ val appModule = module {
     // делиться между живой сессией и мастером/шарингом.
     factory { SSHManager() }
     single { SshRepository(androidContext(), get()) }
-    single { AppUpdater(androidContext()) }
+    single { AppUpdater(androidContext(), get()) }
     single { BackupManager(get()) }
     single { ProxyOrchestrator(get(), get(), get()) }
     // factory: своя SSH-сессия на каждый прогон мастера, живой SshRepository не трогаем.
