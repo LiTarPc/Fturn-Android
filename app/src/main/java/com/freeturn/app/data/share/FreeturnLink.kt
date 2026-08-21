@@ -68,7 +68,8 @@ data class FreeturnLink(
             val o = JSONObject(json)
             val v = o.optInt("v", VERSION)
             require(v <= VERSION) { "unsupported link version" }
-            val provider = o.optString("provider", "vk") // default to vk if missing
+            val provider = o.optString("provider")
+            require(provider.isNotEmpty()) { "missing provider" }
             val peer = o.optString("peer")
             require(peer.isNotEmpty()) { "missing peer" }
             FreeturnLink(
