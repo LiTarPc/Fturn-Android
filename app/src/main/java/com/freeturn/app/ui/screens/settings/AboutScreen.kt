@@ -94,7 +94,7 @@ fun AboutScreen(onBack: () -> Unit) {
 
                 SectionLabel(stringResource(R.string.about_links))
                 SettingsGroup {
-                    SettingsGroupItem(0, 2) {
+                    SettingsGroupItem(0, 3) {
                         SettingsEntryRow(
                             iconRes = R.drawable.code_24px,
                             title = stringResource(R.string.android_client),
@@ -103,7 +103,7 @@ fun AboutScreen(onBack: () -> Unit) {
                             onClick = {}
                         )
                     }
-                    SettingsGroupItem(1, 2) {
+                    SettingsGroupItem(1, 3) {
                         SettingsEntryRow(
                             iconRes = R.drawable.terminal_24px,
                             title = stringResource(R.string.proxy_core),
@@ -111,6 +111,16 @@ fun AboutScreen(onBack: () -> Unit) {
                             trailingRes = R.drawable.open_in_new_24px,
                             trailingTint = MaterialTheme.colorScheme.primary,
                             onClick = { open("https://github.com/LiTarPc/fturn-core") }
+                        )
+                    }
+                    SettingsGroupItem(2, 3) {
+                        SettingsEntryRow(
+                            iconRes = R.drawable.person_24px,
+                            title = "Оригинальный проект",
+                            subtitle = "@samosvalishe",
+                            trailingRes = R.drawable.open_in_new_24px,
+                            trailingTint = MaterialTheme.colorScheme.primary,
+                            onClick = { open("https://github.com/samosvalishe/turn-proxy-android") }
                         )
                     }
                 }
