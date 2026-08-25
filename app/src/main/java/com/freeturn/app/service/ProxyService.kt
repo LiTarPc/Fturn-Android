@@ -114,5 +114,13 @@ class ProxyService : Service() {
         controller.destroyProcessAndTunnel()
         serviceScope.cancel()
         if (wakeLock?.isHeld == true) wakeLock?.release()
+        
+        // Гарантированно убираем уведомление, чтобы оно не зависло (баг некоторых прошивок)
+        try {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+            androidx.core.app.NotificationManagerCompat.from(this).cancel(ProxyNotifier.NOTIF_ID_FG)
+        } catch (e: Exception) {
+            ProxyServiceState.addLog("Ошибка очистки уведомления: ${e.message}")
+        }
     }
 }
