@@ -31,8 +31,10 @@ class SpeedMonitor(
                 val currentTx = TrafficStats.getUidTxBytes(uid)
                 if (currentRx != TrafficStats.UNSUPPORTED.toLong() &&
                     lastRx != TrafficStats.UNSUPPORTED.toLong()) {
-                    val rxSpeed = maxOf(0, currentRx - lastRx)
-                    val txSpeed = maxOf(0, currentTx - lastTx)
+                    // Делим на 2 (учитываем двойной подсчет TrafficStats для VpnService: tun + wifi/мобильная) 
+                    // и на 3 (поскольку задержка 3000 мс), итого на 6
+                    val rxSpeed = maxOf(0, currentRx - lastRx) / 6
+                    val txSpeed = maxOf(0, currentTx - lastTx) / 6
                     onSpeed("↓ ${format(rxSpeed)} ↑ ${format(txSpeed)}")
                     lastRx = currentRx
                     lastTx = currentTx

@@ -269,10 +269,11 @@ private fun TrafficStatsCard(
             val currentRx = TrafficStats.getUidRxBytes(myUid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
             val currentTx = TrafficStats.getUidTxBytes(myUid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
 
-            downSpeed = max(0L, currentRx - prevRx)
-            upSpeed = max(0L, currentTx - prevTx)
-            rxBytes = max(0L, currentRx - initialRx)
-            txBytes = max(0L, currentTx - initialTx)
+            // Делим на 2, так как TrafficStats для VpnService считает трафик дважды (tun + интерфейс)
+            downSpeed = max(0L, currentRx - prevRx) / 2
+            upSpeed = max(0L, currentTx - prevTx) / 2
+            rxBytes = max(0L, currentRx - initialRx) / 2
+            txBytes = max(0L, currentTx - initialTx) / 2
 
             prevRx = currentRx
             prevTx = currentTx
