@@ -108,6 +108,7 @@ class ProxyService : Service() {
         ProxyServiceState.setRunning(false)
         ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
         ProxyServiceState.clearConnectedSince()
+        ProxyServiceState.clearTraffic()
         networkMonitor.unregister()
         notifier.cancelCaptcha()
         ProxyServiceState.addLog("Остановка")

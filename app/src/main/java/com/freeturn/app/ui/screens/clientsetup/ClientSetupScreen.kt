@@ -140,6 +140,7 @@ fun ClientSetupScreen(
                 customDns     = customDns.trim()
             )
         }
+        fieldsDirty = false
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.BottomSheetDefaults
@@ -104,6 +105,7 @@ fun SplitTunnelSheetContent(
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
+            .imePadding()
             .padding(top = Spacing.sm, bottom = Spacing.sm),
         verticalArrangement = Arrangement.spacedBy(Spacing.lg)
     ) {
