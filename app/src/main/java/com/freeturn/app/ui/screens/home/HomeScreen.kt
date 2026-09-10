@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -70,7 +69,6 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val proxyState by proxyViewModel.proxyState.collectAsStateWithLifecycle()
-    val traffic by proxyViewModel.traffic.collectAsStateWithLifecycle()
     val connectedSince by proxyViewModel.connectedSince.collectAsStateWithLifecycle()
     val uptimeText = rememberProxyUptime(connectedSince)
     val tunnelActive by proxyViewModel.tunnelActive.collectAsStateWithLifecycle()
@@ -137,7 +135,7 @@ fun HomeScreen(
 
         else -> BottomSheetScaffold(
             scaffoldState = sheetScaffoldState,
-            sheetPeekHeight = if (nerdMode) 132.dp else 84.dp,
+            sheetPeekHeight = 84.dp,
             sheetContainerColor = sheetColor,
             sheetContent = {
                 ServersSheetContent(
@@ -167,7 +165,6 @@ fun HomeScreen(
                         .align(Alignment.TopCenter)
                         .widthIn(max = SettingsContentMaxWidth)
                         .fillMaxSize()
-                        .statusBarsPadding()
                         .padding(horizontal = Spacing.lg),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -233,7 +230,6 @@ fun HomeScreen(
 
                     ConnectionHero(
                         state = proxyState,
-                        traffic = traffic,
                         uptimeText = uptimeText,
                         tunnelActive = tunnelActive,
                         onToggle = {

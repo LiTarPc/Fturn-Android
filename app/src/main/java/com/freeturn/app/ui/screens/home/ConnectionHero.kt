@@ -2,6 +2,8 @@
 
 package com.freeturn.app.ui.screens.home
 
+import android.net.TrafficStats
+import android.os.Process
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -37,6 +39,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -54,12 +57,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.freeturn.app.R
 import com.freeturn.app.domain.ProxyState
-import com.freeturn.app.domain.TrafficSnapshot
 import com.freeturn.app.ui.theme.HeroSquircleShape
 import com.freeturn.app.ui.theme.LocalReducedMotion
 import com.freeturn.app.ui.theme.extendedColorScheme
+import kotlinx.coroutines.delay
 import kotlin.math.ceil
 import kotlin.math.ln
+import kotlin.math.max
 import kotlin.math.pow
 
 /** Герой главного экрана: PWDTT сквиркл-кнопка, строка статуса и карточка статистики. */
@@ -68,7 +72,6 @@ internal fun ConnectionHero(
     state: ProxyState,
     uptimeText: String?,
     tunnelActive: Boolean,
-    traffic: TrafficSnapshot,
     onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -88,13 +91,12 @@ internal fun ConnectionHero(
 
         Spacer(Modifier.height(18.dp))
 
-        StatusLabel(state = state, tunnelActive = tunnelActive, uptimeText = uptimeText)
+        StatusLabel(state = state, tunnelActive = tunnelActive)
 
         Spacer(Modifier.height(18.dp))
 
         TrafficStatsCard(
-            isActive = kind == HeroKind.Running,
-            traffic = traffic
+            isActive = kind == HeroKind.Running
         )
     }
 }
@@ -210,9 +212,9 @@ private fun rememberHeroSpin(spinning: Boolean): State<Float> {
 }
 
 @Composable
-private fun StatusLabel(state: ProxyState, tunnelActive: Boolean, uptimeText: String?) {
+private fun StatusLabel(state: ProxyState, tunnelActive: Boolean) {
     val label = when (state) {
-        is ProxyState.Running -> if (!uptimeText.isNullOrBlank()) "Отключить • $uptimeText" else "Отключить"
+        is ProxyState.Running -> "Отключить"
         is ProxyState.Starting, is ProxyState.Connecting -> "Подключение..."
         is ProxyState.Error -> state.message
         is ProxyState.CaptchaRequired -> "Требуется капча"
@@ -240,13 +242,43 @@ private fun StatusLabel(state: ProxyState, tunnelActive: Boolean, uptimeText: St
 
 @Composable
 private fun TrafficStatsCard(
-    isActive: Boolean,
-    traffic: TrafficSnapshot
+    isActive: Boolean
 ) {
-    val rxBytes = traffic.rxBytes
-    val txBytes = traffic.txBytes
-    val downSpeed = traffic.downSpeed
-    val upSpeed = traffic.upSpeed
+    var rxBytes by remember { mutableLongStateOf(0L) }
+    var txBytes by remember { mutableLongStateOf(0L) }
+    var downSpeed by remember { mutableLongStateOf(0L) }
+    var upSpeed by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(isActive) {
+        if (!isActive) {
+            rxBytes = 0L
+            txBytes = 0L
+            downSpeed = 0L
+            upSpeed = 0L
+            return@LaunchedEffect
+        }
+
+        val myUid = Process.myUid()
+        var prevRx = TrafficStats.getUidRxBytes(myUid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
+        var prevTx = TrafficStats.getUidTxBytes(myUid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
+        val initialRx = prevRx
+        val initialTx = prevTx
+
+        while (true) {
+            delay(1000L)
+            val currentRx = TrafficStats.getUidRxBytes(myUid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
+            val currentTx = TrafficStats.getUidTxBytes(myUid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
+
+            // Делим на 2, так как TrafficStats для VpnService считает трафик дважды (tun + интерфейс)
+            downSpeed = max(0L, currentRx - prevRx) / 2
+            upSpeed = max(0L, currentTx - prevTx) / 2
+            rxBytes = max(0L, currentRx - initialRx) / 2
+            txBytes = max(0L, currentTx - initialTx) / 2
+
+            prevRx = currentRx
+            prevTx = currentTx
+        }
+    }
 
     Box(
         modifier = Modifier

@@ -2,8 +2,6 @@ package com.freeturn.app.service
 
 import android.net.TrafficStats
 import android.os.Process
-import com.freeturn.app.domain.TrafficSnapshot
-import com.freeturn.app.domain.proxy.ProxyServiceState
 import java.util.Locale
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -11,8 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * Опрашивает TrafficStats по UID каждую секунду, обновляет [ProxyServiceState.traffic]
- * и раз в 3с передаёт форматированную строку скорости в [onSpeed] для нотификации.
+ * Опрашивает TrafficStats по UID раз в 3с и отдаёт строку "↓ rx ↑ tx" в [onSpeed].
  * Цикл живёт пока [isStopped] не вернёт true (или scope не отменят).
  */
 class SpeedMonitor(
@@ -26,40 +23,22 @@ class SpeedMonitor(
         job?.cancel()
         job = scope.launch {
             val uid = Process.myUid()
-            var prevRx = TrafficStats.getUidRxBytes(uid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
-            var prevTx = TrafficStats.getUidTxBytes(uid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
-            val initialRx = prevRx
-            val initialTx = prevTx
-
-            var notifTicks = 0
+            var lastRx = TrafficStats.getUidRxBytes(uid)
+            var lastTx = TrafficStats.getUidTxBytes(uid)
             while (!isStopped()) {
-                delay(1000)
-                val currentRx = TrafficStats.getUidRxBytes(uid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
-                val currentTx = TrafficStats.getUidTxBytes(uid).takeIf { it != TrafficStats.UNSUPPORTED.toLong() } ?: 0L
-
-                // Делим на 2, учитывая двойной подсчет TrafficStats для VpnService
-                val downSpeed = maxOf(0L, currentRx - prevRx) / 2
-                val upSpeed = maxOf(0L, currentTx - prevTx) / 2
-                val rxBytes = maxOf(0L, currentRx - initialRx) / 2
-                val txBytes = maxOf(0L, currentTx - initialTx) / 2
-
-                ProxyServiceState.setTraffic(
-                    TrafficSnapshot(
-                        rxBytes = rxBytes,
-                        txBytes = txBytes,
-                        downSpeed = downSpeed,
-                        upSpeed = upSpeed
-                    )
-                )
-
-                notifTicks++
-                if (notifTicks >= 3) {
-                    notifTicks = 0
-                    onSpeed("↓ ${format(downSpeed)} ↑ ${format(upSpeed)}")
+                delay(3000)
+                val currentRx = TrafficStats.getUidRxBytes(uid)
+                val currentTx = TrafficStats.getUidTxBytes(uid)
+                if (currentRx != TrafficStats.UNSUPPORTED.toLong() &&
+                    lastRx != TrafficStats.UNSUPPORTED.toLong()) {
+                    // Делим на 2 (учитываем двойной подсчет TrafficStats для VpnService: tun + wifi/мобильная) 
+                    // и на 3 (поскольку задержка 3000 мс), итого на 6
+                    val rxSpeed = maxOf(0, currentRx - lastRx) / 6
+                    val txSpeed = maxOf(0, currentTx - lastTx) / 6
+                    onSpeed("↓ ${format(rxSpeed)} ↑ ${format(txSpeed)}")
+                    lastRx = currentRx
+                    lastTx = currentTx
                 }
-
-                prevRx = currentRx
-                prevTx = currentTx
             }
         }
     }
