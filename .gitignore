@@ -11,6 +11,7 @@ local.properties
 keystore.properties
 *.jks
 *.keystore
+keystore_base64.txt
 
 # Android Studio / IntelliJ
 .idea/
@@ -30,4 +31,3 @@ keystore.properties
 CLAUDE.md
 nerd_diff.txt
 version.txt
-keystore_base64.txt

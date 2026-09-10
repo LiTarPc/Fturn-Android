@@ -91,7 +91,11 @@ internal fun ConnectionHero(
 
         Spacer(Modifier.height(18.dp))
 
-        StatusLabel(state = state, tunnelActive = tunnelActive)
+        StatusLabel(
+            state = state,
+            tunnelActive = tunnelActive,
+            uptimeText = uptimeText
+        )
 
         Spacer(Modifier.height(18.dp))
 
@@ -212,9 +216,13 @@ private fun rememberHeroSpin(spinning: Boolean): State<Float> {
 }
 
 @Composable
-private fun StatusLabel(state: ProxyState, tunnelActive: Boolean) {
+private fun StatusLabel(
+    state: ProxyState,
+    tunnelActive: Boolean,
+    uptimeText: String? = null
+) {
     val label = when (state) {
-        is ProxyState.Running -> "Отключить"
+        is ProxyState.Running -> if (!uptimeText.isNullOrBlank()) "Отключить • $uptimeText" else "Отключить"
         is ProxyState.Starting, is ProxyState.Connecting -> "Подключение..."
         is ProxyState.Error -> state.message
         is ProxyState.CaptchaRequired -> "Требуется капча"
