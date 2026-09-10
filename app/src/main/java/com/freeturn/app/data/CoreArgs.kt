@@ -20,12 +20,12 @@ CoreArgs {
         if (cfg.provider == Provider.VK) { add("-link"); add(cfg.vkLink) }
         add("-listen"); add(cfg.localPort)
         if (cfg.threads > 0) { add("-n"); add(cfg.threads.toString()) }
-        if (cfg.streamsPerCred > 0 && cfg.streamsPerCred != 10) {
+        if (cfg.streamsPerCred > 0 && cfg.streamsPerCred != ClientConfig.DEFAULT_STREAMS_PER_CRED) {
             add("-streams-per-cred"); add(cfg.streamsPerCred.toString())
         }
         if (cfg.tcpForward) { add("-mode"); add("tcp") }
         if (cfg.tcpForward && cfg.bond) add("-bond")
-        if (cfg.useUdp) { add("-transport"); add("udp") }
+        add("-transport"); add(if (cfg.useUdp) "udp" else "tcp")
         if (srv.obfEnabled && ObfProfile.isValidKey(srv.obfKey)) {
             add("-obf-profile"); add(srv.obfProfile)
             add("-obf-key"); add(srv.obfKey)

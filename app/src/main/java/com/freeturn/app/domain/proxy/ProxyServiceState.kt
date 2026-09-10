@@ -3,6 +3,7 @@ package com.freeturn.app.domain.proxy
 import com.freeturn.app.domain.CaptchaSession
 import com.freeturn.app.domain.ConnectionStats
 import com.freeturn.app.domain.StartupResult
+import com.freeturn.app.domain.TrafficSnapshot
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -41,6 +42,9 @@ object ProxyServiceState {
 
     private val _connectionStats = MutableStateFlow(ConnectionStats.IDLE)
     val connectionStats: StateFlow<ConnectionStats> = _connectionStats.asStateFlow()
+
+    private val _trafficSnapshot = MutableStateFlow(TrafficSnapshot.ZERO)
+    val trafficSnapshot: StateFlow<TrafficSnapshot> = _trafficSnapshot.asStateFlow()
 
     /** WG поднят поверх прокси: UI и нотификация говорят про туннель, а не про прокси. */
     private val _tunnelActive = MutableStateFlow(false)
@@ -101,6 +105,14 @@ object ProxyServiceState {
 
     fun setConnectionStats(stats: ConnectionStats) {
         _connectionStats.value = stats
+    }
+
+    fun setTrafficSnapshot(snapshot: TrafficSnapshot) {
+        _trafficSnapshot.value = snapshot
+    }
+
+    fun resetTraffic() {
+        _trafficSnapshot.value = TrafficSnapshot.ZERO
     }
 
     fun setTunnelActive(value: Boolean) {

@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
 import android.os.Build
+import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.freeturn.app.R
@@ -109,14 +110,23 @@ class ProxyNotifier(private val service: Service) {
             service, 0, stopIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        return NotificationCompat.Builder(service, CHANNEL_PROXY)
+        val builder = NotificationCompat.Builder(service, CHANNEL_PROXY)
             .setContentTitle(title)
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_preferences)
             .setOngoing(true)
             .setContentIntent(openAppIntent)
             .addAction(0, service.getString(R.string.notif_proxy_stop_action), stopPending)
-            .build()
+
+        val connectedSince = ProxyServiceState.connectedSince.value
+        if (isActive && connectedSince != null) {
+            val baseTime = System.currentTimeMillis() - (SystemClock.elapsedRealtime() - connectedSince)
+            builder.setUsesChronometer(true)
+            builder.setWhen(baseTime)
+            builder.setShowWhen(true)
+        }
+
+        return builder.build()
     }
 
     private fun show() {

@@ -71,6 +71,7 @@ fun HomeScreen(
     val proxyState by proxyViewModel.proxyState.collectAsStateWithLifecycle()
     val connectedSince by proxyViewModel.connectedSince.collectAsStateWithLifecycle()
     val uptimeText = rememberProxyUptime(connectedSince)
+    val trafficSnapshot by proxyViewModel.trafficSnapshot.collectAsStateWithLifecycle()
     val tunnelActive by proxyViewModel.tunnelActive.collectAsStateWithLifecycle()
     val clientConfig by settingsViewModel.clientConfig.collectAsStateWithLifecycle()
     val updateState by settingsViewModel.updateState.collectAsStateWithLifecycle()
@@ -232,6 +233,7 @@ fun HomeScreen(
                         state = proxyState,
                         uptimeText = uptimeText,
                         tunnelActive = tunnelActive,
+                        trafficSnapshot = trafficSnapshot,
                         onToggle = {
                             when (proxyState) {
                                 is ProxyState.Idle, is ProxyState.Error -> {

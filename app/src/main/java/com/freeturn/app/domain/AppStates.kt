@@ -49,6 +49,22 @@ data class ConnectionStats(val active: Int, val total: Int) {
     }
 }
 
+/**
+ * Снимок переданного трафика и текущей скорости.
+ * Накапливается непрерывно на протяжении всей сессии прокси в фоновом сервисе.
+ */
+data class TrafficSnapshot(
+    val rxBytes: Long = 0L,
+    val txBytes: Long = 0L,
+    val downSpeed: Long = 0L,
+    val upSpeed: Long = 0L
+) {
+    companion object {
+        val ZERO = TrafficSnapshot()
+    }
+}
+
+
 sealed class UpdateState {
     object Idle : UpdateState()
     object Checking : UpdateState()

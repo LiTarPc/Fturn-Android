@@ -1,4 +1,4 @@
-﻿package com.freeturn.app.domain.proxy
+package com.freeturn.app.domain.proxy
 
 import com.freeturn.app.data.config.ClientConfig
 import com.freeturn.app.domain.ConnectionStats
@@ -127,6 +127,7 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
         ProxyServiceState.setStartupResult(null)
         ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
         ProxyServiceState.clearConnectedSince()
+        ProxyServiceState.resetTraffic()
 
         try {
             launcher.start()
