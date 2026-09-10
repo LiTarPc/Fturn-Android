@@ -287,7 +287,7 @@ abstract class FetchFreeturnCore : DefaultTask() {
 val fetchFreeturnCore = tasks.register<FetchFreeturnCore>("fetchFreeturnCore") {
     description = "Качает нативное ядро из релизов free-turn-proxy в jniLibs"
     group = "build"
-    repo.set(providers.gradleProperty("freeturnCoreRepo").orElse("LiTarPc/fturn-core"))
+    repo.set(providers.gradleProperty("freeturnCoreRepo").orElse("samosvalishe/free-turn-proxy"))
     version.set(
         providers.gradleProperty("freeturnCore")
             .orElse(providers.environmentVariable("FREETURN_CORE_VERSION"))
