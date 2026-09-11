@@ -3,8 +3,8 @@ package com.freeturn.app.domain.proxy
 sealed interface CoreLogEvent {
     data class CaptchaUrl(val url: String) : CoreLogEvent
     data object CaptchaResolved : CoreLogEvent
-    data object StreamEstablished : CoreLogEvent
-    data object StreamClosed : CoreLogEvent
+    data class StreamEstablished(val streamId: Int? = null) : CoreLogEvent
+    data class StreamClosed(val streamId: Int? = null) : CoreLogEvent
     data class TcpTotal(val total: Int) : CoreLogEvent
     data class TcpActive(val active: Int) : CoreLogEvent
     data class FatalStartup(val line: String) : CoreLogEvent
@@ -17,10 +17,11 @@ object CoreLogParser {
     private val CAPTCHA_URL_REGEX =
         Regex("""(?:manually open this URL|Open this URL in your browser):\s*(https?://\S+)""")
 
+    // Поддержка как старого формата/дебага (Established DTLS connection), так и нового формата инфо (TURN allocation up)
     private val STREAM_ESTABLISHED_REGEX =
-        Regex("""\[STREAM (\d+)\] Established DTLS connection""")
+        Regex("""\[STREAM (\d+)\] (?:Established DTLS connection|TURN allocation up)""")
     private val STREAM_CLOSED_REGEX =
-        Regex("""\[STREAM (\d+)\] Closed DTLS connection""")
+        Regex("""\[STREAM (\d+)\] (?:Closed DTLS connection|TURN allocation released)""")
     private val TCP_ACTIVE_REGEX =
         Regex("""\[session \d+\] (?:connected|disconnected) \(active: (\d+)\)""")
     private val TCP_TOTAL_REGEX =
@@ -40,8 +41,12 @@ object CoreLogParser {
             events += CoreLogEvent.CaptchaResolved
         }
 
-        if (STREAM_ESTABLISHED_REGEX.containsMatchIn(line)) events += CoreLogEvent.StreamEstablished
-        if (STREAM_CLOSED_REGEX.containsMatchIn(line)) events += CoreLogEvent.StreamClosed
+        STREAM_ESTABLISHED_REGEX.find(line)?.let {
+            events += CoreLogEvent.StreamEstablished(it.groupValues[1].toIntOrNull())
+        }
+        STREAM_CLOSED_REGEX.find(line)?.let {
+            events += CoreLogEvent.StreamClosed(it.groupValues[1].toIntOrNull())
+        }
         TCP_TOTAL_REGEX.find(line)?.let {
             events += CoreLogEvent.TcpTotal(it.groupValues[1].toInt())
         }
@@ -70,24 +75,33 @@ class CoreConnectionTracker(
     tcpMode: Boolean
 ) {
     private var isTcp = tcpMode
-    // Считаем инкрементами, а не Set, так как ядро может дублировать streamID (id=1).
-    private var udpActive = 0
+    // Храним активные stream ID в Set для защиты от задвоения при дебаге (TURN up + DTLS established)
+    private val activeStreams = mutableSetOf<Int>()
+    private var anonymousUdpActive = 0
     private var tcpActive = 0
     private var tcpTotal = 0
 
-    val active: Int get() = if (isTcp) tcpActive else udpActive
+    val active: Int get() = if (isTcp) tcpActive else (activeStreams.size + anonymousUdpActive)
     val total: Int get() = if (isTcp) tcpTotal else udpTotal
 
     val hasConnection: Boolean get() = active > 0
 
     fun apply(event: CoreLogEvent): Boolean = when (event) {
-        CoreLogEvent.StreamEstablished -> {
-            udpActive += 1
+        is CoreLogEvent.StreamEstablished -> {
             isTcp = false
+            if (event.streamId != null) {
+                activeStreams.add(event.streamId)
+            } else {
+                anonymousUdpActive += 1
+            }
             true
         }
-        CoreLogEvent.StreamClosed -> {
-            if (udpActive > 0) udpActive -= 1
+        is CoreLogEvent.StreamClosed -> {
+            if (event.streamId != null) {
+                activeStreams.remove(event.streamId)
+            } else {
+                if (anonymousUdpActive > 0) anonymousUdpActive -= 1
+            }
             true
         }
         is CoreLogEvent.TcpTotal -> {

@@ -44,12 +44,24 @@ class CoreLogParserTest {
     @Test
     fun `stream established and closed`() {
         assertEquals(
-            listOf<CoreLogEvent>(CoreLogEvent.StreamEstablished),
+            listOf<CoreLogEvent>(CoreLogEvent.StreamEstablished(1)),
             CoreLogParser.parse("[STREAM 1] Established DTLS connection")
         )
         assertEquals(
-            listOf<CoreLogEvent>(CoreLogEvent.StreamClosed),
+            listOf<CoreLogEvent>(CoreLogEvent.StreamClosed(1)),
             CoreLogParser.parse("[STREAM 1] Closed DTLS connection")
+        )
+    }
+
+    @Test
+    fun `stream turn allocation up and released`() {
+        assertEquals(
+            listOf<CoreLogEvent>(CoreLogEvent.StreamEstablished(2)),
+            CoreLogParser.parse("[STREAM 2] TURN allocation up: relayed=10.244.0.1:5678 server=1.2.3.4")
+        )
+        assertEquals(
+            listOf<CoreLogEvent>(CoreLogEvent.StreamClosed(2)),
+            CoreLogParser.parse("[STREAM 2] TURN allocation released: relayed=10.244.0.1:5678 deallocate=<nil>")
         )
     }
 
@@ -125,19 +137,19 @@ class CoreConnectionTrackerTest {
         assertEquals(0, t.active)
         assertEquals(2, t.total)
 
-        assertTrue(t.apply(CoreLogEvent.StreamEstablished))
-        assertTrue(t.apply(CoreLogEvent.StreamEstablished))
+        assertTrue(t.apply(CoreLogEvent.StreamEstablished()))
+        assertTrue(t.apply(CoreLogEvent.StreamEstablished()))
         assertEquals(2, t.active)
         assertTrue(t.hasConnection)
 
-        assertTrue(t.apply(CoreLogEvent.StreamClosed))
+        assertTrue(t.apply(CoreLogEvent.StreamClosed()))
         assertEquals(1, t.active)
     }
 
     @Test
     fun `udp active never goes negative`() {
         val t = CoreConnectionTracker(udpTotal = 1, tcpMode = false)
-        t.apply(CoreLogEvent.StreamClosed)
+        t.apply(CoreLogEvent.StreamClosed())
         assertEquals(0, t.active)
     }
 
@@ -146,10 +158,28 @@ class CoreConnectionTrackerTest {
         // Особенность ядра: id=1 дублируется при -n N, пара Established/Closed
         // на каждый инкремент, счётчик сходится в ноль.
         val t = CoreConnectionTracker(udpTotal = 2, tcpMode = false)
-        t.apply(CoreLogEvent.StreamEstablished)
-        t.apply(CoreLogEvent.StreamEstablished)
-        t.apply(CoreLogEvent.StreamClosed)
-        t.apply(CoreLogEvent.StreamClosed)
+        t.apply(CoreLogEvent.StreamEstablished())
+        t.apply(CoreLogEvent.StreamEstablished())
+        t.apply(CoreLogEvent.StreamClosed())
+        t.apply(CoreLogEvent.StreamClosed())
+        assertEquals(0, t.active)
+    }
+
+    @Test
+    fun `stream id deduplicates multiple established events for same stream`() {
+        val t = CoreConnectionTracker(udpTotal = 2, tcpMode = false)
+        assertTrue(t.apply(CoreLogEvent.StreamEstablished(1)))
+        assertTrue(t.apply(CoreLogEvent.StreamEstablished(1))) // duplicate (e.g. allocation up + dtls established in debug)
+        assertEquals(1, t.active)
+
+        assertTrue(t.apply(CoreLogEvent.StreamEstablished(2)))
+        assertEquals(2, t.active)
+
+        assertTrue(t.apply(CoreLogEvent.StreamClosed(1)))
+        assertTrue(t.apply(CoreLogEvent.StreamClosed(1))) // duplicate close
+        assertEquals(1, t.active)
+
+        assertTrue(t.apply(CoreLogEvent.StreamClosed(2)))
         assertEquals(0, t.active)
     }
 
@@ -171,7 +201,7 @@ class CoreConnectionTrackerTest {
     fun `stream event switches mode to udp`() {
         // tcpForward в конфиге, но ядро реально пошло по udp-пути.
         val t = CoreConnectionTracker(udpTotal = 3, tcpMode = true)
-        t.apply(CoreLogEvent.StreamEstablished)
+        t.apply(CoreLogEvent.StreamEstablished())
         assertEquals(1, t.active)
         assertEquals(3, t.total)
         assertTrue(t.hasConnection)
@@ -189,7 +219,7 @@ class CoreConnectionTrackerTest {
     @Test
     fun `raw mode total is zero`() {
         val t = CoreConnectionTracker(udpTotal = 0, tcpMode = false)
-        t.apply(CoreLogEvent.StreamEstablished)
+        t.apply(CoreLogEvent.StreamEstablished())
         assertEquals(1, t.active)
         assertEquals(0, t.total)
     }
