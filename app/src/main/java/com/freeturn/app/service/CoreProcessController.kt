@@ -39,6 +39,7 @@ class CoreProcessController(
 ) {
     private val wireGuard = WireGuardTunnelManager(context)
     private val handler = Handler(Looper.getMainLooper())
+    private val nativeLock = Any()
     private val userStopped = AtomicBoolean(false)
     private val sessionActive = AtomicBoolean(false)
     private val startInFlight = AtomicBoolean(false)
@@ -59,7 +60,7 @@ class CoreProcessController(
 
     fun onNetworkHandover() {
         if (userStopped.get() || !nativeStarted.get()) return
-        ProxyServiceState.addLog("Смена сети — переподключение ядра")
+        ProxyServiceState.addLog("����� ���� � ��������������� ����")
         notifier.setStatus(context.getString(R.string.notif_proxy_network_change))
         scope.launch {
             try {
@@ -69,7 +70,7 @@ class CoreProcessController(
                 }
                 Mobile.reconnect()
             } catch (e: Exception) {
-                ProxyServiceState.addLog("Ошибка переподключения: ${e.message}")
+                ProxyServiceState.addLog("������ ���������������: ${e.message}")
             }
         }
     }
@@ -83,13 +84,15 @@ class CoreProcessController(
     fun destroyProcessAndTunnel() {
         Thread {
             try {
-                runCatching { Mobile.stop() }
-                runCatching { Mobile.setEventSink(null) }
-                nativeStarted.set(false)
-                eventSink = null
+                synchronized(nativeLock) {
+                    runCatching { Mobile.stop() }
+                    runCatching { Mobile.setEventSink(null) }
+                    nativeStarted.set(false)
+                    eventSink = null
+                }
                 runBlocking { wireGuard.stop() }
             } catch (e: Exception) {
-                ProxyServiceState.addLog("Ошибка остановки ядра: ${e.message}")
+                ProxyServiceState.addLog("������ ��������� ����: ${e.message}")
             } finally {
                 ProxyServiceState.markTeardownComplete()
             }
@@ -106,19 +109,22 @@ class CoreProcessController(
             val srv = prefs.serverOptsFlow.first()
             val privacy = prefs.privacyModeFlow.first()
             ProxyServiceState.setLogsEnabled(cfg.logsEnabled)
-            if (cfg.bond) ProxyServiceState.addLog("Режим Bond недоступен в ядре v4.1.2")
+            if (cfg.bond) ProxyServiceState.addLog("����� Bond ���������� � ���� v4.1.2")
             val config = CoreConfig.client(cfg, srv, carrierDns(), prefs.ownClientId())
-            ProxyServiceState.addLog("Ядро AAR v${Mobile.version()}; режим ${if (cfg.tcpForward) "TCP" else "UDP"}" +
-                if (privacy) "" else "; сервер ${cfg.serverAddress}")
+            ProxyServiceState.addLog("���� AAR v${Mobile.version()}; ����� ${if (cfg.tcpForward) "TCP" else "UDP"}" +
+                if (privacy) "" else "; ������ ${cfg.serverAddress}")
             Mobile.setStateDir(context.filesDir.absolutePath)
             eventSink = createEventSink()
             Mobile.setEventSink(eventSink)
             val validation = Mobile.validateConfig(config)
             require(validation.isBlank()) { validation }
-            if (userStopped.get()) return
-            Mobile.start(config)
-            nativeStarted.set(true)
-            if (userStopped.get()) return
+            synchronized(nativeLock) {
+                if (!userStopped.get()) {
+                    Mobile.start(config)
+                    nativeStarted.set(true)
+                }
+            }
+            if (userStopped.get() || !nativeStarted.get()) return
 
             while (!userStopped.get()) {
                 val snapshot = Mobile.getState()
@@ -140,8 +146,8 @@ class CoreProcessController(
                             active = true,
                         )
                     }
-                    Mobile.StateError -> error(snapshot.errMsg.ifBlank { "Ядро завершилось с ошибкой" })
-                    Mobile.StateIdle -> error("Ядро завершило сессию")
+                    Mobile.StateError -> error(snapshot.errMsg.ifBlank { "���� ����������� � �������" })
+                    Mobile.StateIdle -> error("���� ��������� ������")
                 }
                 delay(500L)
             }
@@ -150,7 +156,7 @@ class CoreProcessController(
         } catch (e: Exception) {
             if (!userStopped.get()) {
                 val message = e.message ?: e.javaClass.simpleName
-                ProxyServiceState.addLog("Ошибка ядра: $message")
+                ProxyServiceState.addLog("������ ����: $message")
                 if (!connected) {
                     ProxyServiceState.setStartupResult(StartupResult.Failed(message))
                     notifier.setStatus(context.getString(R.string.notif_proxy_connect_error))
@@ -159,16 +165,18 @@ class CoreProcessController(
             }
         } catch (e: LinkageError) {
             if (!userStopped.get()) {
-                val message = e.message ?: "Не удалось загрузить библиотеку ядра"
+                val message = e.message ?: "�� ������� ��������� ���������� ����"
                 ProxyServiceState.addLog(message)
                 ProxyServiceState.setStartupResult(StartupResult.Failed(message))
                 startupFailed = true
             }
         } finally {
             withContext(NonCancellable) {
-                if (nativeStarted.getAndSet(false)) runCatching { Mobile.stop() }
-                runCatching { Mobile.setEventSink(null) }
-                eventSink = null
+                synchronized(nativeLock) {
+                    if (nativeStarted.getAndSet(false)) runCatching { Mobile.stop() }
+                    runCatching { Mobile.setEventSink(null) }
+                    eventSink = null
+                }
                 if (wireGuardStarted && !userStopped.get()) wireGuard.stop()
             }
             ProxyServiceState.setCaptchaSession(null)
@@ -232,14 +240,14 @@ class CoreProcessController(
         val count = restartCount.incrementAndGet()
         if (count > MAX_PROXY_RESTARTS) {
             sessionActive.set(false)
-            ProxyServiceState.addLog("Watchdog: превышен лимит попыток ($MAX_PROXY_RESTARTS)")
+            ProxyServiceState.addLog("Watchdog: �������� ����� ������� ($MAX_PROXY_RESTARTS)")
             ProxyServiceState.setRunning(false)
             ProxyServiceState.emitFailed()
             onStopRequested()
             return
         }
         val delayMs = minOf(1_000L * count, 30_000L) + Random.nextLong(0, 500)
-        ProxyServiceState.addLog("Watchdog: перезапуск через ${delayMs} мс ($count/$MAX_PROXY_RESTARTS)")
+        ProxyServiceState.addLog("Watchdog: ���������� ����� ${delayMs} �� ($count/$MAX_PROXY_RESTARTS)")
         notifier.setStatus(context.getString(R.string.notif_proxy_reconnecting, count, MAX_PROXY_RESTARTS))
         handler.postDelayed({ if (!userStopped.get()) scope.launch { runSession() } }, delayMs)
     }
