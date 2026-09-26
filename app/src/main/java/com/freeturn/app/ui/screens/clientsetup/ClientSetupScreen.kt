@@ -216,7 +216,7 @@ fun ClientSetupScreen(
                     },
                     manualCaptcha = saved.manualCaptcha,
                     onManualCaptcha = { v -> clientEdit { it.copy(manualCaptcha = v) } },
-                    showBond = false, // Bond was removed from the v4.1.2 core API.
+                    showBond = false,
                     bond = saved.bond,
                     // bond триггерит рестарт прокси только у активного; иначе пишем данные.
                     onBond = { v -> if (isActive) settingsViewModel.setBond(v) else clientEdit { it.copy(bond = v) } },
