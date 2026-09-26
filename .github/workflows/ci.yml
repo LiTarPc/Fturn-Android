@@ -56,10 +56,10 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Assemble debug APKs
+      - name: Assemble debug and release APKs
         run: |
           chmod +x gradlew
-          ./gradlew :app:assembleDebug
+          ./gradlew :app:assembleDebug :app:assembleRelease
 
       - name: Verify both ABI APKs include the core
         run: |
