@@ -24,7 +24,7 @@ android {
         // WireGuard GoBackend (com.wireguard.android:tunnel) требует minSdk 24.
         minSdk = 24
         targetSdk = 37
-        versionName = "3.6.1-beta" // x-release-please-version
+        versionName = "3.7.0-beta" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()
@@ -35,7 +35,7 @@ android {
         abi {
             isEnable = true
             reset()
-            include("arm64-v8a", "armeabi-v7a")
+            include("arm64-v8a")
             isUniversalApk = false
         }
     }
@@ -140,8 +140,7 @@ dependencies {
 
 /**
  * Тянет нативное ядро из релизов free-turn-proxy в jniLibs (папка вне git).
- * Ассеты релиза без расширения: arm64 - client-android-arm64, armv7 - client-linux-armv7
- * (Go-бинарник linux/arm GOARM=7 работает и на Android); оба кладутся как libfreeturn.so.
+ * Ассет релиза без расширения: client-android-arm64, кладётся как libfreeturn.so.
  */
 abstract class FetchFreeturnCore : DefaultTask() {
     @get:Input
@@ -201,8 +200,7 @@ abstract class FetchFreeturnCore : DefaultTask() {
         assetNames.get().forEach { (abi, asset) ->
             val expected = sums[asset]
             if (expected == null) {
-                logger.warn("FreeTurn core: $asset нет в checksums.txt релиза $tag, пропускаем $abi")
-                return@forEach
+                throw GradleException("FreeTurn core: $asset нет в checksums.txt релиза $tag ($abi)")
             }
             val src = cachedFile(File(cache, asset), "$base/$asset")
             val actual = sha256(src)
@@ -293,12 +291,7 @@ val fetchFreeturnCore = tasks.register<FetchFreeturnCore>("fetchFreeturnCore") {
             .orElse(providers.environmentVariable("FREETURN_CORE_VERSION"))
             .orElse("latest")
     )
-    assetNames.set(
-        mapOf(
-            "arm64-v8a" to "client-android-arm64",
-            "armeabi-v7a" to "client-linux-armv7"
-        )
-    )
+    assetNames.set(mapOf("arm64-v8a" to "client-android-arm64"))
     token.set(providers.environmentVariable("GITHUB_TOKEN"))
     cacheDir.set(layout.dir(provider { File(gradle.gradleUserHomeDir, "caches/freeturn-core") }))
     jniLibsDir.set(layout.projectDirectory.dir("src/main/jniLibs"))
