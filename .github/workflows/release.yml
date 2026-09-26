@@ -38,24 +38,17 @@ jobs:
 
       - name: Setup Keystore
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
-            cat > keystore.properties <<EOF
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::KEYSTORE_BASE64 is required for an updatable release APK"
+            exit 1
+          fi
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          cat > keystore.properties <<EOF
           storeFile=$RUNNER_TEMP/release.jks
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
-          else
-            echo "Keystore secret not found, generating release keystore..."
-            keytool -genkey -v -keystore "$RUNNER_TEMP/release.jks" -alias freeturn -keyalg RSA -keysize 2048 -validity 10000 -storepass freeturn123 -keypass freeturn123 -dname "CN=FreeTurn, OU=Mobile, O=LiTar, C=RU"
-            cat > keystore.properties <<EOF
-          storeFile=$RUNNER_TEMP/release.jks
-          storePassword=freeturn123
-          keyAlias=freeturn
-          keyPassword=freeturn123
-          EOF
-          fi
 
       - name: Assemble release APKs
         run: |
