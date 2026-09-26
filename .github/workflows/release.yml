@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  pull_request:
+    types: [closed]
+    branches: [main]
   release:
     types: [published]
   push:
@@ -9,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g. v3.5.4)'
+        description: 'Release Tag (e.g. v3.7.0-beta)'
         required: false
-        default: 'v3.5.4'
+        default: 'v3.7.0-beta'
 
 permissions:
   contents: write
@@ -23,6 +26,7 @@ env:
 jobs:
   build-and-publish:
     name: Build APKs & attach to Release
+    if: github.event_name != 'pull_request' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'codex/v3.7.0-beta-core-4.1.1')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -38,24 +42,17 @@ jobs:
 
       - name: Setup Keystore
         run: |
-          if [ -n "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
-            cat > keystore.properties <<EOF
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "::error::KEYSTORE_BASE64 is required for an updatable release APK"
+            exit 1
+          fi
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          cat > keystore.properties <<EOF
           storeFile=$RUNNER_TEMP/release.jks
           storePassword=${{ secrets.KEYSTORE_PASSWORD }}
           keyAlias=${{ secrets.KEY_ALIAS }}
           keyPassword=${{ secrets.KEY_PASSWORD }}
           EOF
-          else
-            echo "Keystore secret not found, generating release keystore..."
-            keytool -genkey -v -keystore "$RUNNER_TEMP/release.jks" -alias freeturn -keyalg RSA -keysize 2048 -validity 10000 -storepass freeturn123 -keypass freeturn123 -dname "CN=FreeTurn, OU=Mobile, O=LiTar, C=RU"
-            cat > keystore.properties <<EOF
-          storeFile=$RUNNER_TEMP/release.jks
-          storePassword=freeturn123
-          keyAlias=freeturn
-          keyPassword=freeturn123
-          EOF
-          fi
 
       - name: Assemble release APKs
         run: |
@@ -65,10 +62,14 @@ jobs:
       - name: Collect APKs
         id: collect
         run: |
-          TAG="${{ github.event.inputs.tag_name || github.event.release.tag_name || github.ref_name }}"
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            TAG="v3.7.0-beta"
+          else
+            TAG="${{ github.event.inputs.tag_name || github.event.release.tag_name || github.ref_name }}"
+          fi
           VERSION="${TAG#v}"
           mkdir -p dist
-          for abi in arm64-v8a armeabi-v7a; do
+          for abi in arm64-v8a; do
             if [ -f "app/build/outputs/apk/release/app-${abi}-release.apk" ]; then
               cp "app/build/outputs/apk/release/app-${abi}-release.apk" "dist/freeturn-${VERSION}-${abi}.apk"
             fi
@@ -79,6 +80,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.collect.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: FreeTurn ${{ steps.collect.outputs.tag }}
           files: dist/*.apk
           generate_release_notes: true
