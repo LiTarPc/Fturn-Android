@@ -61,7 +61,6 @@ fun ClientSetupScreen(
     val snapshot by settingsViewModel.serversSnapshot.collectAsStateWithLifecycle()
     val activeClient by settingsViewModel.clientConfig.collectAsStateWithLifecycle()
     val sshConfig by serverViewModel.sshConfig.collectAsStateWithLifecycle()
-    val serverState by serverViewModel.serverState.collectAsStateWithLifecycle()
     val activeProxyListen by settingsViewModel.proxyListen.collectAsStateWithLifecycle()
     val privacyMode by settingsViewModel.privacyMode.collectAsStateWithLifecycle()
 
@@ -81,12 +80,6 @@ fun ClientSetupScreen(
             settingsViewModel.saveClientConfig(transform(settingsViewModel.clientConfig.value), snapshot.activeId)
         }
     }
-
-    val serverKnown = serverState as? com.freeturn.app.domain.ServerState.Known
-    // TCP-форвард: реальное состояние из probe (если запущен) или сохранённое.
-    val syncOn = saved.syncServerSwitches
-    val effectiveTcpForward = if (isActive && syncOn && serverKnown?.running == true)
-        serverKnown.tcpMode ?: saved.tcpForward else saved.tcpForward
 
     val context = LocalContext.current
 
@@ -223,7 +216,7 @@ fun ClientSetupScreen(
                     },
                     manualCaptcha = saved.manualCaptcha,
                     onManualCaptcha = { v -> clientEdit { it.copy(manualCaptcha = v) } },
-                    showBond = effectiveTcpForward,
+                    showBond = false, // Bond was removed from the v4.1.2 core API.
                     bond = saved.bond,
                     // bond триггерит рестарт прокси только у активного; иначе пишем данные.
                     onBond = { v -> if (isActive) settingsViewModel.setBond(v) else clientEdit { it.copy(bond = v) } },
