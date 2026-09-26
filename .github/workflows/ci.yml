@@ -61,6 +61,14 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:assembleDebug
 
+      - name: Verify both ABI APKs include the core
+        run: |
+          for abi in arm64-v8a armeabi-v7a; do
+            apk="app/build/outputs/apk/debug/app-${abi}-debug.apk"
+            test -s "$apk"
+            unzip -Z1 "$apk" | grep -Fx "lib/${abi}/libgojni.so"
+          done
+
       - uses: actions/upload-artifact@v7
         with:
           name: debug-apks
