@@ -12,9 +12,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release Tag (e.g. v3.7.1-beta)'
+        description: 'Release Tag (e.g. v3.7.2)'
         required: false
-        default: 'v3.7.1-beta'
+        default: 'v3.7.2'
 
 permissions:
   contents: write
@@ -26,7 +26,7 @@ env:
 jobs:
   build-and-publish:
     name: Build APKs & attach to Release
-    if: github.event_name != 'pull_request' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'codex/v3.7.1-beta-core-4.1.2-aar')
+    if: github.event_name != 'pull_request' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'codex/fix-beta-update-comparison')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -63,7 +63,7 @@ jobs:
         id: collect
         run: |
           if [ "${{ github.event_name }}" = "pull_request" ]; then
-            TAG="v3.7.1-beta"
+            TAG="v3.7.2"
           else
             TAG="${{ github.event.inputs.tag_name || github.event.release.tag_name || github.ref_name }}"
           fi

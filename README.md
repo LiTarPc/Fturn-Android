@@ -28,7 +28,7 @@
 - **Архитектура процессора:** `arm64-v8a` или `armeabi-v7a`
 - **Сервер (VPS)** с установленным ядром `fturn-core`
 
-Версия v3.7.1-beta использует API `freeturn.aar` из релиза ядра
+Версия v3.7.2 использует API `freeturn.aar` из релиза ядра
 [v4.1.2](https://github.com/LiTarPc/fturn-core/releases/tag/v4.1.2).
 Gradle загружает библиотеку при сборке и сверяет её SHA-256. Для каждого ABI
 создаётся отдельный APK.

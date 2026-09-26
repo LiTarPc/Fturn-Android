@@ -8,6 +8,7 @@ class AppUpdaterVersionTest {
     @Test fun comparesBetaPatchNumbers() {
         assertTrue(AppUpdater.isNewer("3.7.1-beta", "3.7.0-beta"))
         assertTrue(AppUpdater.isNewer("3.7.2-beta", "3.7.1-beta"))
+        assertTrue(AppUpdater.isNewer("3.7.2", "3.7.1-beta"))
         assertFalse(AppUpdater.isNewer("3.7.0-beta", "3.7.1-beta"))
     }
 
