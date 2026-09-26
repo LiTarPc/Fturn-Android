@@ -37,7 +37,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freeturn.app.R
-import com.freeturn.app.data.CoreConfig
+import com.freeturn.app.data.CoreArgs
 import com.freeturn.app.data.config.ObfProfile
 import com.freeturn.app.data.server.Server
 import com.freeturn.app.domain.server.ServerCommand
@@ -53,7 +53,6 @@ import com.freeturn.app.viewmodel.server.ServerHubState
 import com.freeturn.app.viewmodel.server.ServerViewModel
 import com.freeturn.app.viewmodel.settings.SettingsViewModel
 import com.freeturn.app.ui.theme.Spacing
-import org.json.JSONObject
 
 /** Тег релиза приходит и как "1.0.3", и как "v1.0.3" - нормализуем без "vv". */
 private fun versionLabel(version: String): String = "v${version.removePrefix("v")}"
@@ -257,18 +256,23 @@ private fun LaunchParamBlock(label: String, commandLine: String) {
     }
 }
 
+private val CLIENT_SECRET_FLAGS = setOf("-peer", "-link", "-obf-key", "-turn", "-client-id")
+
 private fun clientCommandLine(server: Server, privacy: Boolean): String {
-    return runCatching {
-        val json = JSONObject(CoreConfig.client(server.client, server.opts, null, ""))
-        if (privacy) {
-            json.put("peer", "••••••")
-            json.put("clientId", "••••••")
-            json.optJSONObject("vk")?.put("links", org.json.JSONArray().put("••••••"))
-            json.optJSONObject("obf")?.put("key", "••••••")
-            json.optJSONObject("turn")?.takeIf { it.has("host") }?.put("host", "••••••")
+    val argv = CoreArgs.client(server.client, server.opts)
+    val sb = StringBuilder("freeturn")
+    var i = 0
+    while (i < argv.size) {
+        val tok = argv[i]
+        sb.append(' ').append(tok)
+        if (tok in CLIENT_SECRET_FLAGS && i + 1 < argv.size) {
+            sb.append(' ').append(argv[i + 1].redact(privacy))
+            i += 2
+        } else {
+            i += 1
         }
-        json.toString(2)
-    }.getOrElse { "Ошибка конфигурации: ${it.message}" }
+    }
+    return sb.toString()
 }
 
 private fun serverCommandLine(server: Server, privacy: Boolean): String {
