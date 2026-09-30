@@ -22,6 +22,9 @@ data class ClientConfig(
     val magicTurn: String = "",
     val tunnelTransport: String = TunnelTransport.NONE,
     val wireGuardConfig: String = "",
+    val vlessUri: String = "",
+    val bypassRulesEnabled: Boolean = true,
+    val bypassRuleSets: List<BypassRuleSet> = BypassRuleSet.defaults(),
     val wireGuardTunnelName: String = TunnelTransport.DEFAULT_TUNNEL_NAME,
     val splitTunnelMode: String = SplitTunnelMode.EXCLUDE,
     /**
@@ -29,9 +32,21 @@ data class ClientConfig(
      * Пустой в exclude-режиме = дефолтный список рос-сервисов (см. [splitTunnelSelection]).
      */
     val splitTunnelApps: String = "",
+    val splitTunnelUseDefaults: Boolean = true,
     val logsEnabled: Boolean = true,
     val clientId: String = ""
 ) {
+    val coreTcpForward: Boolean
+        get() = when (tunnelTransport) {
+            TunnelTransport.VLESS -> true
+            TunnelTransport.WIREGUARD -> false
+            else -> tcpForward
+        }
+
+    val vlessActive: Boolean
+        get() = tunnelTransport == TunnelTransport.VLESS && vlessUri.isNotBlank()
+    val vpnActive: Boolean
+        get() = wireGuardActive || vlessActive
     val wireGuardActive: Boolean
         get() = tunnelTransport == TunnelTransport.WIREGUARD && wireGuardConfig.isNotBlank()
 

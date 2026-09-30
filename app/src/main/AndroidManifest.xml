@@ -92,13 +92,15 @@
                 android:value="Maintains an active local network proxy connection over TURN servers so the user can keep using a working tunnel while the app is in the background." />
         </service>
 
-        <service
-            android:name="com.wireguard.android.backend.GoBackend$VpnService"
-            android:exported="false"
-            android:permission="android.permission.BIND_VPN_SERVICE">
-            <intent-filter>
-                <action android:name="android.net.VpnService" />
-            </intent-filter>
+        <!-- Keep the upstream WG config parser without its Android VPN backend. -->
+        <service android:name="com.wireguard.android.backend.GoBackend$VpnService" tools:node="remove" />
+
+        <service android:name=".service.SingBoxVpnService"
+            android:exported="false" android:permission="android.permission.BIND_VPN_SERVICE"
+            android:foregroundServiceType="specialUse">
+            <intent-filter><action android:name="android.net.VpnService" /></intent-filter>
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Runs the sing-box VPN tunnel over the active FreeTurn transport." />
         </service>
 
         <provider

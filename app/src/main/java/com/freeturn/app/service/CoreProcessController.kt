@@ -15,7 +15,7 @@ import com.freeturn.app.domain.proxy.CoreLogParser
 import com.freeturn.app.domain.StartupResult
 import com.freeturn.app.domain.proxy.MAX_PROXY_RESTARTS
 import com.freeturn.app.domain.proxy.ProxyServiceState
-import com.freeturn.app.domain.proxy.WireGuardTunnelManager
+import com.freeturn.app.domain.proxy.SingBoxTunnelManager
 import java.io.BufferedReader
 import java.io.File
 import java.io.InputStreamReader
@@ -43,10 +43,10 @@ class CoreProcessController(
 ) {
     companion object {
         // Даём TURN-туннелю "устаканиться" перед поднятием WireGuard поверх него.
-        private const val WIREGUARD_START_DELAY_MS = 2_000L
+        private const val VPN_START_DELAY_MS = 2_000L
     }
 
-    private val wireGuard = WireGuardTunnelManager(context)
+    private val singBox = SingBoxTunnelManager(context)
     private val handler = Handler(Looper.getMainLooper())
 
     private val process = AtomicReference<Process?>(null)
@@ -80,10 +80,9 @@ class CoreProcessController(
 
     fun destroyProcessAndTunnel() {
         process.get()?.destroyCompat()
-        val wg = wireGuard
         Thread {
             try {
-                runBlocking { wg.stop() }
+                runBlocking { singBox.stop() }
             } finally {
                 ProxyServiceState.markTeardownComplete()
             }
@@ -102,8 +101,21 @@ class CoreProcessController(
 
     private suspend fun runProcessSession() {
         if (userStopped.get()) return
+        ProxyServiceState.setStartupResult(null)
 
         val cfg = prefs.clientConfigFlow.first()
+        if (cfg.tunnelTransport != com.freeturn.app.data.config.TunnelTransport.NONE) {
+            val valid = runCatching {
+                com.freeturn.app.data.config.SingBoxConfig.fromClient(cfg)
+                check(android.net.VpnService.prepare(context) == null) { "Откройте приложение и разрешите VPN" }
+            }
+            if (valid.isFailure) {
+                ProxyServiceState.setStartupResult(StartupResult.Failed(valid.exceptionOrNull()?.message ?: "Некорректный VPN"))
+                ProxyServiceState.setRunning(false)
+                onStopRequested()
+                return
+            }
+        }
         ProxyServiceState.setLogsEnabled(cfg.logsEnabled)
         val srv = prefs.serverOptsFlow.first()
         val privacy = prefs.privacyModeFlow.first()
@@ -141,12 +153,12 @@ class CoreProcessController(
         val startedAt = System.currentTimeMillis()
         var startupEmitted = false
         var startupFailed = false
-        var wireGuardStarted = false
+        var vpnStarted = false
         var captchaSessionCounter = 0L
 
         val tracker = CoreConnectionTracker(
             udpTotal = if (cfg.isRawMode) 0 else if (cfg.threads > 0) cfg.threads else 1,
-            tcpMode = cfg.tcpForward
+            tcpMode = cfg.coreTcpForward
         )
 
         fun publishStats() {
@@ -224,34 +236,35 @@ class CoreProcessController(
                             }
                             hasConnection -> {
                                 try {
-                                    if (cfg.wireGuardActive) {
+                                    if (cfg.vpnActive) {
                                         ProxyServiceState.addLog(
-                                            "WireGuard: подъём через ${WIREGUARD_START_DELAY_MS} мс после старта TURN-туннеля"
+                                            "VPN: подъём через ${VPN_START_DELAY_MS} мс после старта TURN-туннеля"
                                         )
-                                        delay(WIREGUARD_START_DELAY_MS)
+                                        delay(VPN_START_DELAY_MS)
                                         if (userStopped.get() || process.get() !== proc) {
                                             ProxyServiceState.addLog(
-                                                "WireGuard: старт отменён, прокси останавливается"
+                                                "VPN: старт отменён, прокси останавливается"
                                             )
                                             break
                                         }
                                     }
-                                    wireGuard.startAfterProxyReady(cfg)
-                                    wireGuardStarted = cfg.wireGuardActive
+                                    singBox.startAfterProxyReady(cfg)
+                                    vpnStarted = cfg.vpnActive
+                                    if (userStopped.get() || process.get() !== proc) break
                                     ProxyServiceState.setStartupResult(StartupResult.Success)
                                     ProxyServiceState.markConnectedIfAbsent(SystemClock.elapsedRealtime())
                                     notifier.setStatus(
-                                        if (wireGuardStarted) context.getString(R.string.tunnel_active)
+                                        if (vpnStarted) context.getString(R.string.tunnel_active)
                                         else context.getString(R.string.proxy_active),
                                         active = true
                                     )
                                 } catch (e: Exception) {
                                     val message = e.message ?: e.javaClass.simpleName
-                                    ProxyServiceState.addLog("WireGuard: ошибка запуска - $message")
+                                    ProxyServiceState.addLog("VPN: ошибка запуска - $message")
                                     ProxyServiceState.setStartupResult(
-                                        StartupResult.Failed("WireGuard не запустился: $message")
+                                        StartupResult.Failed("VPN не запустился: $message")
                                     )
-                                    notifier.setStatus(context.getString(R.string.notif_proxy_wireguard_error))
+                                    notifier.setStatus(context.getString(R.string.notif_proxy_vpn_error))
                                     startupFailed = true
                                     proc.destroyCompat()
                                 }
@@ -296,7 +309,7 @@ class CoreProcessController(
         } finally {
             ProxyServiceState.setCaptchaSession(null)
             notifier.cancelCaptcha()
-            if (wireGuardStarted) wireGuard.stop()
+            if (vpnStarted) { singBox.stop() }
             ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
             process.set(null)
             when {
@@ -344,4 +357,3 @@ class CoreProcessController(
     }
 
 }
-

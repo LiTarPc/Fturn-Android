@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -50,6 +51,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freeturn.app.R
 import com.freeturn.app.data.config.ClientConfig
 import com.freeturn.app.data.config.TunnelTransport
+import com.freeturn.app.data.config.VlessProfile
+import com.freeturn.app.ui.util.redact
 import com.freeturn.app.domain.ProxyState
 import com.freeturn.app.data.HapticUtil
 import com.freeturn.app.ui.components.SectionLabel
@@ -94,16 +97,20 @@ fun ConnectionModeScreen(
 
     // userPickedVpn сохраняет выбор на время сессии (чтобы сегмент не мигал).
     var userPickedVpn by remember(serverId, saved.tunnelTransport) { mutableStateOf<Boolean?>(null) }
-    val isVpn = userPickedVpn ?: (saved.tunnelTransport == TunnelTransport.WIREGUARD)
+    val isVpn = userPickedVpn ?: (saved.tunnelTransport != TunnelTransport.NONE)
 
     val fieldsKey = serverId ?: snapshot.activeId
     var wgConfig by remember(fieldsKey) { mutableStateOf(saved.wireGuardConfig) }
     var wgName by remember(fieldsKey) { mutableStateOf(saved.wireGuardTunnelName) }
+    var vpnType by remember(fieldsKey) { mutableStateOf(if (saved.tunnelTransport == TunnelTransport.VLESS) TunnelTransport.VLESS else TunnelTransport.WIREGUARD) }
+    var vlessUri by remember(fieldsKey) { mutableStateOf(saved.vlessUri) }
 
     fun persistWg(vpn: Boolean = isVpn) {
         clientEdit {
             it.copy(
-                tunnelTransport = if (vpn) TunnelTransport.WIREGUARD else TunnelTransport.NONE,
+                tunnelTransport = if (vpn) vpnType else TunnelTransport.NONE,
+                vlessUri = vlessUri.trim(),
+                tcpForward = if (vpn) vpnType == TunnelTransport.VLESS else it.tcpForward,
                 wireGuardConfig = wgConfig.trim(),
                 wireGuardTunnelName = wgName.trim().ifBlank { TunnelTransport.DEFAULT_TUNNEL_NAME }
             )
@@ -120,9 +127,11 @@ fun ConnectionModeScreen(
         if (wgDirty) return@LaunchedEffect
         wgConfig = saved.wireGuardConfig
         wgName = saved.wireGuardTunnelName
+        vlessUri = saved.vlessUri
+        vpnType = if (saved.tunnelTransport == TunnelTransport.VLESS) TunnelTransport.VLESS else TunnelTransport.WIREGUARD
     }
 
-    LaunchedEffect(fieldsKey, wgConfig, wgName) {
+    LaunchedEffect(fieldsKey, wgConfig, wgName, vlessUri, vpnType) {
         if (!wgDirty) return@LaunchedEffect
         pendingSave = true
         delay(600)
@@ -215,6 +224,29 @@ fun ConnectionModeScreen(
                 )
 
                 if (isVpn) {
+                    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                        listOf(TunnelTransport.WIREGUARD, TunnelTransport.VLESS).forEachIndexed { index, type ->
+                            SegmentedButton(
+                                selected = vpnType == type,
+                                onClick = { vpnType = type; wgDirty = true; persistWg() },
+                                shape = SegmentedButtonDefaults.itemShape(index, 2)
+                            ) { Text(if (type == TunnelTransport.VLESS) "VLESS" else "WireGuard") }
+                        }
+                    }
+                    if (vpnType == TunnelTransport.VLESS) {
+                        val error = if (vlessUri.isBlank()) null else runCatching {
+                            VlessProfile.parse(vlessUri)
+                        }.exceptionOrNull()?.message
+                        OutlinedTextField(
+                            value = vlessUri.redact(privacyMode),
+                            onValueChange = { if (!privacyMode) { vlessUri = it; wgDirty = true } },
+                            label = { Text(stringResource(R.string.vless_uri_label)) },
+                            supportingText = { Text(error ?: stringResource(R.string.vless_uri_help)) },
+                            isError = error != null,
+                            readOnly = privacyMode,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
                     WireGuardConfigCard(
                         wgConfig = wgConfig,
                         onWgConfig = { wgConfig = it; wgDirty = true },
@@ -223,7 +255,13 @@ fun ConnectionModeScreen(
                         privacyMode = privacyMode,
                         onLoadFile = { filePicker.launch("*/*") }
                     )
+                    }
 
+                    run {
+                        BypassRulesCard(config = saved, profileId = fieldsKey,
+                            locked = isActive && proxyState !is ProxyState.Idle && proxyState !is ProxyState.Error,
+                            settings = settingsViewModel, edit = ::clientEdit)
+                    }
                     SectionLabel(stringResource(R.string.split_tunnel_title))
                     SettingsCard {
                         SettingsEntryRow(
@@ -245,6 +283,7 @@ fun ConnectionModeScreen(
         SplitTunnelModal(
             mode = saved.splitTunnelMode,
             apps = saved.splitTunnelApps,
+            useDefaults = saved.splitTunnelUseDefaults,
             locked = proxyState !is ProxyState.Idle && proxyState !is ProxyState.Error,
             onModeChange = settingsViewModel::setSplitTunnelMode,
             onAppsChange = settingsViewModel::setSplitTunnelApps,

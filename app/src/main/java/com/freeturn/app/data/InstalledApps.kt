@@ -28,7 +28,7 @@ fun Context.isPackageInstalled(pkg: String): Boolean = runCatching {
  * Установленные приложения с INTERNET-пермом, кроме самого FreeTurn.
  * PackageManager-вызовы тяжёлые (диск/IPC) - гоним на IO-потоке.
  */
-suspend fun Context.installedInternetApps(): List<AppChoice> = withContext(Dispatchers.IO) {
+private fun Context.internetPackages(): List<android.content.pm.PackageInfo> {
     val pm = packageManager
     val flags = PackageManager.GET_PERMISSIONS
     val packages = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -37,20 +37,23 @@ suspend fun Context.installedInternetApps(): List<AppChoice> = withContext(Dispa
         @Suppress("DEPRECATION")
         pm.getInstalledPackages(flags)
     }
-    packages.asSequence()
-        .filter { info ->
-            info.packageName != packageName &&
-                info.requestedPermissions?.contains(Manifest.permission.INTERNET) == true
-        }
-        .map { info ->
-            val appInfo = info.applicationInfo
-            AppChoice(
-                label = appInfo?.loadLabel(pm)?.toString()?.takeIf { it.isNotBlank() }
-                    ?: info.packageName,
-                packageName = info.packageName
-            )
-        }
-        .distinctBy { it.packageName }
+    return packages.filter { info ->
+        info.packageName != packageName &&
+            info.requestedPermissions?.contains(Manifest.permission.INTERNET) == true
+    }
+}
+
+/** Call off the main thread; the VPN only needs package names, not labels/icons. */
+fun Context.installedInternetPackages(): Set<String> = internetPackages().map { it.packageName }.toSet()
+
+suspend fun Context.installedInternetApps(): List<AppChoice> = withContext(Dispatchers.IO) {
+    val pm = packageManager
+    internetPackages().map { info ->
+        AppChoice(
+            label = info.applicationInfo?.loadLabel(pm)?.toString()?.takeIf { it.isNotBlank() }
+                ?: info.packageName,
+            packageName = info.packageName
+        )
+    }.distinctBy { it.packageName }
         .sortedWith(compareBy<AppChoice> { it.label.lowercase() }.thenBy { it.packageName })
-        .toList()
 }

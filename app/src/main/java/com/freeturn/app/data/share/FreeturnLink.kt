@@ -24,7 +24,8 @@ data class FreeturnLink(
     val manualCaptcha: Boolean = false,
     val name: String = "",
     val wgConf: String = "",
-    val links: String = ""
+    val links: String = "",
+    val sbUri: String = ""
 ) {
     fun encode(): String {
         val sb = StringBuilder("{")
@@ -47,6 +48,8 @@ data class FreeturnLink(
         if (manualCaptcha) sb.field("mcap", "true")
         if (name.isNotEmpty()) sb.field("name", jsonString(name))
         if (wgConf.isNotEmpty()) sb.field("wg", jsonString(wgConf))
+        if (sbUri.isNotEmpty()) sb.field("sb", jsonString(sbUri))
+        if (links.isNotEmpty()) sb.field("links", jsonString(links))
         sb.append('}')
         return SCHEME + Base64.getUrlEncoder().withoutPadding()
             .encodeToString(sb.toString().toByteArray(Charsets.UTF_8))
@@ -57,17 +60,25 @@ data class FreeturnLink(
         const val VERSION = 1
 
         fun looksLikeLink(raw: String): Boolean =
-            raw.trim().startsWith(SCHEME, ignoreCase = true)
+            raw.trim().startsWith(SCHEME, ignoreCase = true) ||
+                (raw.trim().startsWith("ey") && raw.trim().length <= 262144 &&
+                    raw.trim().matches(Regex("[A-Za-z0-9_+/=-]+")))
 
         fun parse(raw: String): Result<FreeturnLink> = runCatching {
             val trimmed = raw.trim()
-            require(trimmed.startsWith(SCHEME, ignoreCase = true)) { "invalid scheme" }
-            val payload = trimmed.substring(SCHEME.length)
+            require(trimmed.length <= 262144) { "link too large" }
+            val payload = if (trimmed.startsWith(SCHEME, ignoreCase = true))
+                trimmed.substring(SCHEME.length) else trimmed
             require(payload.isNotEmpty()) { "empty payload" }
-            val json = String(Base64.getUrlDecoder().decode(payload), Charsets.UTF_8)
-            val o = JSONObject(json)
+            val json = String(Base64.getUrlDecoder().decode(payload.replace('+', '-').replace('/', '_')), Charsets.UTF_8)
+            val o = runCatching { JSONObject(json) }.getOrElse {
+                throw IllegalArgumentException("Некорректный JSON профиля")
+            }
             val v = o.optInt("v", VERSION)
-            require(v <= VERSION) { "unsupported link version" }
+            require(v in 1..VERSION) { "unsupported link version" }
+            val sbUri = o.optString("sb").trim()
+            if (sbUri.isNotEmpty()) com.freeturn.app.data.config.VlessProfile.parse(sbUri)
+            require(sbUri.isEmpty() || o.optString("wg").isBlank()) { "Выберите один VPN: WG или VLESS" }
             val provider = o.optString("provider")
             require(provider.isNotEmpty()) { "missing provider" }
             val peer = o.optString("peer")
@@ -89,7 +100,8 @@ data class FreeturnLink(
                 manualCaptcha = o.optBoolean("mcap", false),
                 name = o.optString("name"),
                 wgConf = o.optString("wg"),
-                links = o.optString("links")
+                links = o.optString("links"),
+                sbUri = sbUri
             )
         }
 

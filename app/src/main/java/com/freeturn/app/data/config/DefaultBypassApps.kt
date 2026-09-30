@@ -53,14 +53,19 @@ val DEFAULT_BYPASS_APPS: Set<String> = linkedSetOf(
     "com.samsung.android.securitymanager"
 )
 
-/**
- * Итоговый набор пакетов для split-режима. Пустой пользовательский список в exclude
- * подставляет [DEFAULT_BYPASS_APPS] - рос-сервисы отмечены по умолчанию, но юзер может
- * снять любую (список станет непустым и дефолт больше не подставляется). Единый источник
- * правила для UI (галочки в листе) и сборки WireGuard-конфига.
- */
-fun splitTunnelSelection(mode: String, apps: String): Set<String> {
+/** Match package segments, not substrings such as truecaller or crunchyroll. */
+fun isRussianPackage(packageName: String): Boolean =
+    packageName.split('.').any { it.equals("ru", ignoreCase = true) }
+
+/** One selection policy for the checkbox list and the Android VPN builder. */
+fun splitTunnelSelection(
+    mode: String,
+    apps: String,
+    installedPackages: Iterable<String> = emptyList(),
+    useDefaults: Boolean = apps.isBlank()
+): Set<String> {
     val selected = apps.toPackageSet()
-    return if (selected.isEmpty() && mode == SplitTunnelMode.EXCLUDE) DEFAULT_BYPASS_APPS
-    else selected
+    return if (selected.isEmpty() && useDefaults && mode == SplitTunnelMode.EXCLUDE) {
+        DEFAULT_BYPASS_APPS + installedPackages.filter(::isRussianPackage)
+    } else selected
 }

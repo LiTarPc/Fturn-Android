@@ -67,7 +67,7 @@ fun ImportSheet(
         AlertDialog(
             onDismissRequest = viewModel::dismiss,
             title = { Text(stringResource(R.string.import_error_title)) },
-            text = { Text(stringResource(R.string.import_error_desc)) },
+            text = { Text(state.parseErrorMessage.ifBlank { stringResource(R.string.import_error_desc) }) },
             confirmButton = {
                 TextButton(onClick = viewModel::dismiss) {
                     Text(stringResource(R.string.import_error_ok))
@@ -125,6 +125,7 @@ fun ImportSheet(
             )
 
             ProtocolPills(
+                vless = link.sbUri.isNotBlank(),
                 wg = link.wgConf.isNotBlank(),
                 obfOn = link.obfProfile.isNotEmpty() && link.obfProfile != ObfProfile.NONE
             )

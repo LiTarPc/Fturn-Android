@@ -21,10 +21,10 @@ android {
 
     defaultConfig {
         applicationId = "com.litar.freeturn"
-        // WireGuard GoBackend (com.wireguard.android:tunnel) требует minSdk 24.
+        // Native VPN integration targets Android API 24 or newer.
         minSdk = 24
         targetSdk = 37
-        versionName = "3.7.3-beta" // x-release-please-version
+        versionName = "4.0.0" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()
@@ -43,6 +43,8 @@ android {
     packaging {
         resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         jniLibs.useLegacyPackaging = true
+        // WireGuard dependency is used only for its wg-quick parser.
+        jniLibs.excludes += setOf("**/libwg-go.so", "**/libwg-quick.so", "**/libwg.so")
     }
 
     buildFeatures {
@@ -65,10 +67,10 @@ android {
         debug {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-debug"
-            resValue("string", "app_name", "FreeTurn Debug")
+            resValue("string", "app_name", "Fturn")
         }
         release {
-            resValue("string", "app_name", "FreeTurn")
+            resValue("string", "app_name", "Fturn")
             signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
@@ -101,6 +103,7 @@ composeCompiler {
 }
 
 dependencies {
+    implementation(files("libs/libbox.aar"))
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.jsch)
     implementation(libs.bouncycastle)
@@ -289,7 +292,7 @@ val fetchFreeturnCore = tasks.register<FetchFreeturnCore>("fetchFreeturnCore") {
     version.set(
         providers.gradleProperty("freeturnCore")
             .orElse(providers.environmentVariable("FREETURN_CORE_VERSION"))
-            .orElse("latest")
+            .orElse("v4.1.3")
     )
     assetNames.set(mapOf("arm64-v8a" to "client-android-arm64"))
     token.set(providers.environmentVariable("GITHUB_TOKEN"))
