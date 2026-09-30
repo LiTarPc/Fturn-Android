@@ -11,6 +11,18 @@ fi
 export GOPATH="$native_root/go" GOCACHE="$native_root/go-cache" GOTELEMETRY=off
 export PATH="$GOPATH/bin:$PATH"
 export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
+# gomobile 0.1.7 only recognizes integer SDK folder names. Keep API 24 native
+# targeting and provide Android 37.0 Java stubs through a workspace overlay.
+if ! find "$ANDROID_HOME/platforms" -mindepth 1 -maxdepth 1 -type d | grep -Eq '/android-[0-9]+$'; then
+  compile_platform="$(find "$ANDROID_HOME/platforms" -mindepth 1 -maxdepth 1 -type d -name 'android-*.*' | sort -V | tail -1)"
+  test -n "$compile_platform"
+  platform_name="$(basename "$compile_platform")"
+  overlay_root="$native_root/android-sdk"
+  overlay_platform="$overlay_root/platforms/${platform_name%%.*}"
+  mkdir -p "$overlay_platform"
+  cp "$compile_platform/android.jar" "$overlay_platform/android.jar"
+  export ANDROID_HOME="$overlay_root"
+fi
 cd "$native_root/sing-box-1.12.0"
 go mod edit -require=github.com/klauspost/compress@v1.18.3
 go mod download github.com/klauspost/compress
