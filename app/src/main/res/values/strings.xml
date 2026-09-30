@@ -3,7 +3,7 @@
 
     <!-- HomeScreen -->
     <string name="nav_home">Главная</string>
-    <string name="turn_proxy_title">Free Turn</string>
+    <string name="turn_proxy_title">Fturn</string>
     <string name="proxy_active">Прокси активен</string>
     <string name="tunnel_active">Туннель активен</string>
     <string name="proxy_connecting">Подключение…</string>
@@ -315,14 +315,14 @@
     <string name="privacy_mode_desc">Скрывает IP и порты</string>
 
     <!-- Notifications -->
-    <string name="notif_proxy_title">FreeTurn</string>
+    <string name="notif_proxy_title">Fturn</string>
     <string name="notif_proxy_connecting">Подключение…</string>
     <string name="notif_channel_proxy">Прокси</string>
     <string name="notif_channel_captcha">Капча</string>
     <string name="notif_captcha_title">Требуется прохождение капчи</string>
     <string name="notif_captcha_text">Откройте приложение для проверки</string>
     <string name="notif_proxy_connect_error">Ошибка подключения</string>
-    <string name="notif_proxy_wireguard_error">Ошибка WireGuard</string>
+    <string name="notif_proxy_vpn_error">Ошибка VPN</string>
     <string name="notif_proxy_network_change">Смена сети, переподключение…</string>
     <string name="notif_proxy_reconnecting">Переподключение (%1$d/%2$d)…</string>
 
@@ -347,10 +347,10 @@
     <!-- Notification & Tile -->
     <string name="notif_proxy_stop_action">Отключить</string>
     <string name="notif_proxy_threads_format">Потоки: %1$d/%2$d</string>
-    <string name="tile_service_label">Free Turn</string>
+    <string name="tile_service_label">Fturn</string>
 
     <!-- Виджет домашнего экрана -->
-    <string name="widget_label">FreeTurn - прокси</string>
+    <string name="widget_label">Fturn - прокси</string>
     <string name="widget_status_on">Подключено</string>
     <string name="widget_status_connecting">Подключение…</string>
     <string name="widget_status_off">Отключено</string>
@@ -421,23 +421,23 @@
     <string name="server_delete_confirm_desc">Сервер \"%1$s\" и все его настройки будут удалены из приложения.</string>
     <!-- Раздел "Управление" в хабе сервера -->
     <string name="server_management">Управление</string>
-    <string name="server_clean_title">Удалить FreeTurn с сервера</string>
+    <string name="server_clean_title">Удалить Fturn с сервера</string>
     <string name="server_clean_subtitle">Удалить с удалённого сервера службу, WireGuard и список пользователей</string>
     <string name="server_delete_app">Удалить сервер из приложения</string>
     <string name="server_delete_app_subtitle">Удаляется только запись в приложении - сервер не изменится</string>
-    <!-- Диалог очистки сервера от FreeTurn -->
-    <string name="server_clean_confirm_title">Удалить FreeTurn с сервера?</string>
-    <string name="server_clean_confirm_desc">С сервера будут удалены все компоненты FreeTurn. Пользователи, с которыми вы поделились доступом, потеряют подключение.</string>
+    <!-- Диалог очистки сервера от Fturn -->
+    <string name="server_clean_confirm_title">Удалить Fturn с сервера?</string>
+    <string name="server_clean_confirm_desc">С сервера будут удалены все компоненты Fturn. Пользователи, с которыми вы поделились доступом, потеряют подключение.</string>
     <string name="server_clean_confirm_btn">Удалить</string>
     <string name="server_delete_retry">Повторить</string>
     <string name="server_delete_cleaning_title">Удаление с сервера</string>
-    <string name="server_delete_cleaning_desc">Удаление компонентов FreeTurn с сервера по SSH…</string>
+    <string name="server_delete_cleaning_desc">Удаление компонентов Fturn с сервера по SSH…</string>
     <string name="server_delete_done_title">Сервер очищен</string>
-    <string name="server_delete_done_desc">Компоненты FreeTurn удалены с сервера.</string>
+    <string name="server_delete_done_desc">Компоненты Fturn удалены с сервера.</string>
     <string name="server_delete_done_confirm">Готово</string>
     <string name="cleanup_removed_label">Удалено с сервера:</string>
     <string name="cleanup_kept_label">Оставлено без изменений:</string>
-    <string name="cleanup_nothing">Компоненты FreeTurn на сервере не найдены - удалять нечего.</string>
+    <string name="cleanup_nothing">Компоненты Fturn на сервере не найдены - удалять нечего.</string>
     <string name="cleanup_item_binary">Исполняемый файл free-turn-proxy</string>
     <string name="cleanup_item_service">Служба systemd</string>
     <string name="cleanup_item_wg">Интерфейс WireGuard (ft-wg0)</string>
@@ -476,11 +476,11 @@
     <string name="server_name_label">Имя сервера</string>
     <string name="save">Сохранить</string>
     <string name="connection_mode_title">Режим подключения</string>
-    <string name="provider_connection_mode_desc">Proxy или VPN (WireGuard), импорт конфига</string>
+    <string name="provider_connection_mode_desc">Proxy или VPN (WireGuard / VLESS), импорт конфига</string>
     <string name="mode_proxy">Прокси</string>
     <string name="mode_vpn">VPN</string>
     <string name="mode_proxy_desc">Трафик идёт через локальный прокси, без туннеля.</string>
-    <string name="mode_vpn_desc">Весь трафик устройства туннелируется через WireGuard.</string>
+    <string name="mode_vpn_desc">Трафик выбранных приложений туннелируется через WireGuard или VLESS.</string>
     <string name="load_wg_conf">Загрузить из файла</string>
     <string name="connection_config_section">Конфигурация туннеля</string>
     <string name="change_server">Сменить сервер</string>
@@ -522,6 +522,15 @@
     <!-- О проекте -->
     <string name="settings_about">О проекте</string>
     <string name="settings_about_desc">Версия, описание и ссылки</string>
-    <string name="about_description">Free Turn проксирует WireGuard и Xray-трафик через публичные TURN-сервера. Открытый исходный код и никакой телеметрии: все настройки хранятся только на вашем устройстве.</string>
+    <string name="about_description">Fturn проксирует WireGuard и Xray-трафик через публичные TURN-сервера. Открытый исходный код и никакой телеметрии: все настройки хранятся только на вашем устройстве.</string>
     <string name="about_links">Ссылки</string>
+    <string name="vless_uri_label">Ссылка VLESS</string>
+    <string name="vless_uri_help">VLESS TCP без TLS через FreeTurn. Локальный адрес подставляется при запуске.</string>
+    <string name="bypass_rules_title">Обход по доменам и IP</string>
+    <string name="bypass_rules_desc">Адреса из выбранных файлов идут напрямую, остальные — через выбранный VPN. Настройка действует вместе с исключениями приложений.</string>
+    <string name="bypass_rules_dns">Импорт .srs или списка IP-подсетей .zone/.txt. VPN работает только по IPv4, DNS остаётся через выбранный туннель. IPdeny содержит IPv4-подсети; для доменов нужен отдельный .srs. RU IPv4 из IPdeny включён по умолчанию. Обновление заменяет встроенный список.</string>
+    <string name="bypass_rules_import">Добавить файл правил</string>
+    <string name="bypass_rules_download">Загрузить / обновить RU IPv4 (IPdeny)</string>
+    <string name="bypass_rules_remove">Удалить</string>
+    <string name="bypass_rules_stop">Остановите соединение для изменения правил.</string>
 </resources>

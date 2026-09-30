@@ -114,7 +114,7 @@ class ServerViewModel(
                 sshRepository.updateServerState(ServerState.Error("Неверный формат адреса (ожидается host:port)"))
                 return@launch
             }
-            val tcpMode = prefs.clientConfigFlow.first().tcpForward
+            val tcpMode = prefs.clientConfigFlow.first().coreTcpForward
             val opts = prefs.serverOptsFlow.first()
             sshRepository.startServer(
                 listen = l, connect = c,

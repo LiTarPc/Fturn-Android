@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -106,5 +107,29 @@ class LocalProxyManagerTest {
         assertTrue("ожидался Running, было $state", state is ProxyState.Running)
         assertEquals(1, (state as ProxyState.Running).active)
         job.cancel()
+    }
+
+    @Test
+    fun transportConnectionDoesNotReportReadyBeforeTunnelStartup() = runTest(dispatcher) {
+        val mgr = LocalProxyManager(FakeLauncher())
+        val job = launch { mgr.startProxy(validCfg) }
+        ProxyServiceState.setRunning(true)
+        ProxyServiceState.setConnectionStats(ConnectionStats(active = 1, total = 1))
+        runCurrent()
+        assertTrue(mgr.proxyState.value !is ProxyState.Running)
+        ProxyServiceState.setStartupResult(StartupResult.Success)
+        runCurrent()
+        assertTrue(mgr.proxyState.value is ProxyState.Running)
+        job.cancel()
+    }
+    @Test
+    fun malformedWireGuardDoesNotStartForegroundService() = runTest(dispatcher) {
+        val launcher = FakeLauncher()
+        val mgr = LocalProxyManager(launcher)
+        mgr.startProxy(validCfg.copy(tunnelTransport = com.freeturn.app.data.config.TunnelTransport.WIREGUARD,
+            wireGuardConfig = "[Interface]\nPrivateKey = invalid-secret"))
+        assertFalse(launcher.started)
+        assertTrue(mgr.proxyState.value is ProxyState.Error)
+        assertFalse((mgr.proxyState.value as ProxyState.Error).message.contains("invalid-secret"))
     }
 }

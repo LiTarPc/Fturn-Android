@@ -30,6 +30,7 @@ data class ImportUiState(
     val duplicateAddress: Boolean = false,
     val duplicateConf: Boolean = false,
     val parseError: Boolean = false,
+    val parseErrorMessage: String = "",
     val saving: Boolean = false,
     val saveError: Boolean = false,
     val saved: Boolean = false
@@ -81,7 +82,7 @@ class ImportViewModel(
             },
             onFailure = {
                 HapticUtil.perform(appContext, HapticUtil.Pattern.ERROR)
-                _uiState.value = ImportUiState(parseError = true)
+                _uiState.value = ImportUiState(parseError = true, parseErrorMessage = it.message.orEmpty())
             }
         )
     }
@@ -124,14 +125,17 @@ class ImportViewModel(
                 serverAddress = link.peer,
                 vkLink = st.vkLink.trim(),
                 provider = link.provider,
-                tcpForward = link.mode == "tcp",
+                tcpForward = link.mode == "tcp" || link.sbUri.isNotBlank(),
                 bond = link.bond,
                 useUdp = link.transport == "udp",
                 threads = link.n.takeIf { it > 0 } ?: ClientConfig.DEFAULT_THREADS,
                 streamsPerCred = link.streamsPerCred.takeIf { it > 0 }
                     ?: ClientConfig.DEFAULT_STREAMS_PER_CRED,
-                tunnelTransport = if (wgConf.isNotEmpty()) TunnelTransport.WIREGUARD
+                tunnelTransport = if (link.sbUri.isNotBlank()) TunnelTransport.VLESS
+                else if (wgConf.isNotEmpty()) TunnelTransport.WIREGUARD
                 else TunnelTransport.NONE,
+                vlessUri = link.sbUri,
+                localPort = link.listen.ifBlank { ClientConfig.DEFAULT_LOCAL_PORT },
                 wireGuardConfig = wgConf,
                 clientId = link.clientId.trim()
             ),

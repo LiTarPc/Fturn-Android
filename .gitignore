@@ -31,3 +31,5 @@ keystore_base64.txt
 CLAUDE.md
 nerd_diff.txt
 version.txt
+.native/
+/app/libs/libbox.aar

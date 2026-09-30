@@ -49,6 +49,7 @@ import com.freeturn.app.ui.theme.Spacing
 fun SplitTunnelModal(
     mode: String,
     apps: String,
+    useDefaults: Boolean,
     locked: Boolean,
     onModeChange: (String) -> Unit,
     onAppsChange: (String) -> Unit,
@@ -68,6 +69,7 @@ fun SplitTunnelModal(
         SplitTunnelSheetContent(
             mode = mode,
             apps = apps,
+            useDefaults = useDefaults,
             locked = locked,
             onModeChange = onModeChange,
             onAppsChange = onAppsChange
@@ -79,6 +81,7 @@ fun SplitTunnelModal(
 fun SplitTunnelSheetContent(
     mode: String,
     apps: String,
+    useDefaults: Boolean,
     locked: Boolean,
     onModeChange: (String) -> Unit,
     onAppsChange: (String) -> Unit
@@ -91,10 +94,11 @@ fun SplitTunnelSheetContent(
         mutableStateOf(if (mode != SplitTunnelMode.ALL) mode else SplitTunnelMode.EXCLUDE)
     }
     var query by remember { mutableStateOf("") }
-    // Пустой exclude-список показывает рос-сервисы отмеченными (тот же дефолт, что и в WG).
-    val selected = remember(apps, modeChoice) { splitTunnelSelection(modeChoice, apps) }
     val installed by produceState<List<AppChoice>?>(initialValue = null, splitOn) {
         value = if (splitOn) context.installedInternetApps() else null
+    }
+    val selected = remember(apps, modeChoice, useDefaults, installed) {
+        splitTunnelSelection(modeChoice, apps, installed.orEmpty().map { it.packageName }, useDefaults)
     }
 
     // Высота контента стабильна (список фиксированной высоты), поэтому sheet

@@ -39,7 +39,7 @@ class ProxyOrchestrator(
             return
         }
         val opts = prefs.serverOptsFlow.first()
-        val tcpMode = prefs.clientConfigFlow.first().tcpForward
+        val tcpMode = prefs.clientConfigFlow.first().coreTcpForward
         sshRepository.stopServer()
         sshRepository.startServer(
             listen = l, connect = c,

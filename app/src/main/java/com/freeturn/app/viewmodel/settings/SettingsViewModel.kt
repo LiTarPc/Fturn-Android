@@ -174,6 +174,24 @@ class SettingsViewModel(
         }
     }
 
+    fun importBypassRules(uri: Uri?, targetId: String, onResult: (String?) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val rule = withContext(Dispatchers.IO) {
+                    val store = com.freeturn.app.data.BypassRuleStore(appContext)
+                    if (uri == null) store.downloadRussia() else store.importFile(uri)
+                }
+                val changed = prefs.updateServer(targetId) { server ->
+                    server.copy(client = server.client.copy(bypassRuleSets =
+                        com.freeturn.app.data.config.BypassRuleSet.add(server.client.bypassRuleSets, rule)))
+                }
+                if (!changed) check(prefs.serversSnapshot.first().list.any { it.id == targetId }) { "Профиль уже удалён" }
+                onResult(null)
+            } catch (e: CancellationException) { throw e }
+            catch (e: Exception) { onResult(e.message ?: "Не удалось загрузить правила") }
+        }
+    }
+
     fun setSplitTunnelMode(value: String) {
         viewModelScope.launch {
             prefs.updateActiveServer {
@@ -186,7 +204,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             val trimmed = value.trim()
             prefs.updateActiveServer {
-                it.copy(client = it.client.copy(splitTunnelApps = trimmed))
+                it.copy(client = it.client.copy(splitTunnelApps = trimmed, splitTunnelUseDefaults = false))
             }
         }
     }

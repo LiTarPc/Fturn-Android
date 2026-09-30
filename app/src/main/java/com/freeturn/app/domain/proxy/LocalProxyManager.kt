@@ -47,7 +47,7 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
                 _proxyState.value = ProxyState.CaptchaRequired(session.url, session.sessionId)
             } else if (_proxyState.value is ProxyState.CaptchaRequired) {
                 val s = ProxyServiceState.connectionStats.value
-                _proxyState.value = if (s.active > 0) {
+                _proxyState.value = if (s.active > 0 && ProxyServiceState.startupResult.value is StartupResult.Success) {
                     ProxyState.Running(s.active, s.total)
                 } else {
                     ProxyState.Connecting(s.active, s.total)
@@ -81,12 +81,14 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
      * Приоритет у Captcha и Error.
      */
     private suspend fun observeConnectionStats() {
-        ProxyServiceState.connectionStats.collect { stats ->
+        combine(ProxyServiceState.connectionStats, ProxyServiceState.startupResult) { stats, startup ->
+            stats to startup
+        }.collect { (stats, startup) ->
             val current = _proxyState.value
             if (current is ProxyState.Error || current is ProxyState.CaptchaRequired) return@collect
             if (!ProxyServiceState.isRunning.value) return@collect
 
-            val next: ProxyState = if (stats.active > 0) {
+            val next: ProxyState = if (stats.active > 0 && startup is StartupResult.Success) {
                 ProxyState.Running(stats.active, stats.total)
             } else {
                 ProxyState.Connecting(stats.active, stats.total)
@@ -100,7 +102,7 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
     private fun syncInitialState() {
         if (ProxyServiceState.isRunning.value) {
             val s = ProxyServiceState.connectionStats.value
-            _proxyState.value = if (s.active > 0) {
+            _proxyState.value = if (s.active > 0 && ProxyServiceState.startupResult.value is StartupResult.Success) {
                 ProxyState.Running(s.active, s.total)
             } else {
                 ProxyState.Connecting(s.active, s.total)
@@ -109,6 +111,15 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
     }
 
     suspend fun startProxy(cfg: ClientConfig) {
+        if (cfg.tunnelTransport != com.freeturn.app.data.config.TunnelTransport.NONE) {
+            val validation = runCatching {
+                com.freeturn.app.data.config.SingBoxConfig.fromClient(cfg)
+            }
+            if (validation.isFailure) {
+                setErrorWithAutoReset(validation.exceptionOrNull()?.message ?: "Некорректный VPN")
+                return
+            }
+        }
         if (ProxyServiceState.isRunning.value) return
         if (_proxyState.value is ProxyState.Error) _proxyState.value = ProxyState.Idle
 
@@ -162,7 +173,7 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
             }
             is StartupResult.Success -> {
                 val s = ProxyServiceState.connectionStats.value
-                _proxyState.value = if (s.active > 0) {
+                _proxyState.value = if (s.active > 0 && ProxyServiceState.startupResult.value is StartupResult.Success) {
                     ProxyState.Running(s.active, s.total)
                 } else {
                     ProxyState.Connecting(s.active, s.total)
@@ -185,7 +196,7 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
         ProxyServiceState.setCaptchaSession(null)
         if (_proxyState.value is ProxyState.CaptchaRequired) {
             val s = ProxyServiceState.connectionStats.value
-            _proxyState.value = if (s.active > 0) {
+            _proxyState.value = if (s.active > 0 && ProxyServiceState.startupResult.value is StartupResult.Success) {
                 ProxyState.Running(s.active, s.total)
             } else {
                 ProxyState.Connecting(s.active, s.total)
@@ -206,4 +217,3 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
         _proxyState.value = ProxyState.Idle
     }
 }
-

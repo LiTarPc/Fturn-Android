@@ -24,11 +24,11 @@ import com.freeturn.app.ui.theme.Spacing
  * sheet выдачи доступа и sheet импорта.
  */
 @Composable
-fun ProtocolPills(wg: Boolean, obfOn: Boolean) {
+fun ProtocolPills(wg: Boolean, obfOn: Boolean, vless: Boolean = false) {
     Row(horizontalArrangement = Arrangement.spacedBy(Spacing.sm)) {
         Pill(
-            iconRes = if (wg) R.drawable.vpn_key_24px else R.drawable.public_24px,
-            text = stringResource(if (wg) R.string.share_protocol_wg else R.string.share_protocol_proxy),
+            iconRes = if (wg || vless) R.drawable.vpn_key_24px else R.drawable.public_24px,
+            text = if (vless) "VLESS" else stringResource(if (wg) R.string.share_protocol_wg else R.string.share_protocol_proxy),
             container = MaterialTheme.colorScheme.secondaryContainer,
             content = MaterialTheme.colorScheme.onSecondaryContainer
         )

@@ -102,7 +102,7 @@ fun HomeScreen(
     }
 
     fun startProxyWithTunnel() {
-        if (clientConfig.wireGuardActive) {
+        if (clientConfig.vpnActive) {
             val vpnIntent: Intent? = VpnService.prepare(context)
             if (vpnIntent != null) {
                 wireGuardPermissionLauncher.launch(vpnIntent)
@@ -188,7 +188,7 @@ fun HomeScreen(
                                 tint = MaterialTheme.colorScheme.onBackground
                             )
                             Text(
-                                text = "FreeTurn",
+                                text = "Fturn",
                                 style = MaterialTheme.typography.titleLarge.copy(
                                     fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                     letterSpacing = (-0.5).sp
@@ -253,7 +253,7 @@ fun HomeScreen(
                     Spacer(Modifier.weight(1f))
 
                     // Индикатор split-tunneling (только для WG) внизу ближе к шторке
-                    if (clientConfig.wireGuardActive) {
+                    if (clientConfig.vpnActive) {
                         SplitTunnelChip(
                             splitActive = clientConfig.splitTunnelMode != SplitTunnelMode.ALL,
                             onClick = {
@@ -272,6 +272,7 @@ fun HomeScreen(
         SplitTunnelModal(
             mode = clientConfig.splitTunnelMode,
             apps = clientConfig.splitTunnelApps,
+            useDefaults = clientConfig.splitTunnelUseDefaults,
             locked = proxyState !is ProxyState.Idle && proxyState !is ProxyState.Error,
             onModeChange = settingsViewModel::setSplitTunnelMode,
             onAppsChange = settingsViewModel::setSplitTunnelApps,

@@ -23,7 +23,7 @@ CoreArgs {
         if (cfg.streamsPerCred > 0 && cfg.streamsPerCred != ClientConfig.DEFAULT_STREAMS_PER_CRED) {
             add("-streams-per-cred"); add(cfg.streamsPerCred.toString())
         }
-        if (cfg.tcpForward) { add("-mode"); add("tcp") }
+        if (cfg.coreTcpForward) { add("-mode"); add("tcp") }
         add("-transport"); add(if (cfg.useUdp) "udp" else "tcp")
         if (srv.obfEnabled && ObfProfile.isValidKey(srv.obfKey)) {
             add("-obf-profile"); add(srv.obfProfile)

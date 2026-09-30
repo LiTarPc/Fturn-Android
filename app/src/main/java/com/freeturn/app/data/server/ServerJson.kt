@@ -1,5 +1,6 @@
 package com.freeturn.app.data.server
 
+import com.freeturn.app.data.config.BypassRuleSet
 import com.freeturn.app.data.config.ClientConfig
 import com.freeturn.app.data.config.DnsMode
 import com.freeturn.app.data.config.ObfProfile
@@ -66,9 +67,16 @@ internal object ServerJson {
             put("magicTurn", p.client.magicTurn)
             put("tunnelTransport", p.client.tunnelTransport)
             put("wireGuardConfig", p.client.wireGuardConfig)
+            put("vlessUri", p.client.vlessUri)
+            put("bypassRulesEnabled", p.client.bypassRulesEnabled)
+            put("bypassRuleSets", JSONArray().apply {
+                p.client.bypassRuleSets.forEach { rule -> put(JSONObject()
+                    .put("name", rule.name).put("format", rule.format).put("content", rule.content)) }
+            })
             put("wireGuardTunnelName", p.client.wireGuardTunnelName)
             put("splitTunnelMode", p.client.splitTunnelMode)
             put("splitTunnelApps", p.client.splitTunnelApps)
+            put("splitTunnelUseDefaults", p.client.splitTunnelUseDefaults)
             put("logsEnabled", p.client.logsEnabled)
             put("clientId", p.client.clientId)
         })
@@ -128,11 +136,32 @@ internal object ServerJson {
                     if (it in TunnelTransport.VALUES) it else TunnelTransport.NONE
                 },
                 wireGuardConfig = cliO.optString("wireGuardConfig"),
+                vlessUri = cliO.optString("vlessUri"),
+                bypassRulesEnabled = cliO.optBoolean("bypassRulesEnabled", true),
+                bypassRuleSets = cliO.optJSONArray("bypassRuleSets")?.let { rules ->
+                    require(rules.length() <= BypassRuleSet.MAX_FILES)
+                    val decoded = (0 until rules.length()).map { i -> rules.getJSONObject(i).let {
+                        if (it.getString("format") == BypassRuleSet.BUILTIN_RU) {
+                            require(it.getString("name") == "ru-aggregated.zone" && it.getString("content").isEmpty())
+                            BypassRuleSet.defaults().single()
+                        } else {
+                            val content = it.getString("content")
+                            require(content.length <= BypassRuleSet.MAX_BYTES * 4L / 3 + 4)
+                            val format = it.getString("format")
+                            require(format in setOf(BypassRuleSet.BINARY, BypassRuleSet.CIDR))
+                            // Full content validation happens at import and tunnel start, not on every UI update.
+                            BypassRuleSet(it.getString("name"), format, content)
+                        }
+                    } }
+                    require(decoded.sumOf { it.content.length.toLong() } <= BypassRuleSet.MAX_TOTAL_BYTES * 4L / 3)
+                    decoded
+                } ?: BypassRuleSet.defaults(),
                 wireGuardTunnelName = cliO.optString("wireGuardTunnelName").ifBlank { TunnelTransport.DEFAULT_TUNNEL_NAME },
                 splitTunnelMode = cliO.optString("splitTunnelMode", SplitTunnelMode.EXCLUDE).let {
                     if (it in SplitTunnelMode.VALUES) it else SplitTunnelMode.EXCLUDE
                 },
                 splitTunnelApps = cliO.optString("splitTunnelApps"),
+                splitTunnelUseDefaults = cliO.optBoolean("splitTunnelUseDefaults", cliO.optString("splitTunnelApps").isBlank()),
                 logsEnabled = cliO.optBoolean("logsEnabled", true),
                 clientId = cliO.optString("clientId")
             ),
