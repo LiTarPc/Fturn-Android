@@ -8,6 +8,7 @@ if [ ! -d "$native_root/sing-box-1.12.0" ]; then
   echo "5f0728f8c7054b4b03abd50c28cc8a0f8b02d9eb18936a33c86a5dd16855227c  $native_root/sing-box.zip" | sha256sum -c -
   unzip -q "$native_root/sing-box.zip" -d "$native_root"
 fi
+python3 "$project_root/scripts/patch-libbox.py" "$native_root/sing-box-1.12.0"
 export GOPATH="$native_root/go" GOCACHE="$native_root/go-cache" GOTELEMETRY=off
 export PATH="$GOPATH/bin:$PATH"
 export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
@@ -30,6 +31,6 @@ go install github.com/sagernet/gomobile/cmd/gomobile
 go install github.com/sagernet/gomobile/cmd/gobind
 gomobile bind -target android/arm64 -androidapi 24 -javapkg io.nekohasekai -libname box -trimpath \
   -ldflags '-X github.com/sagernet/sing-box/constant.Version=1.12.0 -s -w' \
-  -tags 'with_gvisor,with_low_memory,with_clash_api,with_wireguard' ./experimental/libbox
+  -tags 'with_gvisor,with_low_memory,with_clash_api,with_wireguard,with_utls,with_grpc' ./experimental/libbox
 mkdir -p "$project_root/app/libs"
 cp libbox.aar "$project_root/app/libs/libbox.aar"

@@ -525,7 +525,7 @@
     <string name="about_description">Fturn проксирует WireGuard и Xray-трафик через публичные TURN-сервера. Открытый исходный код и никакой телеметрии: все настройки хранятся только на вашем устройстве.</string>
     <string name="about_links">Ссылки</string>
     <string name="vless_uri_label">Ссылка VLESS</string>
-    <string name="vless_uri_help">VLESS TCP без TLS через FreeTurn. Локальный адрес подставляется при запуске.</string>
+    <string name="vless_uri_help">VLESS через FreeTurn: TCP, TLS/REALITY, WebSocket и gRPC. Локальный адрес подставляется при запуске; SNI и параметры транспорта сохраняются.</string>
     <string name="bypass_rules_title">Обход по доменам и IP</string>
     <string name="bypass_rules_desc">Адреса из выбранных файлов идут напрямую, остальные — через выбранный VPN. Настройка действует вместе с исключениями приложений.</string>
     <string name="bypass_rules_dns">Импорт .srs или списка IP-подсетей .zone/.txt. VPN работает только по IPv4, DNS остаётся через выбранный туннель. IPdeny содержит IPv4-подсети; для доменов нужен отдельный .srs. RU IPv4 из IPdeny включён по умолчанию. Обновление заменяет встроенный список.</string>
