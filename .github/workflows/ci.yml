@@ -53,6 +53,9 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:test
 
+      - name: Native VLESS relay tests
+        run: bash scripts/test-libbox.sh
+
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v7
