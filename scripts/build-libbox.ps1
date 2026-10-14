@@ -9,6 +9,8 @@ if (!(Test-Path $sourceRoot)) {
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '5F0728F8C7054B4B03ABD50C28CC8A0F8B02D9EB18936A33C86A5DD16855227C') { throw 'sing-box source checksum mismatch' }
     Expand-Archive -LiteralPath $archive -DestinationPath $nativeRoot -Force
 }
+& python (Join-Path $PSScriptRoot 'patch-libbox.py') $sourceRoot
+if ($LASTEXITCODE) { throw 'libbox compatibility patch failed' }
 $env:GOPATH = Join-Path $nativeRoot 'go'
 $env:GOCACHE = Join-Path $nativeRoot 'go-cache'
 $env:GOTELEMETRY = 'off'
@@ -36,7 +38,7 @@ try {
     & go install github.com/sagernet/gomobile/cmd/gobind
     if ($LASTEXITCODE) { throw 'gobind installation failed' }
     $env:PATH = (Join-Path $env:GOPATH 'bin') + ';' + $env:PATH
-    & gomobile bind -target android/arm64 -androidapi 24 -javapkg io.nekohasekai -libname box -trimpath -ldflags '-X github.com/sagernet/sing-box/constant.Version=1.12.0 -s -w' -tags 'with_gvisor,with_low_memory,with_clash_api,with_wireguard' ./experimental/libbox
+    & gomobile bind -target android/arm64 -androidapi 24 -javapkg io.nekohasekai -libname box -trimpath -ldflags '-X github.com/sagernet/sing-box/constant.Version=1.12.0 -s -w' -tags 'with_gvisor,with_low_memory,with_clash_api,with_wireguard,with_utls,with_grpc' ./experimental/libbox
     if ($LASTEXITCODE) { throw 'libbox build failed' }
     New-Item -ItemType Directory -Force (Join-Path $projectRoot 'app\libs') | Out-Null
     Copy-Item -LiteralPath 'libbox.aar' -Destination (Join-Path $projectRoot 'app\libs\libbox.aar') -Force

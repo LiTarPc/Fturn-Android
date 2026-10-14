@@ -136,7 +136,17 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     override fun underNetworkExtension() = false
     override fun includeAllNetworks() = false
     override fun readWIFIState(): WIFIState? = null
-    override fun systemCertificates(): StringIterator = Strings(emptyList())
+    // Go cannot read AndroidCAStore directly. Return public PEM roots for TLS verification.
+    private val androidCertificates: List<String> by lazy {
+        val store = java.security.KeyStore.getInstance("AndroidCAStore").apply { load(null) }
+        Collections.list(store.aliases()).mapNotNull { alias ->
+            store.getCertificate(alias)?.encoded?.let { der ->
+                val body = java.util.Base64.getMimeEncoder(64, byteArrayOf(10)).encodeToString(der)
+                "-----BEGIN CERTIFICATE-----\n$body\n-----END CERTIFICATE-----\n"
+            }
+        }
+    }
+    override fun systemCertificates(): StringIterator = Strings(androidCertificates)
     override fun clearDNSCache() = Unit
     override fun sendNotification(notification: Notification?) = Unit
 

@@ -37,8 +37,8 @@ class VlessImportTest {
     }
 
     @Test fun `unsupported parameters and invalid UUID fail explicitly`() {
-        for (input in listOf(uri.replace("security=none", "security=reality"),
-            uri.replace("type=tcp", "type=ws"), uri.replace("encryption=none", "encryption=other"),
+        for (input in listOf(uri.replace("security=none", "security=unknown"),
+            uri.replace("type=tcp", "type=xhttp"), uri.replace("encryption=none", "encryption=other"),
             uri.replace("11111111-2222-4333-8444-555555555555", "bad"),
             uri.replace("8443", "65536"), uri.replace("#", "&flow=xtls-rprx-vision#"))) {
             assertTrue(input, runCatching { VlessProfile.parse(input) }.isFailure)
