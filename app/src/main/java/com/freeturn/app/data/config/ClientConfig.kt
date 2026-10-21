@@ -23,6 +23,9 @@ data class ClientConfig(
     val tunnelTransport: String = TunnelTransport.NONE,
     val wireGuardConfig: String = "",
     val vlessUri: String = "",
+    val rawAddress: String = "10.77.0.2/24",
+    val rawMtu: Int = 1280,
+    val rawUplink: String = "packet",
     val bypassRulesEnabled: Boolean = true,
     val bypassRuleSets: List<BypassRuleSet> = BypassRuleSet.defaults(),
     val wireGuardTunnelName: String = TunnelTransport.DEFAULT_TUNNEL_NAME,
@@ -39,14 +42,16 @@ data class ClientConfig(
     val coreTcpForward: Boolean
         get() = when (tunnelTransport) {
             TunnelTransport.VLESS -> true
-            TunnelTransport.WIREGUARD -> false
+            TunnelTransport.WIREGUARD, TunnelTransport.RAW -> false
             else -> tcpForward
         }
 
     val vlessActive: Boolean
         get() = tunnelTransport == TunnelTransport.VLESS && vlessUri.isNotBlank()
     val vpnActive: Boolean
-        get() = wireGuardActive || vlessActive
+        get() = wireGuardActive || vlessActive || rawVpnActive
+    val rawVpnActive: Boolean
+        get() = tunnelTransport == TunnelTransport.RAW
     val wireGuardActive: Boolean
         get() = tunnelTransport == TunnelTransport.WIREGUARD && wireGuardConfig.isNotBlank()
 

@@ -70,7 +70,7 @@ sealed class UpdateState {
     object Checking : UpdateState()
     data class Available(val version: String) : UpdateState()
     object NoUpdate : UpdateState()
-    data class Downloading(val progress: Int) : UpdateState()
+    data class Downloading(val progress: Int, val viaVpn: Boolean = false) : UpdateState()
     object ReadyToInstall : UpdateState()
     data class Error(val message: String) : UpdateState()
 }

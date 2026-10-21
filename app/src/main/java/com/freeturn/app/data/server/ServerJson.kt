@@ -68,6 +68,9 @@ internal object ServerJson {
             put("tunnelTransport", p.client.tunnelTransport)
             put("wireGuardConfig", p.client.wireGuardConfig)
             put("vlessUri", p.client.vlessUri)
+            put("rawAddress", p.client.rawAddress)
+            put("rawMtu", p.client.rawMtu)
+            put("rawUplink", p.client.rawUplink)
             put("bypassRulesEnabled", p.client.bypassRulesEnabled)
             put("bypassRuleSets", JSONArray().apply {
                 p.client.bypassRuleSets.forEach { rule -> put(JSONObject()
@@ -137,6 +140,9 @@ internal object ServerJson {
                 },
                 wireGuardConfig = cliO.optString("wireGuardConfig"),
                 vlessUri = cliO.optString("vlessUri"),
+                rawAddress = cliO.optString("rawAddress", "10.77.0.2/24"),
+                rawMtu = cliO.optInt("rawMtu", 1280),
+                rawUplink = cliO.optString("rawUplink", "packet"),
                 bypassRulesEnabled = cliO.optBoolean("bypassRulesEnabled", true),
                 bypassRuleSets = cliO.optJSONArray("bypassRuleSets")?.let { rules ->
                     require(rules.length() <= BypassRuleSet.MAX_FILES)

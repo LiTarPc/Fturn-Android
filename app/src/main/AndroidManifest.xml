@@ -64,6 +64,7 @@
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="freeturn" />
+                <data android:scheme="fturnraw" />
             </intent-filter>
             <!-- Долгое нажатие плитки Quick Settings открывает приложение. -->
             <intent-filter>

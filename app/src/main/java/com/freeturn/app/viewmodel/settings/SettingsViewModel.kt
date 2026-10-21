@@ -70,6 +70,9 @@ class SettingsViewModel(
     val proxyConnect: StateFlow<String> = prefs.proxyConnectFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), "127.0.0.1:40537")
 
+    val appTheme: StateFlow<String> = prefs.appThemeFlow
+        .stateIn(viewModelScope, SharingStarted.Eagerly, com.freeturn.app.data.config.AppTheme.SYSTEM)
+
     val dynamicTheme: StateFlow<Boolean> = prefs.dynamicThemeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
 
@@ -134,12 +137,24 @@ class SettingsViewModel(
         viewModelScope.launch { prefs.setRestartServerOnSwitch(enabled) }
     }
 
+    fun setAppTheme(theme: String) {
+        viewModelScope.launch {
+            prefs.setAppTheme(theme)
+            com.freeturn.app.service.ProxyWidgetProvider.refresh(appContext)
+        }
+    }
+
     fun setDynamicTheme(enabled: Boolean) {
         viewModelScope.launch { prefs.setDynamicTheme(enabled) }
     }
 
     fun setNerdMode(enabled: Boolean) {
         viewModelScope.launch { prefs.setNerdMode(enabled) }
+    }
+
+    suspend fun hotspotConfig() = prefs.hotspotConfig()
+    fun saveHotspotConfig(port: Int, password: String) {
+        viewModelScope.launch { prefs.setHotspotConfig(port, password) }
     }
 
     fun setHotspotProxyEnabled(enabled: Boolean) {

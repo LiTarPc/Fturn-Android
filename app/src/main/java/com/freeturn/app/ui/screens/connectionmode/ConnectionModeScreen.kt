@@ -102,7 +102,7 @@ fun ConnectionModeScreen(
     val fieldsKey = serverId ?: snapshot.activeId
     var wgConfig by remember(fieldsKey) { mutableStateOf(saved.wireGuardConfig) }
     var wgName by remember(fieldsKey) { mutableStateOf(saved.wireGuardTunnelName) }
-    var vpnType by remember(fieldsKey) { mutableStateOf(if (saved.tunnelTransport == TunnelTransport.VLESS) TunnelTransport.VLESS else TunnelTransport.WIREGUARD) }
+    var vpnType by remember(fieldsKey) { mutableStateOf(saved.tunnelTransport.takeIf { it != TunnelTransport.NONE } ?: TunnelTransport.WIREGUARD) }
     var vlessUri by remember(fieldsKey) { mutableStateOf(saved.vlessUri) }
 
     fun persistWg(vpn: Boolean = isVpn) {
@@ -128,7 +128,7 @@ fun ConnectionModeScreen(
         wgConfig = saved.wireGuardConfig
         wgName = saved.wireGuardTunnelName
         vlessUri = saved.vlessUri
-        vpnType = if (saved.tunnelTransport == TunnelTransport.VLESS) TunnelTransport.VLESS else TunnelTransport.WIREGUARD
+        vpnType = saved.tunnelTransport.takeIf { it != TunnelTransport.NONE } ?: TunnelTransport.WIREGUARD
     }
 
     LaunchedEffect(fieldsKey, wgConfig, wgName, vlessUri, vpnType) {
@@ -225,15 +225,33 @@ fun ConnectionModeScreen(
 
                 if (isVpn) {
                     SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                        listOf(TunnelTransport.WIREGUARD, TunnelTransport.VLESS).forEachIndexed { index, type ->
+                        listOf(TunnelTransport.WIREGUARD, TunnelTransport.VLESS, TunnelTransport.RAW).forEachIndexed { index, type ->
                             SegmentedButton(
                                 selected = vpnType == type,
                                 onClick = { vpnType = type; wgDirty = true; persistWg() },
-                                shape = SegmentedButtonDefaults.itemShape(index, 2)
-                            ) { Text(if (type == TunnelTransport.VLESS) "VLESS" else "WireGuard") }
+                                shape = SegmentedButtonDefaults.itemShape(index, 3)
+                            ) { Text(when (type) { TunnelTransport.RAW -> "RAW"; TunnelTransport.VLESS -> "VLESS"; else -> "WireGuard" }) }
                         }
                     }
-                    if (vpnType == TunnelTransport.VLESS) {
+                    if (vpnType == TunnelTransport.RAW) {
+                        Text("RAW VPN • экспериментальный режим. Импортируйте ссылку fturnraw:// с RAW-сервера. MTU должен совпадать с сервером.")
+                        OutlinedTextField(value = saved.rawAddress,
+                            onValueChange = { value -> clientEdit { it.copy(rawAddress = value) } },
+                            label = { Text("Адрес RAW (IPv4/CIDR)") }, modifier = Modifier.fillMaxWidth())
+                        OutlinedTextField(value = saved.rawMtu.toString(),
+                            onValueChange = { value -> value.toIntOrNull()?.let { mtu -> clientEdit { it.copy(rawMtu = mtu) } } },
+                            label = { Text("MTU (576–1500)") }, modifier = Modifier.fillMaxWidth())
+                        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                            listOf("packet", "tcp-flow").forEachIndexed { index, mode ->
+                                SegmentedButton(selected = saved.rawUplink == mode,
+                                    onClick = { clientEdit { it.copy(rawUplink = mode) } },
+                                    shape = SegmentedButtonDefaults.itemShape(index, 2)) {
+                                    Text(if (mode == "packet") "По пакетам" else "По TCP-потокам")
+                                }
+                            }
+                        }
+                        Text("Подсети из списков обхода идут напрямую, остальные TCP/UDP-соединения — через RAW. DNS остаётся в туннеле.")
+                    } else if (vpnType == TunnelTransport.VLESS) {
                         val error = if (vlessUri.isBlank()) null else runCatching {
                             VlessProfile.parse(vlessUri)
                         }.exceptionOrNull()?.message
@@ -257,11 +275,9 @@ fun ConnectionModeScreen(
                     )
                     }
 
-                    run {
-                        BypassRulesCard(config = saved, profileId = fieldsKey,
-                            locked = isActive && proxyState !is ProxyState.Idle && proxyState !is ProxyState.Error,
-                            settings = settingsViewModel, edit = ::clientEdit)
-                    }
+                    BypassRulesCard(config = saved, profileId = fieldsKey,
+                        locked = isActive && proxyState !is ProxyState.Idle && proxyState !is ProxyState.Error,
+                        settings = settingsViewModel, edit = ::clientEdit)
                     SectionLabel(stringResource(R.string.split_tunnel_title))
                     SettingsCard {
                         SettingsEntryRow(

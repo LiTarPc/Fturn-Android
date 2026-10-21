@@ -19,7 +19,10 @@ data class BackupData(
     val restartServerOnSwitch: Boolean,
     val suppressUpdatePrompt: Boolean,
     val suppressTgPrompt: Boolean,
-    val hotspotProxyEnabled: Boolean
+    val hotspotProxyEnabled: Boolean,
+    val appTheme: String = com.freeturn.app.data.config.AppTheme.SYSTEM,
+    val hotspotPort: Int = 1080,
+    val hotspotPassword: String = ""
 )
 
 /** Сериализация [BackupData] в JSON (серверы - через тот же [ServerJson], что и в DataStore). */
@@ -32,12 +35,15 @@ object SettingsBackup {
         data.activeId?.let { put("activeId", it) }
         put("ownClientId", data.ownClientId)
         put("dynamicTheme", data.dynamicTheme)
+        put("appTheme", data.appTheme)
         put("nerdMode", data.nerdMode)
         put("privacyMode", data.privacyMode)
         put("restartServerOnSwitch", data.restartServerOnSwitch)
         put("suppressUpdatePrompt", data.suppressUpdatePrompt)
         put("suppressTgPrompt", data.suppressTgPrompt)
         put("hotspotProxyEnabled", data.hotspotProxyEnabled)
+        put("hotspotPort", data.hotspotPort)
+        put("hotspotPassword", data.hotspotPassword)
     }.toString()
 
     fun decode(json: String): BackupData {
@@ -56,12 +62,15 @@ object SettingsBackup {
             activeId = o.optString("activeId").takeIf { it.isNotBlank() },
             ownClientId = cid,
             dynamicTheme = o.optBoolean("dynamicTheme", true),
+            appTheme = com.freeturn.app.data.config.AppTheme.normalize(o.optString("appTheme")),
             nerdMode = o.optBoolean("nerdMode", true),
             privacyMode = o.optBoolean("privacyMode", false),
             restartServerOnSwitch = o.optBoolean("restartServerOnSwitch", false),
             suppressUpdatePrompt = o.optBoolean("suppressUpdatePrompt", false),
             suppressTgPrompt = o.optBoolean("suppressTgPrompt", false),
-            hotspotProxyEnabled = o.optBoolean("hotspotProxyEnabled", false)
+            hotspotProxyEnabled = o.optBoolean("hotspotProxyEnabled", false),
+            hotspotPort = o.optInt("hotspotPort", 1080).takeIf { it in 1024..65535 } ?: 1080,
+            hotspotPassword = o.optString("hotspotPassword").takeIf { it.toByteArray(Charsets.UTF_8).size in 8..255 } ?: ""
         )
     }
 }

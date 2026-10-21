@@ -69,6 +69,7 @@ fun ServerDetailScreen(
     onOpenConnection: (String) -> Unit,
     onOpenConnectionMode: (String) -> Unit,
     onOpenNerdInfo: (String) -> Unit,
+    onOpenBypass: (String) -> Unit,
     onCloned: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -145,6 +146,17 @@ fun ServerDetailScreen(
                                 }
                             )
                         }
+                    }
+                }
+
+                if (server != null) {
+                    SettingsCard {
+                        SettingsEntryRow(
+                            iconRes = R.drawable.public_24px,
+                            title = stringResource(R.string.site_bypass_title),
+                            subtitle = stringResource(R.string.site_bypass_desc),
+                            onClick = { onOpenBypass(serverId) }
+                        )
                     }
                 }
 

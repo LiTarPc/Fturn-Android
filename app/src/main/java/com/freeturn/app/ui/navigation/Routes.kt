@@ -24,5 +24,6 @@ import kotlinx.serialization.Serializable
 @Serializable data object ServersList
 @Serializable data class ServerDetail(val serverId: String)
 @Serializable data class ConnectionMode(val serverId: String)
+@Serializable data class SiteBypass(val serverId: String? = null)
 @Serializable data class ClientSetup(val serverId: String)
 @Serializable data class NerdInfo(val serverId: String)

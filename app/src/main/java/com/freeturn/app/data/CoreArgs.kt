@@ -50,7 +50,7 @@ CoreArgs {
     }
 
     // Секреты: лог виден на экране и шарится пользователем.
-    private val SENSITIVE_FLAGS = setOf("-obf-key", "-link", "-client-id")
+    private val SENSITIVE_FLAGS = setOf("-obf-key", "-link", "-links", "-client-id")
 
     fun redactForLog(args: List<String>, privacy: Boolean): String = buildString {
         var i = 0

@@ -1,14 +1,12 @@
 <resources>
-    <!-- Окно видно миллисекунды до setContent — Compose рисует поверх.
-         Платформенная тема вместо AppCompat: DayNight собран вручную
-         через values-night, appcompat-зависимость не нужна. -->
-    <style name="Base.Theme.FreeTurn" parent="android:Theme.Material.Light.NoActionBar" />
-
+    <style name="Base.Theme.FreeTurn" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:colorAccent">@color/app_primary</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
     <style name="Theme.FreeTurn" parent="Base.Theme.FreeTurn" />
-
-    <!-- Splash screen theme (Core Splash Screen API) -->
     <style name="Theme.FreeTurn.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">#FF5A0E1A</item>
+        <item name="windowSplashScreenBackground">@color/app_background</item>
         <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
         <item name="postSplashScreenTheme">@style/Theme.FreeTurn</item>
     </style>

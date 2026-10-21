@@ -62,8 +62,8 @@
     <!-- Импорт по ссылке (ImportSheet) -->
     <string name="import_title">Импорт подключения</string>
     <string name="import_default_name">Импортированный сервер</string>
-    <string name="import_vk_link_label">Ссылка на звонок VK</string>
-    <string name="import_vk_link_helper">Укажите ссылку на звонок VK для установки соединения</string>
+    <string name="import_vk_link_label">Ссылка на звонок в мессенджере</string>
+    <string name="import_vk_link_helper">Укажите ссылку на звонок в мессенджере для установки соединения</string>
     <string name="import_duplicate_address">Сервер с данным адресом уже существует</string>
     <string name="import_duplicate_conf">Конфигурация уже импортирована</string>
     <string name="import_confirm">Импортировать</string>
@@ -200,7 +200,7 @@
     <string name="client_section_advanced">Дополнительно</string>
     <string name="threads_format">Потоки: %1$d</string>
     <string name="threads_recommendation">Рекомендуется 8–12</string>
-    <string name="streams_per_cred_recommendation">Сколько TURN-потоков обслуживает один VK-аккаунт</string>
+    <string name="streams_per_cred_recommendation">Сколько TURN-потоков обслуживает один аккаунт мессенджера</string>
     <string name="streams_per_cred_format">Потоков на аккаунт: %1$d</string>
 
     <string name="tcp_forward_mode">Режим</string>
@@ -211,7 +211,7 @@
     <string name="obf_rtpopus">rtpopus</string>
     <string name="obf_rtpopus2">rtpopus2</string>
     <string name="obf_rtpopus3">rtpopus3</string>
-    <string name="provider_vk">VK Calls</string>
+    <string name="provider_vk">Мессенджер</string>
     <string name="obf_key_empty_hint">Пусто - ключ сгенерируется при применении</string>
     <string name="obf_key_invalid_hint">Неверный формат - нужны 64 hex-символа</string>
     <string name="server_sync_section">Синхронные настройки сервера</string>
@@ -327,7 +327,7 @@
     <string name="notif_proxy_reconnecting">Переподключение (%1$d/%2$d)…</string>
 
     <!-- CaptchaWebViewDialog -->
-    <string name="captcha_title">Проверка VK</string>
+    <string name="captcha_title">Проверка мессенджера</string>
     <string name="captcha_subtitle">Пройдите проверку для продолжения</string>
     <string name="captcha_close">Закрыть</string>
     <string name="captcha_browser_hint">Капча открыта во внешнем браузере. После прохождения вернитесь в приложение.</string>
@@ -416,7 +416,7 @@
     <string name="settings_servers">Серверы</string>
     <string name="settings_servers_desc">Управление добавленными серверами и их настройками</string>
     <string name="settings_empty_servers">Нет добавленных серверов</string>
-    <string name="provider_vk_calls">VK Звонки</string>
+    <string name="provider_vk_calls">Звонки в мессенджере</string>
     <string name="server_delete_confirm_title">Удалить сервер?</string>
     <string name="server_delete_confirm_desc">Сервер \"%1$s\" и все его настройки будут удалены из приложения.</string>
     <!-- Раздел "Управление" в хабе сервера -->

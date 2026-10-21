@@ -18,6 +18,7 @@ import com.freeturn.app.data.isPackageInstalled
 import com.freeturn.app.data.installedInternetPackages
 import com.freeturn.app.domain.proxy.ProxyServiceState
 import io.nekohasekai.libbox.*
+import org.koin.android.ext.android.inject
 import java.net.NetworkInterface as JavaNetworkInterface
 import java.util.Collections
 
@@ -26,7 +27,11 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     inner class LocalBinder : Binder() { val service get() = this@SingBoxVpnService }
     private val binder = LocalBinder()
     private var box: BoxService? = null
+    private var ruleDownloadEndpoint: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null
     private var tun: ParcelFileDescriptor? = null
+    private val prefs: com.freeturn.app.data.AppPreferences by inject()
+    @Volatile var rawBackend: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null
+        private set
     private var config: ClientConfig? = null
     private var logRedactor: VpnLogRedactor? = null
     private var callback: ConnectivityManager.NetworkCallback? = null
@@ -49,6 +54,11 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         config = cfg
         logRedactor = VpnLogRedactor(cfg)
         try {
+            val hotspot = kotlinx.coroutines.runBlocking { prefs.hotspotConfig() }
+            if (cfg.rawVpnActive) {
+                com.freeturn.app.data.config.RawVpnConfig.validate(cfg)
+                rawBackend = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port))
+            }
             Libbox.setup(SetupOptions().apply {
                 basePath = filesDir.absolutePath
                 workingPath = filesDir.resolve("sing-box").absolutePath
@@ -56,9 +66,14 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
                 fixAndroidStack = true
             })
             val sets = if (cfg.bypassRulesEnabled) com.freeturn.app.data.BypassRuleStore(this).materialize(cfg.bypassRuleSets) else org.json.JSONArray()
-            val json = SingBoxConfig.fromClient(cfg, sets)
+            val download = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port, rawBackend?.port ?: 0))
+            ruleDownloadEndpoint = download
+            val json = hotspot.configure(com.freeturn.app.data.RuleDownloadTunnel.configure(
+                SingBoxConfig.fromClient(cfg, sets, rawBackend), download))
             box = Libbox.newService(json, this)
             box!!.start()
+            com.freeturn.app.data.RuleDownloadTunnel.publish(download)
+            if (hotspot.enabled) ProxyServiceState.addLog("SOCKS5 Hotspot: 0.0.0.0:${hotspot.port}, TCP/UDP, логин ${com.freeturn.app.data.config.HotspotConfig.USER}")
             ProxyServiceState.setTunnelActive(true)
             ProxyServiceState.addLog("sing-box: ${cfg.tunnelTransport} VPN запущен через локальный FreeTurn (IPv4)")
         } catch (e: Exception) {
@@ -70,6 +85,9 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
 
     @Synchronized
     fun stopTunnel() {
+        com.freeturn.app.data.RuleDownloadTunnel.clear(ruleDownloadEndpoint)
+        ruleDownloadEndpoint = null
+        rawBackend = null
         val previous = box
         box = null
         try { previous?.close() } finally {
@@ -105,6 +123,13 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         addresses(options.inet6Address)
         builder.addRoute("0.0.0.0", 0).addRoute("::", 0)
         builder.addDnsServer(options.getDNSServerAddress().value)
+        configureApplications(builder, cfg)
+        if (Build.VERSION.SDK_INT >= 29) builder.setMetered(false)
+        tun = builder.establish() ?: error("Android не создал VPN-интерфейс")
+        return tun!!.fd
+    }
+
+    private fun configureApplications(builder: Builder, cfg: ClientConfig) {
         val installed = if (cfg.splitTunnelMode == SplitTunnelMode.EXCLUDE &&
             cfg.splitTunnelUseDefaults && cfg.splitTunnelApps.isBlank()) installedInternetPackages() else emptySet()
         val packages = splitTunnelSelection(cfg.splitTunnelMode, cfg.splitTunnelApps, installed, cfg.splitTunnelUseDefaults)
@@ -116,9 +141,6 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
             builder.addDisallowedApplication(packageName)
             if (cfg.splitTunnelMode == SplitTunnelMode.EXCLUDE) packages.forEach(builder::addDisallowedApplication)
         }
-        if (Build.VERSION.SDK_INT >= 29) builder.setMetered(false)
-        tun = builder.establish() ?: error("Android не создал VPN-интерфейс")
-        return tun!!.fd
     }
 
     override fun usePlatformAutoDetectInterfaceControl() = true

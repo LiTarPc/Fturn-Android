@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Existing release tag (e.g. v4.0.0)'
         required: true
-        default: 'v4.0.0'
+        default: 'v4.2.0'
 
 permissions:
   contents: write
@@ -60,6 +60,13 @@ jobs:
           sdkmanager 'ndk;28.2.13676358'
           bash scripts/build-libbox.sh
 
+      - name: RAW bridge tests
+        working-directory: third_party/raw-core
+        env:
+          GOTOOLCHAIN: go1.26.6
+          GOTELEMETRY: 'off'
+        run: go test -mod=readonly ./internal/rawsocks
+
       - uses: gradle/actions/setup-gradle@v6
 
       - name: Setup release signing
@@ -92,23 +99,32 @@ jobs:
       - name: Verify release and collect artifacts
         run: |
           python3 - <<'PY'
-          import json, os, shutil, zipfile
+          import hashlib, json, os, shutil, zipfile
           from pathlib import Path
           version = os.environ['RELEASE_TAG'].removeprefix('v')
           metadata = json.loads(Path('app/build/outputs/apk/release/output-metadata.json').read_text())
           element = metadata['elements'][0]
           assert metadata['applicationId'] == 'com.litar.freeturn'
           assert element['versionName'] == version, 'Tag and APK version must match'
-          assert element['versionCode'] == 40000 if version == '4.0.0' else element['versionCode'] > 40000
+          major, minor, patch = map(int, version.split('.'))
+          assert element['versionCode'] == major * 10000 + minor * 100 + patch
           apk = Path('app/build/outputs/apk/release') / element['outputFile']
           with zipfile.ZipFile(apk) as archive:
               names = archive.namelist()
-              for required in ['assets/rules/ru-aggregated.zone', 'lib/arm64-v8a/libbox.so', 'lib/arm64-v8a/libfreeturn.so']:
+              for required in ['assets/rules/ru-aggregated.zone', 'lib/arm64-v8a/libbox.so', 'lib/arm64-v8a/libfreeturn.so', 'lib/arm64-v8a/libfturnraw.so', 'assets/raw-core.json']:
                   assert required in names, f'Missing bundled component: {required}'
               assert not any(name.endswith(('/libwg-go.so', '/libwg-quick.so', '/libwg.so')) for name in names)
               assert archive.read('assets/rules/ru-aggregated.zone').strip(), 'RU rules must not be empty'
+              raw = json.loads(archive.read('assets/raw-core.json'))
+              pinned = json.loads(Path('third_party/raw-core/SOURCE.json').read_text())
+              assert raw['version'] == pinned['coreVersion'] == '1.0.0'
+              assert raw['sourceSnapshotSha256'] == pinned['sourceSnapshotSha256']
+              assert hashlib.sha256(archive.read('lib/arm64-v8a/libfturnraw.so')).hexdigest() == raw['binarySha256']
           Path('dist').mkdir(exist_ok=True)
           shutil.copy2(apk, f'dist/fturn-{version}-arm64-v8a.apk')
+          shutil.make_archive('dist/fturn-raw-core-1.0.0-android-source', 'gztar', 'third_party', 'raw-core')
+          Path('dist/raw-core-1.0.0.json').write_text(json.dumps(raw, indent=2) + '\n')
+          shutil.copy2('third_party/raw-core-NOTICES.txt', 'dist/RAW-CORE-THIRD-PARTY-NOTICES.txt')
           PY
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
           "$APKSIGNER" verify --verbose --print-certs "dist/fturn-${RELEASE_TAG#v}-arm64-v8a.apk" | tee "$RUNNER_TEMP/signature.txt"
@@ -121,7 +137,7 @@ jobs:
                           for line in output.splitlines() if marker in line}
           assert certificates == {os.environ['RELEASE_CERT_SHA256'].lower()}, 'Unexpected release signing certificate'
           PY
-          (cd dist && sha256sum *.apk > SHA256SUMS.txt)
+          (cd dist && sha256sum *.apk *.tar.gz *.json *NOTICES.txt > SHA256SUMS.txt)
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -132,6 +148,9 @@ jobs:
           body_path: docs/releases/${{ env.RELEASE_TAG }}.md
           files: |
             dist/*.apk
+            dist/*.tar.gz
+            dist/*.json
+            dist/*NOTICES.txt
             dist/SHA256SUMS.txt
           fail_on_unmatched_files: true
           draft: false

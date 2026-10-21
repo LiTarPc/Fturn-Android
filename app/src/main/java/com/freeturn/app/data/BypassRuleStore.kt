@@ -23,14 +23,22 @@ class BypassRuleStore(private val context: Context) {
     }
 
     fun downloadRussia(): BypassRuleSet {
-        val connection = URL(BypassRuleSet.RU_URL).openConnection() as HttpURLConnection
-        connection.connectTimeout = 15000
-        connection.readTimeout = 20000
-        try {
-            require(connection.responseCode == 200) { "IPdeny: HTTP ${connection.responseCode}" }
-            val bytes = connection.inputStream.use { BypassRuleSet.readBounded(it) }
-            return checked(BypassRuleSet.fromBytes("ru-aggregated.zone", bytes))
-        } finally { connection.disconnect() }
+        val tunnel = RuleDownloadTunnel.endpoint
+        val bytes = if (tunnel != null) {
+            RuleTunnelHttp.download(tunnel, BypassRuleSet.RU_URL)
+        } else {
+            check(!com.freeturn.app.domain.proxy.ProxyServiceState.tunnelActive.value) {
+                "Текущий VPN не предоставляет канал загрузки списков. Переподключите WireGuard/VLESS/RAW."
+            }
+            val connection = URL(BypassRuleSet.RU_URL).openConnection() as HttpURLConnection
+            connection.connectTimeout = 15000
+            connection.readTimeout = 20000
+            try {
+                require(connection.responseCode == 200) { "IPdeny: HTTP ${connection.responseCode}" }
+                connection.inputStream.use { BypassRuleSet.readBounded(it) }
+            } finally { connection.disconnect() }
+        }
+        return checked(BypassRuleSet.fromBytes("ru-aggregated.zone", bytes))
     }
 
     private fun checked(rule: BypassRuleSet): BypassRuleSet {

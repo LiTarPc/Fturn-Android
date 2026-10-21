@@ -56,8 +56,8 @@ class ProxyService : Service() {
             isStopped = { controller.isUserStopped },
             onSpeed = { notifier.setSpeed(it) },
         )
-        // Socks5Server не поднимаем: свой пакет всегда в ExcludedApplications, исходящие
-        // сокеты сервера идут мимо туннеля - клиенты хотспота получали бы прямой канал.
+        // The VPN service owns the SOCKS inbound. A plain host Socket would bypass
+        // the VPN because our UID (and the child core) stays excluded from it.
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

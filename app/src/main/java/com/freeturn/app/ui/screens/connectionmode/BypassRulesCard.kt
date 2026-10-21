@@ -20,14 +20,16 @@ fun BypassRulesCard(config: ClientConfig, profileId: String?, locked: Boolean,
     settings: SettingsViewModel, edit: ((ClientConfig) -> ClientConfig) -> Unit) {
     var busy by remember(profileId) { mutableStateOf(false) }
     var error by remember(profileId) { mutableStateOf<String?>(null) }
-    val enabled = profileId != null && !locked && !busy
+    var saved by remember(profileId) { mutableStateOf(false) }
+    val canLoad = profileId != null && !busy
+    val enabled = canLoad && !locked
     // Preserve the target across the system file picker, even if the active profile changes.
     var pickerTarget by remember { mutableStateOf<String?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         val id = pickerTarget
         if (uri != null && id != null) {
-            busy = true; error = null
-            settings.importBypassRules(uri, id) { message -> busy = false; error = message }
+            busy = true; error = null; saved = false
+            settings.importBypassRules(uri, id) { message -> busy = false; error = message; saved = message == null }
         }
     }
     SettingsCard {
@@ -48,18 +50,20 @@ fun BypassRulesCard(config: ClientConfig, profileId: String?, locked: Boolean,
                     } }) { Text(stringResource(R.string.bypass_rules_remove)) }
                 }
             }
-            OutlinedButton(enabled = enabled, onClick = { pickerTarget = profileId; picker.launch("*/*") }) {
+            OutlinedButton(enabled = canLoad, onClick = { pickerTarget = profileId; picker.launch("*/*") }) {
                 Text(stringResource(R.string.bypass_rules_import))
             }
-            OutlinedButton(enabled = enabled, onClick = {
+            OutlinedButton(enabled = canLoad, onClick = {
                 profileId?.let { id ->
-                    busy = true; error = null
-                    settings.importBypassRules(null, id) { message -> busy = false; error = message }
+                    busy = true; error = null; saved = false
+                    settings.importBypassRules(null, id) { message -> busy = false; error = message; saved = message == null }
                 }
             }) { Text(stringResource(R.string.bypass_rules_download)) }
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
-            if (locked) Text(stringResource(R.string.bypass_rules_stop), style = MaterialTheme.typography.bodySmall)
+            if (saved) Text(stringResource(R.string.bypass_rules_saved), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary)
+            if (locked) Text(stringResource(R.string.bypass_rules_running), style = MaterialTheme.typography.bodySmall)
         }
     }
 }

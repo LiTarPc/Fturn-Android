@@ -1,10 +1,10 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Фолбэк для API < 31, тёмная. -->
 <resources>
-    <color name="widget_surface">#FF141218</color>
-    <color name="widget_on_surface">#FFE6E0E9</color>
-    <color name="widget_on_surface_variant">#FFCAC4D0</color>
-    <color name="widget_primary">#FFD0BCFF</color>
-    <color name="widget_tertiary">#FFEFB8C8</color>
-    <color name="widget_outline">#FF938F99</color>
+    <color name="app_background">#1B1519</color>
+    <color name="app_primary">#E4A5B5</color>
+    <color name="widget_surface">#281F24</color>
+    <color name="widget_on_surface">#F4EDE6</color>
+    <color name="widget_on_surface_variant">#C8BABC</color>
+    <color name="widget_primary">#E4A5B5</color>
+    <color name="widget_tertiary">#D8B6C0</color>
+    <color name="widget_outline">#4D3A42</color>
 </resources>

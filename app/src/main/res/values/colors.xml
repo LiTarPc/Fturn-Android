@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Фолбэк для API < 31 (нет динамической палитры). Material 3 baseline, светлая. -->
 <resources>
-    <color name="widget_surface">#FFFEF7FF</color>
-    <color name="widget_on_surface">#FF1D1B20</color>
-    <color name="widget_on_surface_variant">#FF49454F</color>
-    <color name="widget_primary">#FF6750A4</color>
-    <color name="widget_tertiary">#FF7D5260</color>
-    <color name="widget_outline">#FF79747E</color>
+    <color name="app_background">#FCFAF6</color>
+    <color name="app_primary">#65182C</color>
+    <color name="widget_surface">#F4F0E9</color>
+    <color name="widget_on_surface">#30272B</color>
+    <color name="widget_on_surface_variant">#756B6E</color>
+    <color name="widget_primary">#65182C</color>
+    <color name="widget_tertiary">#8C3047</color>
+    <color name="widget_outline">#E5DEDA</color>
 </resources>
