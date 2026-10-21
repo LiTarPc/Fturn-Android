@@ -12,6 +12,6 @@ val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(24.dp)
 )
 
-val HeroSquircleShape = RoundedCornerShape(36.dp)
-val CardShape = RoundedCornerShape(12.dp)
-val ButtonCornerShape = RoundedCornerShape(11.dp)
+val HeroSquircleShape = RoundedCornerShape(32.dp)
+val CardShape = RoundedCornerShape(16.dp)
+val ButtonCornerShape = RoundedCornerShape(14.dp)

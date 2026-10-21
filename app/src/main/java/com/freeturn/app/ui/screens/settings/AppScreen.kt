@@ -28,6 +28,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -80,8 +81,8 @@ fun AppScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val appTheme by settingsViewModel.appTheme.collectAsStateWithLifecycle()
     val privacyMode by settingsViewModel.privacyMode.collectAsStateWithLifecycle()
-    val dynamicTheme by settingsViewModel.dynamicTheme.collectAsStateWithLifecycle()
     val suppressUpdatePrompt by settingsViewModel.suppressUpdatePrompt.collectAsStateWithLifecycle()
     val suppressTgPrompt by settingsViewModel.suppressTgPrompt.collectAsStateWithLifecycle()
     val updateState by settingsViewModel.updateState.collectAsStateWithLifecycle()
@@ -144,13 +145,27 @@ fun AppScreen(
                         )
                     }
                     SettingsGroupItem(1, 2) {
-                        SettingsSwitchRow(
-                            title = stringResource(R.string.dynamic_theme_title),
-                            subtitle = stringResource(R.string.dynamic_theme_desc),
-                            iconRes = R.drawable.palette_24px,
-                            checked = dynamicTheme,
-                            onCheckedChange = { settingsViewModel.setDynamicTheme(it) }
-                        )
+                        com.freeturn.app.ui.components.SettingsFieldSlot {
+                            com.freeturn.app.ui.components.SettingsControlLabel(
+                                title = stringResource(R.string.wine_theme_title),
+                                desc = stringResource(R.string.wine_theme_desc)
+                            )
+                            androidx.compose.material3.SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                                com.freeturn.app.data.config.AppTheme.VALUES.forEachIndexed { index, mode ->
+                                    SegmentedButton(
+                                        selected = appTheme == mode,
+                                        onClick = { settingsViewModel.setAppTheme(mode) },
+                                        shape = androidx.compose.material3.SegmentedButtonDefaults.itemShape(index, 3)
+                                    ) {
+                                        Text(stringResource(when (mode) {
+                                            com.freeturn.app.data.config.AppTheme.DARK -> R.string.theme_dark
+                                            com.freeturn.app.data.config.AppTheme.SYSTEM -> R.string.theme_system
+                                            else -> R.string.theme_light
+                                        }), style = MaterialTheme.typography.labelMedium)
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -286,7 +301,7 @@ private fun UpdateCard(
         is UpdateState.Idle -> stringResource(R.string.update_current_version, "v$appVersion")
         is UpdateState.Checking -> stringResource(R.string.update_checking)
         is UpdateState.Available -> stringResource(R.string.update_available, state.version)
-        is UpdateState.Downloading -> stringResource(R.string.update_downloading, state.progress)
+        is UpdateState.Downloading -> stringResource(R.string.update_downloading, state.progress) + if (state.viaVpn) " • VPN" else ""
         is UpdateState.ReadyToInstall -> stringResource(R.string.update_ready_desc_short)
         is UpdateState.NoUpdate -> stringResource(R.string.update_no_update)
         is UpdateState.Error -> stringResource(R.string.update_error, state.message)

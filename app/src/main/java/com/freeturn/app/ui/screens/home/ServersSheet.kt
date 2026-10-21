@@ -28,7 +28,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PlainTooltip
@@ -39,7 +38,6 @@ import androidx.compose.material3.TooltipAnchorPosition
 import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -231,7 +229,7 @@ private fun RowScope.ProviderChipContent(current: String, showEdit: Boolean) {
     Box(
         modifier = Modifier
             .size(24.dp)
-            .background(MaterialTheme.colorScheme.primary, MaterialShapes.Sunny.toShape()),
+            .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -274,7 +272,7 @@ private fun CallLinkDialog(
             Box(
                 modifier = Modifier
                     .size(40.dp)
-                    .background(MaterialTheme.colorScheme.primary, MaterialShapes.Sunny.toShape()),
+                    .background(MaterialTheme.colorScheme.primary, MaterialTheme.shapes.small),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(

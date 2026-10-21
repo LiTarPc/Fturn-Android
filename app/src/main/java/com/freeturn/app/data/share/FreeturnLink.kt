@@ -25,9 +25,13 @@ data class FreeturnLink(
     val name: String = "",
     val wgConf: String = "",
     val links: String = "",
+    val rawVpn: Boolean = false,
+    val rawMtu: Int = 1280,
+    val rawUplink: String = "packet",
     val sbUri: String = ""
 ) {
     fun encode(): String {
+        require(!rawVpn) { "Use the original fturnraw link to share a RAW profile" }
         val sb = StringBuilder("{")
         sb.field("v", VERSION.toString())
         sb.field("provider", jsonString(provider))
@@ -60,12 +64,14 @@ data class FreeturnLink(
         const val VERSION = 1
 
         fun looksLikeLink(raw: String): Boolean =
+            raw.trim().startsWith("fturnraw://", ignoreCase = true) ||
             raw.trim().startsWith(SCHEME, ignoreCase = true) ||
                 (raw.trim().startsWith("ey") && raw.trim().length <= 262144 &&
                     raw.trim().matches(Regex("[A-Za-z0-9_+/=-]+")))
 
         fun parse(raw: String): Result<FreeturnLink> = runCatching {
             val trimmed = raw.trim()
+            if (trimmed.startsWith("fturnraw://", ignoreCase = true)) return@runCatching RawShareLink.parse(trimmed)
             require(trimmed.length <= 262144) { "link too large" }
             val payload = if (trimmed.startsWith(SCHEME, ignoreCase = true))
                 trimmed.substring(SCHEME.length) else trimmed

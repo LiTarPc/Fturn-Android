@@ -36,6 +36,7 @@ class AppPreferences(context: Context) {
 
     companion object {
         val DYNAMIC_THEME = booleanPreferencesKey("dynamic_theme")
+        val APP_THEME = stringPreferencesKey("app_theme")
         val NERD_MODE = booleanPreferencesKey("nerd_mode")
         val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
         val TG_SUBSCRIBE_SHOWN = booleanPreferencesKey("tg_subscribe_shown")
@@ -47,6 +48,8 @@ class AppPreferences(context: Context) {
         val ACTIVE_SERVER_ID = stringPreferencesKey("active_server_id")
         val OWN_CLIENT_ID = stringPreferencesKey("own_client_id")
         val HOTSPOT_PROXY_ENABLED = booleanPreferencesKey("hotspot_proxy_enabled")
+        val HOTSPOT_PORT = intPreferencesKey("hotspot_port")
+        val HOTSPOT_PASSWORD = stringPreferencesKey("hotspot_password")
     }
 
     private fun <T> prefFlow(transform: (Preferences) -> T): Flow<T> =
@@ -84,6 +87,8 @@ class AppPreferences(context: Context) {
     val serverOptsFlow: Flow<ServerOpts> =
         activeServerFlow.map { it?.opts ?: ServerOpts() }.distinctUntilChanged()
 
+    val appThemeFlow: Flow<String> = prefFlow { com.freeturn.app.data.config.AppTheme.normalize(it[APP_THEME]) }
+
     val dynamicThemeFlow: Flow<Boolean> = prefFlow { prefs -> prefs[DYNAMIC_THEME] ?: true }
 
     val nerdModeFlow: Flow<Boolean> = prefFlow { prefs -> prefs[NERD_MODE] ?: false }
@@ -104,6 +109,20 @@ class AppPreferences(context: Context) {
     val batteryPromptShownFlow: Flow<Boolean> = prefFlow { prefs -> prefs[BATTERY_PROMPT_SHOWN] ?: false }
 
     val hotspotProxyEnabledFlow: Flow<Boolean> = prefFlow { prefs -> prefs[HOTSPOT_PROXY_ENABLED] ?: false }
+    val hotspotConfigFlow: Flow<com.freeturn.app.data.config.HotspotConfig> = prefFlow {
+        com.freeturn.app.data.config.HotspotConfig(it[HOTSPOT_PROXY_ENABLED] ?: false,
+            it[HOTSPOT_PORT] ?: 1080, it[HOTSPOT_PASSWORD] ?: "")
+    }
+    suspend fun hotspotConfig(): com.freeturn.app.data.config.HotspotConfig {
+        context.dataStore.edit { if (it[HOTSPOT_PASSWORD].isNullOrBlank())
+            it[HOTSPOT_PASSWORD] = UUID.randomUUID().toString().replace("-", "").take(20) }
+        return hotspotConfigFlow.first()
+    }
+    suspend fun setHotspotConfig(port: Int, password: String) {
+        com.freeturn.app.data.config.HotspotConfig(true, port, password).validate()
+        context.dataStore.edit { it[HOTSPOT_PORT] = port; it[HOTSPOT_PASSWORD] = password }
+    }
+
 
     // Каждая операция - одна транзакция dataStore.edit: атомарный read-modify-write,
     // параллельные записи не теряются и не оставляют активный id без сервера.
@@ -212,6 +231,11 @@ class AppPreferences(context: Context) {
         updateActiveServer { it.copy(ssh = it.ssh.copy(rootMode = mode)) }
     }
 
+    suspend fun setAppTheme(theme: String) {
+        require(theme in com.freeturn.app.data.config.AppTheme.VALUES)
+        context.dataStore.edit { it[APP_THEME] = theme }
+    }
+
     suspend fun setDynamicTheme(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[DYNAMIC_THEME] = enabled }
     }
@@ -271,12 +295,14 @@ class AppPreferences(context: Context) {
             activeId = snap.activeId,
             ownClientId = ownClientId(),
             dynamicTheme = dynamicThemeFlow.first(),
+            appTheme = appThemeFlow.first(),
             nerdMode = nerdModeFlow.first(),
             privacyMode = privacyModeFlow.first(),
             restartServerOnSwitch = restartServerOnSwitchFlow.first(),
             suppressUpdatePrompt = suppressUpdatePromptFlow.first(),
             suppressTgPrompt = suppressTgPromptFlow.first(),
-            hotspotProxyEnabled = hotspotProxyEnabledFlow.first()
+            hotspotProxyEnabled = hotspotProxyEnabledFlow.first(),
+            hotspotPort = hotspotConfig().port, hotspotPassword = hotspotConfig().password
         )
     }
 
@@ -298,12 +324,15 @@ class AppPreferences(context: Context) {
             active?.let { prefs[ACTIVE_SERVER_ID] = it }
             prefs[OWN_CLIENT_ID] = data.ownClientId
             prefs[DYNAMIC_THEME] = data.dynamicTheme
+            prefs[APP_THEME] = com.freeturn.app.data.config.AppTheme.normalize(data.appTheme)
             prefs[NERD_MODE] = data.nerdMode
             prefs[PRIVACY_MODE] = data.privacyMode
             prefs[RESTART_SERVER_ON_SWITCH] = data.restartServerOnSwitch
             prefs[SUPPRESS_UPDATE_PROMPT] = data.suppressUpdatePrompt
             prefs[SUPPRESS_TG_PROMPT] = data.suppressTgPrompt
             prefs[HOTSPOT_PROXY_ENABLED] = data.hotspotProxyEnabled
+            prefs[HOTSPOT_PORT] = data.hotspotPort
+            prefs[HOTSPOT_PASSWORD] = data.hotspotPassword
         }
         return data.servers.size
     }

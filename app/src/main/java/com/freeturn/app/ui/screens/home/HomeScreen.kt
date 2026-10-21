@@ -202,14 +202,14 @@ fun HomeScreen(
                                 HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
                                 onAddServer()
                             },
-                            shape = androidx.compose.foundation.shape.RoundedCornerShape(11.dp),
+                            shape = androidx.compose.foundation.shape.RoundedCornerShape(14.dp),
                             color = MaterialTheme.colorScheme.surfaceContainer,
                             modifier = Modifier
                                 .size(38.dp)
                                 .border(
                                     1.dp,
                                     MaterialTheme.colorScheme.outline,
-                                    androidx.compose.foundation.shape.RoundedCornerShape(11.dp)
+                                    androidx.compose.foundation.shape.RoundedCornerShape(14.dp)
                                 )
                         ) {
                             Box(

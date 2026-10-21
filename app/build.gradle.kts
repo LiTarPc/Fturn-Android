@@ -15,21 +15,46 @@ val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
 }
 
+// The RAW version is independent of the Android app and the legacy TURN core.
+val rawCoreProps = Properties().apply {
+    rootProject.file("raw-core.properties").inputStream().use { load(it) }
+}
+val rawCoreVersion = rawCoreProps.getProperty("version")
+val buildRawCore = tasks.register<Exec>("buildRawCore") {
+    group = "build"
+    description = "Verify and build the pinned RAW Android core"
+    inputs.dir(rootProject.file(rawCoreProps.getProperty("source"))).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(rootProject.file("raw-core.properties"), rootProject.file("scripts/build-raw-core.py"))
+    outputs.file(layout.projectDirectory.file("src/main/jniLibs/arm64-v8a/libfturnraw.so"))
+    outputs.file(layout.buildDirectory.file("generated/rawCoreAssets/raw-core.json"))
+    workingDir(rootProject.projectDir)
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+        rootProject.file("scripts/build-raw-core.py").absolutePath)
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(buildRawCore) }
+
+// RAW debug installs have their own Android data and VPN permission.
+val rawBuild = providers.gradleProperty("rawBuild").map { it.toBooleanStrict() }.orElse(true).get()
+
 android {
     namespace = "com.freeturn.app"
     compileSdk = 37
 
     defaultConfig {
         applicationId = "com.litar.freeturn"
+        resValue("string", "shortcut_target_package", "com.litar.freeturn")
+        resValue("string", "raw_core_version", rawCoreVersion)
         // Native VPN integration targets Android API 24 or newer.
         minSdk = 24
         targetSdk = 37
-        versionName = "4.1.0" // x-release-please-version
+        versionName = "4.2.0" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()
         }
     }
+
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/rawCoreAssets").get().asFile)
 
     splits {
         abi {
@@ -43,6 +68,8 @@ android {
     packaging {
         resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         jniLibs.useLegacyPackaging = true
+        // RAW is a Go PIE executable, preserve the tested binary byte-for-byte.
+        jniLibs.keepDebugSymbols += "**/libfturnraw.so"
         // WireGuard dependency is used only for its wg-quick parser.
         jniLibs.excludes += setOf("**/libwg-go.so", "**/libwg-quick.so", "**/libwg.so")
     }
@@ -65,9 +92,10 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix = "-debug"
-            resValue("string", "app_name", "Fturn")
+            applicationIdSuffix = if (rawBuild) ".raw" else ".debug"
+            versionNameSuffix = if (rawBuild) "-raw-debug" else "-debug"
+            resValue("string", "app_name", if (rawBuild) "Fturn RAW" else "Fturn")
+            resValue("string", "shortcut_target_package", if (rawBuild) "com.litar.freeturn.raw" else "com.litar.freeturn.debug")
         }
         release {
             resValue("string", "app_name", "Fturn")

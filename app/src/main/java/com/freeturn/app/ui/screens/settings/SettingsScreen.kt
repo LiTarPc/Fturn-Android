@@ -53,7 +53,8 @@ fun SettingsScreen(
     onOpenServers: () -> Unit,
     onOpenApp: () -> Unit,
     onOpenAdvanced: () -> Unit,
-    onOpenAbout: () -> Unit
+    onOpenAbout: () -> Unit,
+    onOpenBypass: () -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
@@ -82,7 +83,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 SettingsGroup {
-                    SettingsGroupItem(0, 4) {
+                    SettingsGroupItem(0, 5) {
                         SettingsEntryRow(
                             iconRes = R.drawable.database_24px,
                             title = stringResource(R.string.settings_servers),
@@ -90,7 +91,15 @@ fun SettingsScreen(
                             onClick = onOpenServers
                         )
                     }
-                    SettingsGroupItem(1, 4) {
+                    SettingsGroupItem(1, 5) {
+                        SettingsEntryRow(
+                            iconRes = R.drawable.public_24px,
+                            title = stringResource(R.string.site_bypass_title),
+                            subtitle = stringResource(R.string.site_bypass_desc),
+                            onClick = onOpenBypass
+                        )
+                    }
+                    SettingsGroupItem(2, 5) {
                         SettingsEntryRow(
                             iconRes = R.drawable.mobile_24px,
                             title = stringResource(R.string.settings_app),
@@ -98,7 +107,7 @@ fun SettingsScreen(
                             onClick = onOpenApp
                         )
                     }
-                    SettingsGroupItem(2, 4) {
+                    SettingsGroupItem(3, 5) {
                         SettingsEntryRow(
                             iconRes = R.drawable.tune_24px,
                             title = stringResource(R.string.settings_advanced),
@@ -106,7 +115,7 @@ fun SettingsScreen(
                             onClick = onOpenAdvanced
                         )
                     }
-                    SettingsGroupItem(3, 4) {
+                    SettingsGroupItem(4, 5) {
                         SettingsEntryRow(
                             iconRes = R.drawable.info_24px,
                             title = stringResource(R.string.settings_about),
@@ -177,16 +186,7 @@ fun AdvancedScreen(
                     )
                 }
 
-                SettingsCard {
-                    SettingsSwitchRow(
-                        title = stringResource(R.string.hotspot_proxy),
-                        subtitle = stringResource(R.string.hotspot_proxy_desc),
-                        iconRes = R.drawable.wifi_tethering_24px,
-                        checked = false,
-                        onCheckedChange = {},
-                        enabled = false
-                    )
-                }
+                HotspotOptionsCard(settingsViewModel)
 
                 SettingsCard {
                     SettingsSwitchRow(

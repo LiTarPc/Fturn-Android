@@ -19,11 +19,11 @@ import com.freeturn.app.domain.share.LinkImportBus
 import com.freeturn.app.data.HapticUtil
 import com.freeturn.app.ui.navigation.AppNavigation
 import com.freeturn.app.ui.theme.FreeTurnTheme
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.getValue
 import org.koin.android.ext.android.inject
 import org.koin.androidx.viewmodel.ext.android.viewModel
 import com.freeturn.app.viewmodel.settings.SettingsViewModel
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.runtime.getValue
 
 class MainActivity : ComponentActivity() {
 
@@ -53,13 +53,13 @@ class MainActivity : ComponentActivity() {
         HapticUtil.perform(this, HapticUtil.Pattern.LAUNCH)
         enableEdgeToEdge()
         setContent {
-            val dynamicTheme by settingsViewModel.dynamicTheme.collectAsStateWithLifecycle()
-            FreeTurnTheme(dynamicColor = dynamicTheme) {
+            val appTheme by settingsViewModel.appTheme.collectAsStateWithLifecycle()
+            FreeTurnTheme(themeMode = appTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppNavigation()
+                    AppNavigation(settingsViewModel = settingsViewModel)
                 }
             }
         }

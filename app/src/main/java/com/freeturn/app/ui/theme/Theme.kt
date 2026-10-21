@@ -1,16 +1,14 @@
 package com.freeturn.app.ui.theme
 
-import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.LocalActivity
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialExpressiveTheme
 import androidx.compose.material3.MotionScheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.freeturn.app.data.config.AppTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
@@ -64,6 +62,7 @@ private val lightScheme = lightColorScheme(
     surfaceContainer = surfaceContainerLight,
     surfaceContainerHigh = surfaceContainerHighLight,
     surfaceContainerHighest = surfaceContainerHighestLight,
+    surfaceTint = androidx.compose.ui.graphics.Color.Transparent,
 )
 
 private val darkScheme = darkColorScheme(
@@ -102,32 +101,25 @@ private val darkScheme = darkColorScheme(
     surfaceContainer = surfaceContainerDark,
     surfaceContainerHigh = surfaceContainerHighDark,
     surfaceContainerHighest = surfaceContainerHighestDark,
+    surfaceTint = androidx.compose.ui.graphics.Color.Transparent,
 )
-
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun FreeTurnTheme(
-    darkTheme: Boolean = true,
-    dynamicColor: Boolean = false,
-    content: @Composable () -> Unit
-) {
+fun FreeTurnTheme(themeMode: String = AppTheme.SYSTEM, content: @Composable () -> Unit) {
     val context = LocalContext.current
-    val colorScheme = remember(context, darkTheme, dynamicColor) {
-        when {
-            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-                if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-            darkTheme -> darkScheme
-            else -> lightScheme
-        }
-    }
-    val motionScheme = remember { MotionScheme.expressive() }
+    val darkTheme = AppTheme.isDark(themeMode, isSystemInDarkTheme())
+    val colorScheme = if (darkTheme) darkScheme else lightScheme
+    val motionScheme = remember { MotionScheme.standard() }
 
     val view = LocalView.current
     val window = LocalActivity.current?.window
     if (window != null) {
         SideEffect {
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = !darkTheme
+                isAppearanceLightNavigationBars = !darkTheme
+            }
         }
     }
 
@@ -140,7 +132,7 @@ fun FreeTurnTheme(
     }
 
     CompositionLocalProvider(
-        LocalExtendedColorScheme provides extendedColorSchemeFor(darkTheme),
+        LocalExtendedColorScheme provides if (darkTheme) WineExtendedDarkColorScheme else WineExtendedColorScheme,
         LocalReducedMotion provides reduceMotion
     ) {
         MaterialExpressiveTheme(

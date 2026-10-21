@@ -12,12 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -107,7 +106,14 @@ fun SettingsSwitchRow(
             }
         }
         // null = display-only: клики и семантику несёт строка (один haptic, один фокус).
-        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled,
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = com.freeturn.app.ui.theme.WinePalette.Primary,
+                checkedThumbColor = com.freeturn.app.ui.theme.WinePalette.Cream,
+                uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+            ))
     }
 }
 
@@ -115,14 +121,14 @@ fun SettingsSwitchRow(
 fun SettingsRowIcon(
     iconRes: Int,
     enabled: Boolean = true,
-    container: Color = MaterialTheme.colorScheme.secondaryContainer,
-    tint: Color = MaterialTheme.colorScheme.onSecondaryContainer
+    container: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    tint: Color = MaterialTheme.colorScheme.primary
 ) {
     val alpha = if (enabled) 1f else 0.38f
     Box(
         modifier = Modifier
             .size(40.dp)
-            .background(container.copy(alpha = alpha), MaterialShapes.Sunny.toShape()),
+            .background(container.copy(alpha = alpha), MaterialTheme.shapes.small),
         contentAlignment = Alignment.Center
     ) {
         Icon(
@@ -142,8 +148,8 @@ fun SettingsEntryRow(
     trailingRes: Int? = R.drawable.chevron_right_24px,
     trailingTint: Color = Color.Unspecified,
     enabled: Boolean = true,
-    iconContainer: Color = MaterialTheme.colorScheme.secondaryContainer,
-    iconTint: Color = MaterialTheme.colorScheme.onSecondaryContainer,
+    iconContainer: Color = MaterialTheme.colorScheme.surfaceContainerHighest,
+    iconTint: Color = MaterialTheme.colorScheme.primary,
     titleColorOverride: Color = Color.Unspecified,
     onClick: () -> Unit
 ) {

@@ -21,6 +21,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -125,6 +126,12 @@ fun SplitTunnelSheetContent(
                 )
             }
             Switch(
+                colors = SwitchDefaults.colors(
+                    checkedTrackColor = com.freeturn.app.ui.theme.WinePalette.Primary,
+                    checkedThumbColor = com.freeturn.app.ui.theme.WinePalette.Cream,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
+                ),
                 checked = splitOn,
                 enabled = !locked,
                 onCheckedChange = { on ->

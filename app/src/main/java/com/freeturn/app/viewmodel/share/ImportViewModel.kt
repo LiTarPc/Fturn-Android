@@ -131,7 +131,10 @@ class ImportViewModel(
                 threads = link.n.takeIf { it > 0 } ?: ClientConfig.DEFAULT_THREADS,
                 streamsPerCred = link.streamsPerCred.takeIf { it > 0 }
                     ?: ClientConfig.DEFAULT_STREAMS_PER_CRED,
-                tunnelTransport = if (link.sbUri.isNotBlank()) TunnelTransport.VLESS
+                rawMtu = link.rawMtu,
+                rawUplink = link.rawUplink,
+                bypassRulesEnabled = !link.rawVpn,
+                tunnelTransport = if (link.rawVpn) TunnelTransport.RAW else if (link.sbUri.isNotBlank()) TunnelTransport.VLESS
                 else if (wgConf.isNotEmpty()) TunnelTransport.WIREGUARD
                 else TunnelTransport.NONE,
                 vlessUri = link.sbUri,

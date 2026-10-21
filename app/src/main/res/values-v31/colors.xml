@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Material You: динамическая палитра системы (API 31+), светлая. -->
 <resources>
-    <color name="widget_surface">@android:color/system_neutral1_50</color>
-    <color name="widget_on_surface">@android:color/system_neutral1_900</color>
-    <color name="widget_on_surface_variant">@android:color/system_neutral2_700</color>
-    <color name="widget_primary">@android:color/system_accent1_600</color>
-    <color name="widget_tertiary">@android:color/system_accent3_600</color>
-    <color name="widget_outline">@android:color/system_neutral2_500</color>
+    <color name="app_background">#FCFAF6</color>
+    <color name="app_primary">#65182C</color>
+    <color name="widget_surface">#F4F0E9</color>
+    <color name="widget_on_surface">#30272B</color>
+    <color name="widget_on_surface_variant">#756B6E</color>
+    <color name="widget_primary">#65182C</color>
+    <color name="widget_tertiary">#8C3047</color>
+    <color name="widget_outline">#E5DEDA</color>
 </resources>

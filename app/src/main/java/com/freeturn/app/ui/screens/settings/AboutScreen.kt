@@ -24,7 +24,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.ui.draw.clip
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -94,7 +93,7 @@ fun AboutScreen(onBack: () -> Unit) {
 
                 SectionLabel(stringResource(R.string.about_links))
                 SettingsGroup {
-                    SettingsGroupItem(0, 3) {
+                    SettingsGroupItem(0, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.code_24px,
                             title = stringResource(R.string.android_client),
@@ -103,7 +102,7 @@ fun AboutScreen(onBack: () -> Unit) {
                             onClick = {}
                         )
                     }
-                    SettingsGroupItem(1, 3) {
+                    SettingsGroupItem(1, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.terminal_24px,
                             title = stringResource(R.string.proxy_core),
@@ -113,7 +112,16 @@ fun AboutScreen(onBack: () -> Unit) {
                             onClick = { open("https://github.com/LiTarPc/fturn-core") }
                         )
                     }
-                    SettingsGroupItem(2, 3) {
+                    SettingsGroupItem(2, 4) {
+                        SettingsEntryRow(
+                            iconRes = R.drawable.terminal_24px,
+                            title = "Ядро RAW",
+                            subtitle = "FturnRaw ${stringResource(R.string.raw_core_version)}",
+                            trailingRes = null,
+                            onClick = {}
+                        )
+                    }
+                    SettingsGroupItem(3, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.person_24px,
                             title = "Оригинальный проект",

@@ -51,7 +51,8 @@ object TunnelTransport {
     const val WIREGUARD = "wireguard"
     const val VLESS = "vless"
     const val DEFAULT_TUNNEL_NAME = "freeturn-wg"
-    val VALUES = listOf(NONE, WIREGUARD, VLESS)
+    const val RAW = "raw"
+    val VALUES = listOf(NONE, WIREGUARD, VLESS, RAW)
 }
 
 object SplitTunnelMode {

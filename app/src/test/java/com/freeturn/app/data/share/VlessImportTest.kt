@@ -14,13 +14,13 @@ import java.util.Base64
 
 class VlessImportTest {
     private val uri = "vless://11111111-2222-4333-8444-555555555555@127.0.0.1:8443?encryption=none&security=none&type=tcp#Germany_Xray_Test"
-    private val sample = "eyJuYW1lIjogIkdlcm1hbnkgVkxFU1MgVENQIiwgInByb3ZpZGVyIjogInZrIiwgInBlZXIiOiAiMTkyLjAuMi4xOjU2NDExIiwgInRyYW5zcG9ydCI6ICJ0Y3AiLCAibGlua3MiOiAiaHR0cHM6Ly92ay5ydS9jYWxsL2pvaW4vMTIzNDUiLCAib2JmIjogInJ0cG9wdXMiLCAia2V5IjogIjExMjIzMzQ0NTU2Njc3ODg5OWFhYmJjY2RkZWVmZjAwMTEyMjMzNDQ1NTY2Nzc4ODk5YWFiYmNjZGRlZWZmMDAiLCAiY2lkIjogIjExMTExMTExMjIyMjQzMzM4NDQ0NTU1NTU1NTU1NTU1IiwgInNiIjogInZsZXNzOi8vMTExMTExMTEtMjIyMi00MzMzLTg0NDQtNTU1NTU1NTU1NTU1QDEyNy4wLjAuMTo4NDQzP2VuY3J5cHRpb249bm9uZSZzZWN1cml0eT1ub25lJnR5cGU9dGNwI0dlcm1hbnlfWHJheV9UZXN0In0="
+    private val sample = "eyJuYW1lIjogIkdlcm1hbnkgVkxFU1MgVENQIiwgInByb3ZpZGVyIjogInZrIiwgInBlZXIiOiAiMTkyLjAuMi4xOjU2NDExIiwgInRyYW5zcG9ydCI6ICJ0Y3AiLCAibGlua3MiOiAiaHR0cHM6Ly9tZXNzZW5nZXIuZXhhbXBsZS9jYWxsL2pvaW4vMTIzNDUiLCAib2JmIjogInJ0cG9wdXMiLCAia2V5IjogIjExMjIzMzQ0NTU2Njc3ODg5OWFhYmJjY2RkZWVmZjAwMTEyMjMzNDQ1NTY2Nzc4ODk5YWFiYmNjZGRlZWZmMDAiLCAiY2lkIjogIjExMTExMTExMjIyMjQzMzM4NDQ0NTU1NTU1NTU1NTU1IiwgInNiIjogInZsZXNzOi8vMTExMTExMTEtMjIyMi00MzMzLTg0NDQtNTU1NTU1NTU1NTU1QDEyNy4wLjAuMTo4NDQzP2VuY3J5cHRpb249bm9uZSZzZWN1cml0eT1ub25lJnR5cGU9dGNwI0dlcm1hbnlfWHJheV9UZXN0In0="
 
     @Test fun `redacted sample accepts plain and prefixed standard base64`() {
         for (input in listOf(" $sample  ", "freeturn://$sample")) {
             val parsed = FreeturnLink.parse(input).getOrThrow()
             assertEquals(uri, parsed.sbUri)
-            assertEquals("https://vk.ru/call/join/12345", parsed.links)
+            assertEquals("https://messenger.example/call/join/12345", parsed.links)
             assertEquals(parsed, FreeturnLink.parse(parsed.encode()).getOrThrow())
             assertTrue(FreeturnLink.looksLikeLink(input))
         }

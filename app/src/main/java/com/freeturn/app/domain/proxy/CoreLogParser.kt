@@ -30,6 +30,12 @@ object CoreLogParser {
     fun parse(line: String): List<CoreLogEvent> {
         val events = mutableListOf<CoreLogEvent>()
 
+        Regex("""RAW stream (\d+) ready:""").find(line)?.let {
+            events += CoreLogEvent.StreamEstablished(it.groupValues[1].toInt())
+        }
+        Regex("""RAW stream (\d+) closed""").find(line)?.let {
+            events += CoreLogEvent.StreamClosed(it.groupValues[1].toInt())
+        }
         CAPTCHA_URL_REGEX.find(line)?.let {
             events += CoreLogEvent.CaptchaUrl(it.groupValues[1])
         }

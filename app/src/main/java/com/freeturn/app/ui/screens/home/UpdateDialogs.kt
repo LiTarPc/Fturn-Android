@@ -68,6 +68,7 @@ internal fun UpdateDialogs(
                 text = {
                     Column {
                         Text(stringResource(R.string.update_downloading, state.progress))
+                        if (state.viaVpn) Text(stringResource(R.string.update_through_vpn))
                         Spacer(Modifier.height(12.dp))
                         BusyProgressIndicator(progress = { state.progress / 100f })
                     }

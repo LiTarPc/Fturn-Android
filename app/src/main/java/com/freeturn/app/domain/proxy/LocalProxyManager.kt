@@ -113,7 +113,8 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
     suspend fun startProxy(cfg: ClientConfig) {
         if (cfg.tunnelTransport != com.freeturn.app.data.config.TunnelTransport.NONE) {
             val validation = runCatching {
-                com.freeturn.app.data.config.SingBoxConfig.fromClient(cfg)
+                if (cfg.rawVpnActive) com.freeturn.app.data.config.RawVpnConfig.validate(cfg)
+                else com.freeturn.app.data.config.SingBoxConfig.fromClient(cfg)
             }
             if (validation.isFailure) {
                 setErrorWithAutoReset(validation.exceptionOrNull()?.message ?: "Некорректный VPN")

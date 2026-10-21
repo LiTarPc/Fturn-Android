@@ -106,7 +106,8 @@ class CoreProcessController(
         val cfg = prefs.clientConfigFlow.first()
         if (cfg.tunnelTransport != com.freeturn.app.data.config.TunnelTransport.NONE) {
             val valid = runCatching {
-                com.freeturn.app.data.config.SingBoxConfig.fromClient(cfg)
+                if (cfg.rawVpnActive) com.freeturn.app.data.config.RawVpnConfig.validate(cfg)
+                else com.freeturn.app.data.config.SingBoxConfig.fromClient(cfg)
                 check(android.net.VpnService.prepare(context) == null) { "Откройте приложение и разрешите VPN" }
             }
             if (valid.isFailure) {
@@ -121,13 +122,12 @@ class CoreProcessController(
         val privacy = prefs.privacyModeFlow.first()
 
         val libDir = File(context.applicationInfo.nativeLibraryDir)
-        val executableFile = libDir.listFiles { f ->
-            f.name.startsWith("libfreeturn") && f.name.endsWith(".so")
-        }?.maxByOrNull { it.name }
+        val executableFile = File(libDir, if (cfg.rawVpnActive) "libfturnraw.so" else "libfreeturn.so")
+            .takeIf { it.isFile }
 
         if (executableFile == null) {
             ProxyServiceState.addLog(
-                "Ядро libfreeturn*.so не найдено в ${libDir.path}. " +
+                "Ядро ${if (cfg.rawVpnActive) "libfturnraw.so" else "libfreeturn.so"} не найдено в ${libDir.path}. " +
                 "Положите бинарник в jniLibs/arm64-v8a/ (имя начинается с lib и оканчивается на .so)."
             )
             ProxyServiceState.setStartupResult(StartupResult.Failed("core binary not found"))
@@ -139,7 +139,19 @@ class CoreProcessController(
 
         val cmdArgs = mutableListOf<String>()
 
-        if (cfg.isRawMode) {
+        if (cfg.rawVpnActive) {
+            val rawArgs = runCatching {
+                com.freeturn.app.data.config.RawVpnConfig.args(cfg, srv, prefs.ownClientId(),
+                    if (cfg.useCarrierDns) carrierDns() else null)
+            }.getOrElse {
+                ProxyServiceState.setStartupResult(StartupResult.Failed(it.message ?: "Invalid RAW profile"))
+                ProxyServiceState.setRunning(false)
+                onStopRequested()
+                return
+            }
+            cmdArgs.add(executable)
+            cmdArgs.addAll(rawArgs)
+        } else if (cfg.isRawMode) {
             val parts = cfg.rawCommand.trim().split("\\s+".toRegex()).filter { it.isNotEmpty() }
             cmdArgs.add(executable)
             cmdArgs.addAll(parts.drop(1))
@@ -157,7 +169,7 @@ class CoreProcessController(
         var captchaSessionCounter = 0L
 
         val tracker = CoreConnectionTracker(
-            udpTotal = if (cfg.isRawMode) 0 else if (cfg.threads > 0) cfg.threads else 1,
+            udpTotal = if (cfg.rawVpnActive) cfg.threads * cfg.vkLink.split(',').size else if (cfg.isRawMode) 0 else if (cfg.threads > 0) cfg.threads else 1,
             tcpMode = cfg.coreTcpForward
         )
 
@@ -169,12 +181,22 @@ class CoreProcessController(
         try {
             ProxyServiceState.addLog("Команда: ${CoreArgs.redactForLog(cmdArgs, privacy)}")
 
+            if (cfg.rawVpnActive) {
+                singBox.startAfterProxyReady(cfg)
+                vpnStarted = true
+                if (userStopped.get()) return
+            }
             val proc = withContext(Dispatchers.IO) {
                 // Легаси: сносим осиротевшие профили захвата (сам механизм захвата удалён).
                 context.filesDir.listFiles { f -> f.name.startsWith("vk_profile") }?.forEach { it.delete() }
                 val pb = ProcessBuilder(cmdArgs).redirectErrorStream(true)
                 // CWD подменяем на writeable dir для логов кэша tls-client и т.п.
                 pb.directory(context.filesDir)
+                if (cfg.rawVpnActive) {
+                    val backend = checkNotNull(singBox.rawBackend)
+                    pb.environment()["FREETURN_RAW_SOCKS_PORT"] = backend.port.toString()
+                    pb.environment()["FREETURN_RAW_SOCKS_PASSWORD"] = backend.password
+                }
                 pb.start()
             }
             process.set(proc)
@@ -236,7 +258,7 @@ class CoreProcessController(
                             }
                             hasConnection -> {
                                 try {
-                                    if (cfg.vpnActive) {
+                                    if (cfg.vpnActive && !cfg.rawVpnActive) {
                                         ProxyServiceState.addLog(
                                             "VPN: подъём через ${VPN_START_DELAY_MS} мс после старта TURN-туннеля"
                                         )
@@ -248,7 +270,7 @@ class CoreProcessController(
                                             break
                                         }
                                     }
-                                    singBox.startAfterProxyReady(cfg)
+                                    if (!cfg.rawVpnActive) singBox.startAfterProxyReady(cfg)
                                     vpnStarted = cfg.vpnActive
                                     if (userStopped.get() || process.get() !== proc) break
                                     ProxyServiceState.setStartupResult(StartupResult.Success)
@@ -311,7 +333,7 @@ class CoreProcessController(
             notifier.cancelCaptcha()
             if (vpnStarted) { singBox.stop() }
             ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
-            process.set(null)
+            process.getAndSet(null)?.destroyCompat()
             when {
                 userStopped.get() -> {
                     ProxyServiceState.setRunning(false)

@@ -34,7 +34,14 @@ class ProxyWidgetProvider : AppWidgetProvider(), KoinComponent {
         CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
             try {
                 val serverName = appPreferences.serversSnapshot.first().active?.name
-                val views = buildViews(context, ProxyServiceState.isRunning.value, serverName)
+                val mode = appPreferences.appThemeFlow.first()
+                val config = android.content.res.Configuration(context.resources.configuration)
+                val systemDark = config.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+                val dark = com.freeturn.app.data.config.AppTheme.isDark(mode, systemDark)
+                config.uiMode = (config.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK.inv()) or
+                    (if (dark) android.content.res.Configuration.UI_MODE_NIGHT_YES else android.content.res.Configuration.UI_MODE_NIGHT_NO)
+                val paletteContext = context.createConfigurationContext(config)
+                val views = buildViews(paletteContext, ProxyServiceState.isRunning.value, serverName)
                 manager.updateAppWidget(ids, views)
             } finally {
                 pending.finish()
@@ -62,6 +69,10 @@ class ProxyWidgetProvider : AppWidgetProvider(), KoinComponent {
             serverName: String?
         ): RemoteViews {
             val views = RemoteViews(context.packageName, R.layout.widget_proxy)
+            val dark = context.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            views.setInt(R.id.widget_body, "setBackgroundResource", if (dark) R.drawable.widget_background_dark else R.drawable.widget_background)
+            views.setTextColor(R.id.widget_status_text, context.getColor(R.color.widget_on_surface))
+            views.setTextColor(R.id.widget_server_name, context.getColor(R.color.widget_on_surface_variant))
 
             // Прокси стартует не мгновенно: active>0 = каналы подняты, иначе ещё коннектится.
             val stats = ProxyServiceState.connectionStats.value
@@ -88,7 +99,7 @@ class ProxyWidgetProvider : AppWidgetProvider(), KoinComponent {
 
             // nearby-иконка кодирует статус тоном динамической палитры.
             val statusColor = when {
-                !running -> R.color.widget_outline
+                !running -> R.color.widget_on_surface_variant
                 connecting -> R.color.widget_tertiary
                 else -> R.color.widget_primary
             }

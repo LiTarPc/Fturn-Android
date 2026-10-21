@@ -2,11 +2,6 @@
 
 package com.freeturn.app.ui.screens.home
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,22 +13,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.freeturn.app.R
-import com.freeturn.app.ui.theme.LocalReducedMotion
 import com.freeturn.app.ui.theme.Spacing
 
 /**
@@ -45,40 +35,22 @@ internal fun HomeEmptyState(
     onAddServer: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val reducedMotion = LocalReducedMotion.current
-    // Оборот в минуту. При reduced-motion статично.
-    val rotation = if (reducedMotion) 0f else {
-        val transition = rememberInfiniteTransition(label = "empty_breathe")
-        val value by transition.animateFloat(
-            initialValue = 0f,
-            targetValue = 360f,
-            animationSpec = infiniteRepeatable(tween(60_000, easing = LinearEasing)),
-            label = "empty_rotation"
-        )
-        value
-    }
-
     Column(
         modifier = modifier.padding(horizontal = Spacing.xxxl),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Surface(
-            shape = MaterialShapes.Cookie9Sided.toShape(),
+            shape = MaterialTheme.shapes.extraLarge,
             color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier
-                .size(128.dp)
-                .graphicsLayer { rotationZ = rotation }
+            modifier = Modifier.size(112.dp)
         ) {
             Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
                 Icon(
                     painterResource(R.drawable.database_outlined_24px),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    // Контр-вращение: фигура крутится, иконка стоит на месте.
-                    modifier = Modifier
-                        .size(56.dp)
-                        .graphicsLayer { rotationZ = -rotation }
+                    modifier = Modifier.size(48.dp)
                 )
             }
         }

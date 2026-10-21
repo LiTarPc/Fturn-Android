@@ -8,7 +8,7 @@
         android:shortcutLongLabel="@string/shortcut_start_long">
         <intent
             android:action="com.freeturn.app.START_PROXY"
-            android:targetPackage="com.freeturn.app.debug"
+            android:targetPackage="@string/shortcut_target_package"
             android:targetClass="com.freeturn.app.service.ProxyShortcutActivity" />
     </shortcut>
     <shortcut
@@ -19,7 +19,7 @@
         android:shortcutLongLabel="@string/shortcut_stop_long">
         <intent
             android:action="com.freeturn.app.STOP_PROXY"
-            android:targetPackage="com.freeturn.app.debug"
+            android:targetPackage="@string/shortcut_target_package"
             android:targetClass="com.freeturn.app.service.ProxyShortcutActivity" />
     </shortcut>
 </shortcuts>

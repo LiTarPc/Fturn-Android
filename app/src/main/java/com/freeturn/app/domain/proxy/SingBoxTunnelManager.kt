@@ -51,6 +51,8 @@ class SingBoxTunnelManager(context: Context) {
         }
     }
 
+    val rawBackend: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? get() = service?.rawBackend
+
     suspend fun stop() = mutex.withLock { stopLocked() }
 
     private suspend fun stopLocked() = withContext(NonCancellable) {

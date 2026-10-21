@@ -9,6 +9,8 @@ import android.os.Build
 import androidx.core.content.FileProvider
 import com.freeturn.app.domain.UpdateState
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,8 +18,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.File
-import java.net.HttpURLConnection
-import java.net.URL
 import java.security.MessageDigest
 
 class AppUpdater(private val context: Context) {
@@ -29,6 +29,9 @@ class AppUpdater(private val context: Context) {
 
     private val apkFile: File
         get() = File(context.cacheDir, "update.apk")
+    private val partialApkFile: File
+        get() = File(context.cacheDir, "update-download.apk")
+    private val http = UpdateHttpClient()
 
     private fun getCurrentVersion(): String = try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
@@ -42,13 +45,10 @@ class AppUpdater(private val context: Context) {
     suspend fun checkForUpdate(silent: Boolean = false) {
         _state.value = UpdateState.Checking
         try {
-            val release = withContext(Dispatchers.IO) { fetchLatestRelease() }
-            if (release == null) {
-                _state.value = if (silent) UpdateState.Idle
-                else UpdateState.Error("Не удалось получить информацию о релизе")
-                return
+            val release = withContext(Dispatchers.IO) {
+                val worker = currentCoroutineContext()
+                JSONObject(http.text(RELEASES_URL) { worker.ensureActive() })
             }
-
             val remoteVersion = release.getString("tag_name").removePrefix("v")
 
             if (isNewer(remoteVersion, getCurrentVersion())) {
@@ -80,52 +80,38 @@ class AppUpdater(private val context: Context) {
         _state.value = UpdateState.Downloading(0)
         try {
             withContext(Dispatchers.IO) {
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.instanceFollowRedirects = true
-                connection.connectTimeout = 15_000
-                connection.readTimeout = 30_000
-                try {
-                    connection.connect()
-                    // Защита от записи 404/редирект-страниц в APK.
-                    if (connection.responseCode !in 200..299) {
-                        throw java.io.IOException("HTTP ${connection.responseCode}")
-                    }
-
-                    val totalSize = connection.contentLength.toLong()
-                    var downloaded = 0L
-
-                    connection.inputStream.use { input ->
-                        apkFile.outputStream().use { output ->
-                            val buffer = ByteArray(8192)
-                            var bytesRead: Int
-                            while (input.read(buffer).also { bytesRead = it } != -1) {
-                                output.write(buffer, 0, bytesRead)
-                                downloaded += bytesRead
-                                if (totalSize > 0) {
-                                    _state.value = UpdateState.Downloading(
-                                        (downloaded * 100 / totalSize).toInt()
-                                    )
-                                }
+                val worker = currentCoroutineContext()
+                apkFile.delete()
+                var viaVpn = false
+                var lastProgress = -1
+                partialApkFile.outputStream().use { output ->
+                    http.copyTo(url, output, 256L * 1024 * 1024, "application/octet-stream",
+                        onRoute = { viaVpn = it },
+                        progress = { downloaded, total ->
+                            val percent = if (total != null && total > 0) (downloaded * 100 / total).toInt().coerceIn(0, 100) else 0
+                            if (percent != lastProgress) {
+                                lastProgress = percent
+                                _state.value = UpdateState.Downloading(percent, viaVpn)
                             }
-                        }
-                    }
-                } finally {
-                    connection.disconnect()
+                        }, checkActive = { worker.ensureActive() })
                 }
             }
-            // Чужая подпись = подмена (MITM на CDN-редиректе/компрометация релиза).
-            val trusted = withContext(Dispatchers.IO) { isSignedBySameCert(apkFile) }
+            // Only promote a complete APK with the installed package and signing certificate.
+            val trusted = withContext(Dispatchers.IO) { isSignedBySameCert(partialApkFile) }
             if (!trusted) {
-                apkFile.delete()
+                partialApkFile.delete()
                 _state.value = UpdateState.Error("Подпись обновления не совпадает - установка отменена")
                 return
             }
+            withContext(Dispatchers.IO) {
+                check(partialApkFile.renameTo(apkFile)) { "Could not save the completed update" }
+            }
             _state.value = UpdateState.ReadyToInstall
         } catch (e: CancellationException) {
-            apkFile.delete()
+            partialApkFile.delete()
             throw e
         } catch (e: Exception) {
-            apkFile.delete()
+            partialApkFile.delete()
             _state.value = UpdateState.Error("Ошибка загрузки: ${e.message}")
         }
     }
@@ -151,21 +137,6 @@ class AppUpdater(private val context: Context) {
     }
 
     // Private
-
-    private fun fetchLatestRelease(): JSONObject? {
-        val connection = URL(RELEASES_URL).openConnection() as HttpURLConnection
-        connection.setRequestProperty("Accept", "application/vnd.github+json")
-        connection.connectTimeout = 10_000
-        connection.readTimeout = 10_000
-
-        return try {
-            if (connection.responseCode == 200) {
-                JSONObject(connection.inputStream.bufferedReader().readText())
-            } else null
-        } finally {
-            connection.disconnect()
-        }
-    }
 
     /** [apk] подписан тем же сертификатом и тем же packageName, что установленное приложение. */
     @Suppress("DEPRECATION")

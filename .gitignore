@@ -33,3 +33,9 @@ nerd_diff.txt
 version.txt
 .native/
 /app/libs/libbox.aar
+
+# Local release artifacts
+/dist/
+
+# Kotlin compiler session cache
+.kotlin/

@@ -124,6 +124,7 @@ fun ImportSheet(
                 textAlign = TextAlign.Center
             )
 
+            if (link.rawVpn) Text("RAW VPN · IPv4 через сервер. Разделение трафика настраивается в Android по приложениям.")
             ProtocolPills(
                 vless = link.sbUri.isNotBlank(),
                 wg = link.wgConf.isNotBlank(),

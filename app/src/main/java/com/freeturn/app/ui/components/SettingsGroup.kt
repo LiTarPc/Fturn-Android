@@ -1,5 +1,6 @@
 package com.freeturn.app.ui.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -12,14 +13,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
-import com.freeturn.app.ui.theme.Spacing
 
 // Сегментированная группа строк (M3 expressive, как в системных настройках Android 16):
 // наружные углы группы большие, внутренние - маленькие, между элементами микро-зазор.
 
 // Внутренний радиус сегментированной группы (между элементами). Внешний - shapes.large,
 // чтобы группа из одного элемента визуально совпадала с SettingsCard.
-private val GroupInnerCorner = CornerSize(5.dp)
+private val GroupInnerCorner = CornerSize(0.dp)
 
 /** Форма элемента сегментированной группы по позиции (см. [SettingsGroup]). */
 @Composable
@@ -36,11 +36,14 @@ fun settingsItemShape(index: Int, count: Int): Shape {
 /** Колонка сегментированной группы: элементы с зазором 2dp вместо разделителей. */
 @Composable
 fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        verticalArrangement = Arrangement.spacedBy(Spacing.xxs),
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        content = content
-    )
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.outlineVariant,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(1.dp), content = content)
+    }
 }
 
 /** Элемент сегментированной группы: тональный контейнер с формой по позиции. */

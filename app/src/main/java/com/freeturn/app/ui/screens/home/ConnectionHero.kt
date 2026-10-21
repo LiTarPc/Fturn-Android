@@ -5,15 +5,17 @@ package com.freeturn.app.ui.screens.home
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.material3.CircularProgressIndicator
+import com.freeturn.app.ui.theme.WinePalette
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,16 +36,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -57,9 +54,7 @@ import com.freeturn.app.domain.ProxyState
 import com.freeturn.app.domain.TrafficSnapshot
 import com.freeturn.app.ui.theme.HeroSquircleShape
 import com.freeturn.app.ui.theme.LocalReducedMotion
-import com.freeturn.app.ui.theme.extendedColorScheme
 import java.util.Locale
-import kotlin.math.ceil
 
 /** Герой главного экрана: PWDTT сквиркл-кнопка, строка статуса и карточка статистики. */
 @Composable
@@ -119,7 +114,6 @@ private fun HeroToggleButton(
     reducedMotion: Boolean,
     onClick: () -> Unit
 ) {
-    val extended = MaterialTheme.extendedColorScheme
     val buttonLabel = when (kind) {
         HeroKind.Busy -> stringResource(R.string.proxy_connecting)
         HeroKind.Running -> stringResource(
@@ -129,87 +123,60 @@ private fun HeroToggleButton(
         HeroKind.Idle -> stringResource(R.string.start_proxy)
     }
 
-    val colorSpec = MaterialTheme.motionScheme.slowEffectsSpec<Color>()
-    val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<Float>()
+    val colorSpec = if (reducedMotion) androidx.compose.animation.core.snap<Color>()
+        else MaterialTheme.motionScheme.defaultEffectsSpec<Color>()
+    val interactions = remember { MutableInteractionSource() }
+    val pressed by interactions.collectIsPressedAsState()
+    val hovered by interactions.collectIsHoveredAsState()
+    val focused by interactions.collectIsFocusedAsState()
 
     val containerColor by animateColorAsState(
-        targetValue = when (kind) {
-            HeroKind.Running -> extended.successContainer // Solid black in light, light gray in dark
-            HeroKind.Error -> MaterialTheme.colorScheme.errorContainer
-            HeroKind.Busy -> MaterialTheme.colorScheme.surfaceContainerHigh
-            HeroKind.Idle -> MaterialTheme.colorScheme.surfaceContainer
+        targetValue = when {
+            pressed -> WinePalette.Pressed
+            hovered || focused -> WinePalette.Highlight
+            kind == HeroKind.Error -> WinePalette.Highlight
+            kind == HeroKind.Busy -> WinePalette.Highlight
+            else -> WinePalette.Primary
         },
         animationSpec = colorSpec,
         label = "btn_bg"
     )
 
-    val contentColor by animateColorAsState(
-        targetValue = when (kind) {
-            HeroKind.Running -> extended.onSuccessContainer // White in light, black in dark
-            HeroKind.Error -> MaterialTheme.colorScheme.onErrorContainer
-            HeroKind.Busy -> MaterialTheme.colorScheme.onSurfaceVariant
-            HeroKind.Idle -> MaterialTheme.colorScheme.onSurfaceVariant
-        },
-        animationSpec = colorSpec,
-        label = "btn_fg"
-    )
-
-    val borderColor by animateColorAsState(
-        targetValue = when (kind) {
-            HeroKind.Running -> containerColor
-            HeroKind.Error -> MaterialTheme.colorScheme.error
-            HeroKind.Busy -> MaterialTheme.colorScheme.outline
-            HeroKind.Idle -> MaterialTheme.colorScheme.outline
-        },
-        animationSpec = colorSpec,
-        label = "btn_border"
-    )
-
-    val rotation = rememberHeroSpin(spinning = kind == HeroKind.Busy && !reducedMotion)
+    val contentColor = WinePalette.Cream
 
     Surface(
         onClick = onClick,
         modifier = Modifier
             .size(140.dp)
-            .border(1.dp, borderColor, HeroSquircleShape)
             .semantics { contentDescription = buttonLabel },
         shape = HeroSquircleShape,
         color = containerColor,
-        tonalElevation = if (kind == HeroKind.Running) 4.dp else 0.dp
+        contentColor = contentColor,
+        interactionSource = interactions,
+        tonalElevation = 0.dp,
+        shadowElevation = 0.dp
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Icon(
-                painter = painterResource(R.drawable.power_24px),
-                contentDescription = null,
-                modifier = Modifier
-                    .size(48.dp)
-                    .graphicsLayer {
-                        if (kind == HeroKind.Busy && !reducedMotion) {
-                            rotationZ = rotation.value
-                        }
-                    },
-                tint = contentColor
-            )
+            if (kind == HeroKind.Busy && !reducedMotion) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(44.dp),
+                    color = contentColor,
+                    strokeWidth = 2.dp,
+                    trackColor = contentColor.copy(alpha = 0.18f)
+                )
+            } else {
+                Icon(
+                    painter = painterResource(R.drawable.power_24px),
+                    contentDescription = null,
+                    modifier = Modifier.size(48.dp),
+                    tint = contentColor
+                )
+            }
         }
     }
-}
-
-@Composable
-private fun rememberHeroSpin(spinning: Boolean): State<Float> {
-    val angle = remember { Animatable(0f) }
-    val settleSpec = MaterialTheme.motionScheme.slowSpatialSpec<Float>()
-    LaunchedEffect(spinning) {
-        if (spinning) {
-            angle.animateTo(angle.value + 360f * 240, tween(240 * 1_500, easing = LinearEasing))
-        } else if (angle.value != 0f) {
-            angle.animateTo(ceil(angle.value / 360f) * 360f, settleSpec)
-            angle.snapTo(0f)
-        }
-    }
-    return angle.asState()
 }
 
 @Composable
@@ -269,8 +236,8 @@ private fun TrafficStatsCard(
                     .widthIn(max = 320.dp)
                     .fillMaxWidth(0.9f)
                     .height(76.dp)
-                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp),
+                    .border(1.dp, MaterialTheme.colorScheme.outline, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
                 color = MaterialTheme.colorScheme.surfaceContainer
             ) {
                 Row(

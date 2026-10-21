@@ -31,7 +31,8 @@ internal fun NavGraphBuilder.settingsGraph(
                 onOpenServers = { navController.navigate(ServersList) },
                 onOpenApp = { navController.navigate(AppSettings) },
                 onOpenAdvanced = { navController.navigate(Advanced) },
-                onOpenAbout = { navController.navigate(About) }
+                onOpenAbout = { navController.navigate(About) },
+                onOpenBypass = { navController.navigate(SiteBypass()) }
             )
         }
 
@@ -70,6 +71,7 @@ internal fun NavGraphBuilder.settingsGraph(
                 onBack = { navController.popBackStack() },
                 onOpenConnection = { navController.navigate(ClientSetup(id)) },
                 onOpenConnectionMode = { navController.navigate(ConnectionMode(id)) },
+                onOpenBypass = { navController.navigate(SiteBypass(id)) },
                 onOpenNerdInfo = { navController.navigate(NerdInfo(id)) },
                 onCloned = { newId -> navController.navigate(ServerDetail(newId)) }
             )
@@ -81,6 +83,15 @@ internal fun NavGraphBuilder.settingsGraph(
                 serverId = id,
                 settingsViewModel = settingsViewModel,
                 serverViewModel = serverViewModel,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable<SiteBypass> { entry ->
+            com.freeturn.app.ui.screens.connectionmode.SiteBypassScreen(
+                settings = settingsViewModel,
+                proxy = proxyViewModel,
+                serverId = entry.toRoute<SiteBypass>().serverId,
                 onBack = { navController.popBackStack() }
             )
         }
