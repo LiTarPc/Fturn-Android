@@ -173,20 +173,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     override fun sendNotification(notification: Notification?) = Unit
 
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
-        fun physicalNetwork(lost: Network? = null): Network? = connectivity.allNetworks
-            .filter { it != lost }
-            .filter {
-                val caps = connectivity.getNetworkCapabilities(it)
-                caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN) == true &&
-                    caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-            }.minByOrNull {
-                val caps = connectivity.getNetworkCapabilities(it)
-                when {
-                    caps?.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) == true -> 0
-                    caps?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) == true -> 1
-                    else -> 2
-                }
-            }
+        fun physicalNetwork(lost: Network? = null): Network? =
+            PhysicalNetworks.select(connectivity, lost)?.id
         fun update(network: Network?) {
             val link = network?.let(connectivity::getLinkProperties)
             val name = link?.interfaceName

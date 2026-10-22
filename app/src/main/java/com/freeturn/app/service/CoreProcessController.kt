@@ -6,6 +6,9 @@ import android.os.Looper
 import android.os.SystemClock
 import com.freeturn.app.R
 import com.freeturn.app.data.AppPreferences
+import com.freeturn.app.data.DnsList
+import com.freeturn.app.data.config.DnsMode
+import com.freeturn.app.domain.proxy.DnsFallback
 import com.freeturn.app.data.CoreArgs
 import com.freeturn.app.domain.CaptchaSession
 import com.freeturn.app.domain.ConnectionStats
@@ -59,6 +62,7 @@ class CoreProcessController(
     val isUserStopped: Boolean get() = userStopped.get()
 
     fun start() {
+        notifier.resetDnsAlerts()
         userStopped.set(false)
         restartCount.set(0)
         scope.launch { startBinaryProcess() }
@@ -66,6 +70,7 @@ class CoreProcessController(
 
     fun onNetworkHandover() {
         if (userStopped.get() || process.get() == null) return
+        notifier.resetDnsAlerts()
         ProxyServiceState.addLog("Смена сети - переподключение")
         notifier.setStatus(context.getString(R.string.notif_proxy_network_change))
         restartCount.set(0)
@@ -136,12 +141,15 @@ class CoreProcessController(
         }
         val executable = executableFile.absolutePath
 
+        val carrierSelected = !cfg.isRawMode && cfg.useCarrierDns &&
+            DnsList.normalize(cfg.customDns).isBlank() && cfg.dnsMode != DnsMode.DOH
+        val selectedCarrierDns = if (carrierSelected) carrierDns().takeIf { it.isNotBlank() } else null
         val cmdArgs = mutableListOf<String>()
 
         if (cfg.rawVpnActive) {
             val rawArgs = runCatching {
                 com.freeturn.app.data.config.RawVpnConfig.args(cfg, srv, prefs.ownClientId(),
-                    if (cfg.useCarrierDns) carrierDns() else null)
+                    selectedCarrierDns)
             }.getOrElse {
                 ProxyServiceState.setStartupResult(StartupResult.Failed(it.message ?: "Invalid RAW profile"))
                 ProxyServiceState.setRunning(false)
@@ -156,8 +164,7 @@ class CoreProcessController(
             cmdArgs.addAll(parts.drop(1))
         } else {
             cmdArgs.add(executable)
-            val carrierDnsValue = if (cfg.useCarrierDns) carrierDns() else null
-            cmdArgs.addAll(CoreArgs.client(cfg, srv, carrierDnsValue, prefs.ownClientId()))
+            cmdArgs.addAll(CoreArgs.client(cfg, srv, selectedCarrierDns, prefs.ownClientId()))
         }
 
         var exitCode = -1
@@ -199,6 +206,14 @@ class CoreProcessController(
                 pb.start()
             }
             process.set(proc)
+            if (carrierSelected && !userStopped.get()) {
+                if (selectedCarrierDns == null) {
+                    ProxyServiceState.addLog(context.getString(R.string.notif_dns_carrier_missing))
+                    notifier.showDnsFallback(DnsFallback.CARRIER_UNAVAILABLE)
+                } else {
+                    ProxyServiceState.addLog(context.getString(R.string.log_dns_carrier_selected, selectedCarrierDns))
+                }
+            }
             // Stop в окне старта: destroyProcessAndTunnel видел ещё null - убиваем сами.
             if (userStopped.get()) {
                 proc.destroyCompat()
@@ -234,6 +249,9 @@ class CoreProcessController(
                                 CaptchaSession(event.url, captchaSessionCounter)
                             )
                             notifier.showCaptcha()
+                        }
+                        CoreLogEvent.DnsFallbackToDoh -> {
+                            if (!userStopped.get()) notifier.showDnsFallback(DnsFallback.DOH, carrierSelected)
                         }
                         CoreLogEvent.CaptchaResolved -> {
                             if (ProxyServiceState.captchaSession.value != null) {

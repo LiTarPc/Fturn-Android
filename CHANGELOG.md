@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.2.5 (2026-10-22)
+
+- Show a one-time alert when the core switches from UDP DNS to DoH or the selected physical network has no DNS servers.
+- Use one physical-network selection policy for carrier DNS, handover detection and sing-box's underlay. Ignore VPN DNS and respect the active physical default network.
+- Keep manual DNS precedence and avoid claiming that intentionally selected DoH is a fallback. WG/VLESS core 4.2.3 and RAW 1.0.0 remain pinned.
+
 ## 4.2.4 (2026-10-22)
 
 - Stop restarting the entire core after a per-session TURN allocation quota error. Healthy sessions and in-memory authorization are preserved while the core retries affected sessions.
