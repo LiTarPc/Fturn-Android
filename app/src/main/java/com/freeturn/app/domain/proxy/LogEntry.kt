@@ -11,9 +11,26 @@ private val inactiveLogMessage = Regex(
     """\b(?:not|never) (?:connected|started|established|successful)\b|\bdisconnected\b|(?<![\p{L}\p{N}_])не (?:подключ[её]н|запущен)[аоы]?(?![\p{L}\p{N}_])"""
 )
 
+private val captchaResultMessage = Regex(
+    """\[captcha] event=captcha_(solve|submit)_result\b[^\r\n]*?\boutcome=([a-z_]+)\b"""
+)
+private val captchaFailureOutcomes = setOf(
+    "failed", "request_failed", "rejected", "challenge_repeated", "invalid_response",
+    "rate_limited", "service_unavailable", "timed_out"
+)
+
 /** Уровень строки по ключевым словам ядра и наших сообщений (ru + en). */
 fun classifyLogLine(line: String): LogLevel {
     val lower = line.lowercase()
+    captchaResultMessage.find(lower)?.let { result ->
+        val event = result.groupValues[1]
+        when (val outcome = result.groupValues[2]) {
+            in captchaFailureOutcomes -> return LogLevel.Error
+            "cancelled" -> return LogLevel.Warning
+            "accepted" -> if (event == "submit") return LogLevel.Success
+            "token_received" -> if (event == "solve") return LogLevel.Plain
+        }
+    }
     return when {
         lower.contains("ошибка") || lower.contains("error") ||
             lower.contains("критическая") || lower.contains("failed") ||
