@@ -23,7 +23,7 @@ failures are shown explicitly and never bypassed.
 
 ## Validation on 2026-10-22
 
-- 144 JVM tests pass, including permission grant/refusal, return, cancellation,
+- 147 JVM tests pass, including permission grant/refusal, return, cancellation,
   missing files and installer launch errors.
 - Debug and release APKs build with legacy core 4.2.2 and RAW core 1.0.0.
 - HONOR TFY-LX1 / Android 13: a newer APK with the same debug package/certificate
@@ -36,3 +36,12 @@ failures are shown explicitly and never bypassed.
   package mismatch dialog over Settings.
 - The shell-protected diagnostic receiver and fixture APKs are local test aids;
   the receiver is removed from the release source and final APK.
+
+## CAPTCHA completion
+
+Fturn Core 4.2.2 reports a completed manual challenge as
+`[Captcha] Got token from browser`, before TURN authorization finishes.
+The shared core log parser now converts this exact message to CaptchaResolved,
+clearing the dialog and notification in both legacy and RAW sessions. The old
+authorization success/failure formats remain supported. Regression tests use the
+message captured on the affected phone and keep waiting/fallback messages open.

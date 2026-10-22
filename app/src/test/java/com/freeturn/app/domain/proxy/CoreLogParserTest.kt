@@ -39,6 +39,27 @@ class CoreLogParserTest {
         assertFalse(CoreLogParser.parse("[Captcha] waiting for user").contains(CoreLogEvent.CaptchaResolved))
     }
 
+    @Test
+    fun `manual token message closes captcha before TURN authorization finishes`() {
+        // Captured from Fturn Core 4.2.2 on the affected phone.
+        val message = "2026/10/22 07:05:24 [INFO] [STREAM 1] [Captcha] Got token from browser"
+        assertEquals(listOf<CoreLogEvent>(CoreLogEvent.CaptchaResolved), CoreLogParser.parse(message))
+    }
+
+    @Test
+    fun `RAW manual token message uses the same completion event`() {
+        assertEquals(listOf<CoreLogEvent>(CoreLogEvent.CaptchaResolved),
+            CoreLogParser.parse("[STREAM 12] [Captcha] Got token from browser"))
+    }
+
+    @Test
+    fun `manual fallback and browser token wait keep the captcha open`() {
+        for (line in listOf("[STREAM 1] [Captcha] Triggering manual captcha fallback",
+            "[Captcha] Waiting for token from browser")) {
+            assertFalse(CoreLogParser.parse(line).contains(CoreLogEvent.CaptchaResolved))
+        }
+    }
+
     // --- Соединения ---
 
     @Test
