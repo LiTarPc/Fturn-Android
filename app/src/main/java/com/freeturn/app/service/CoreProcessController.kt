@@ -51,7 +51,6 @@ class CoreProcessController(
 
     private val process = AtomicReference<Process?>(null)
     private val userStopped = AtomicBoolean(false)
-    private val sessionKillScheduled = AtomicBoolean(false)
     private val restartCount = AtomicInteger(0)
     // Single-flight: двойной старт (tile+UI/watchdog) затёр бы первый процесс -> зомби.
     private val startInFlight = AtomicBoolean(false)
@@ -295,18 +294,8 @@ class CoreProcessController(
                         }
                     }
 
-                    // compareAndSet гарантирует единственный postDelayed даже при параллельных quota-ошибках
-                    if (events.any { it is CoreLogEvent.QuotaError } &&
-                        sessionKillScheduled.compareAndSet(false, true)) {
-                        ProxyServiceState.addLog("Превышена квота - сброс сессии через 2 с")
-                        handler.postDelayed({
-                            sessionKillScheduled.set(false)
-                            if (!userStopped.get()) {
-                                restartCount.set(0)
-                                process.get()?.destroyCompat()
-                            }
-                        }, 2_000)
-                    }
+                    // TURN allocation retries belong to the core. A quota error from one
+                    // session must not discard healthy sessions and authorization state.
                 }
             }
 

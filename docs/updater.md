@@ -53,3 +53,13 @@ CAPTCHA solve/submission failure outcomes take precedence over WARN severity and
 words inside provider response details. Accepted submissions are green, solver
 token receipt remains neutral, and cancellation is a warning. Existing browser
 token messages still close the dialog before TURN authorization completes.
+
+## TURN quota recovery
+
+App 4.2.4 removes Android's global core kill after a quota log line. On the
+phone, a CAPTCHA was accepted, sessions connected, then an individual TURN
+allocation returned 486; Android killed the process two seconds later and
+watchdog started a fresh authorization, repeatedly asking for CAPTCHA.
+The core now retains its process and healthy sessions while performing its own
+allocation retries. Actual process exits still use the existing bounded
+watchdog; network handover and explicit stop still tear down the process.

@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.2.4 (2026-10-22)
+
+- Stop restarting the entire core after a per-session TURN allocation quota error. Healthy sessions and in-memory authorization are preserved while the core retries affected sessions.
+- Retain the watchdog for actual process exits and recovery after network changes.
+- WG/VLESS core remains 4.2.3; RAW remains 1.0.0.
+
 ## 4.2.3 (2026-10-22)
 
 - Update the WG/VLESS core to Fturn Core 4.2.3 with detailed CAPTCHA diagnostics. RAW remains 1.0.0.
