@@ -1,7 +1,7 @@
 # VLESS over FreeTurn
 
 The Android client embeds sing-box 1.12.0 through its official gomobile `libbox` API.
-WireGuard and VLESS use the same sing-box VPN service. The WireGuard Android dependency is retained only for wg-quick configuration parsing; its GoBackend service and native libraries are excluded from the APK. FreeTurn core is pinned to v4.2.2 by default in freeturn-core.properties (Android app 4.2.2).
+WireGuard and VLESS use the same sing-box VPN service. The WireGuard Android dependency is retained only for wg-quick configuration parsing; its GoBackend service and native libraries are excluded from the APK. FreeTurn core is pinned to v4.2.3 by default in freeturn-core.properties (Android app 4.2.3).
 
 Supported import: `freeturn://` followed by Base64URL or standard Base64 JSON, or
 the bare Base64 JSON. `sb` contains one VLESS URI. Current 4.1.0 source supports TCP

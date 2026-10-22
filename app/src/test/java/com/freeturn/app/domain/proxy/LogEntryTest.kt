@@ -34,4 +34,31 @@ class LogEntryTest {
         "Connecting to TURN relay...", "TCP mode: waiting for sessions to connect (total: 4)",
         "RAW VPN: MTU=1280", "[STREAM 1] Closed DTLS connection",
         "RAW stream 1 closed", "[STREAM 1] TURN allocation released", "unsuccessful handshake")
+
+    @Test fun `core 4_2_3 captcha failures are red even with warning severity`() {
+        for (outcome in listOf("failed", "request_failed", "rejected", "challenge_repeated",
+            "invalid_response", "rate_limited", "service_unavailable", "timed_out")) {
+            expect(LogLevel.Error,
+                "[WARN] [STREAM 1] [Captcha] event=CAPTCHA_SUBMIT_RESULT outcome=$outcome",
+                "[WARN] [STREAM 1] [Captcha] event=CAPTCHA_SOLVE_RESULT mode=manual attempt=2 outcome=$outcome duration=1s")
+        }
+    }
+
+    @Test fun `only accepted captcha submission is green`() {
+        expect(LogLevel.Success,
+            "[INFO] [STREAM 1] [Captcha] event=CAPTCHA_SUBMIT_RESULT outcome=accepted")
+        expect(LogLevel.Plain,
+            "[INFO] [STREAM 1] [Captcha] event=CAPTCHA_SOLVE_RESULT mode=manual attempt=1 outcome=token_received duration=1s",
+            "[INFO] [STREAM 1] [Captcha] event=CAPTCHA_SOLVE_STARTED mode=auto attempt=1",
+            "[INFO] [STREAM 1] [Captcha] event=CAPTCHA_SUBMIT_RESULT outcome=unknown")
+        expect(LogLevel.Warning,
+            "[WARN] [STREAM 1] [Captcha] event=CAPTCHA_SOLVE_RESULT mode=manual attempt=1 outcome=cancelled duration=1s")
+    }
+
+    @Test fun `provider response text cannot replace captcha outcome`() {
+        expect(LogLevel.Error,
+            "[WARN] [STREAM 1] [Captcha] event=CAPTCHA_SUBMIT_RESULT outcome=rejected response={\"message\":\"connected successfully\",\"outcome\":\"accepted\"}")
+        expect(LogLevel.Success,
+            "[INFO] [STREAM 1] [Captcha] event=CAPTCHA_SUBMIT_RESULT outcome=accepted response={\"error_code\":0}")
+    }
 }

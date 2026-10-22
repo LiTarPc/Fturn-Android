@@ -23,9 +23,9 @@ failures are shown explicitly and never bypassed.
 
 ## Validation on 2026-10-22
 
-- 147 JVM tests pass, including permission grant/refusal, return, cancellation,
+- 150 JVM tests pass, including permission grant/refusal, return, cancellation,
   missing files and installer launch errors.
-- Debug and release APKs build with legacy core 4.2.2 and RAW core 1.0.0.
+- Debug and release APKs build with legacy core 4.2.3 and RAW core 1.0.0.
 - HONOR TFY-LX1 / Android 13: a newer APK with the same debug package/certificate
   was verified and the ready dialog appeared over the app Settings screen.
 - Install opened Android's per-source permission page. The user manually granted
@@ -45,3 +45,11 @@ The shared core log parser now converts this exact message to CaptchaResolved,
 clearing the dialog and notification in both legacy and RAW sessions. The old
 authorization success/failure formats remain supported. Regression tests use the
 message captured on the affected phone and keep waiting/fallback messages open.
+
+## Core 4.2.3 diagnostic events
+
+The WG/VLESS pin is now 4.2.3; RAW retains its independent 1.0.0 snapshot.
+CAPTCHA solve/submission failure outcomes take precedence over WARN severity and
+words inside provider response details. Accepted submissions are green, solver
+token receipt remains neutral, and cancellation is a warning. Existing browser
+token messages still close the dialog before TURN authorization completes.

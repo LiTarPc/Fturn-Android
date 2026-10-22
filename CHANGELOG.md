@@ -1,5 +1,11 @@
 # Changelog
 
+## 4.2.3 (2026-10-22)
+
+- Update the WG/VLESS core to Fturn Core 4.2.3 with detailed CAPTCHA diagnostics. RAW remains 1.0.0.
+- Recognize CAPTCHA outcome events: failures are red, accepted submissions are green, and token receipt is not reported as acceptance.
+- Includes the installer and CAPTCHA dialog fixes from the unpublished 4.2.1/4.2.2 builds.
+
 ## 4.2.2 (2026-10-22)
 
 - Исправлено автоматическое закрытие окна капчи после ручного прохождения в обычном и RAW-ядре.
