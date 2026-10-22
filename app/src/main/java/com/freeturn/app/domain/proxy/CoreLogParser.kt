@@ -42,6 +42,7 @@ object CoreLogParser {
 
         if (line.contains("[VK Auth] Failed") ||
             line.contains("[VK Auth] Success") ||
+            line.contains("[Captcha] Got token from browser") ||
             (line.contains("[Captcha]") && line.contains("failed"))
         ) {
             events += CoreLogEvent.CaptchaResolved
