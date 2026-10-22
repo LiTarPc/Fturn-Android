@@ -402,6 +402,8 @@ class SettingsViewModel(
         appUpdater.installUpdate()
     }
 
+    fun onUpdateInstallerResumed() = appUpdater.onAppResumed()
+
     fun resetUpdateState() {
         appUpdater.resetState()
     }

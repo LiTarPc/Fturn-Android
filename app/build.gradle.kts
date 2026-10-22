@@ -15,6 +15,14 @@ val keystoreProps = Properties().apply {
     if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
 }
 
+// One pin drives both the fetch task and the version shown in About.
+val freeturnCoreProps = Properties().apply {
+    rootProject.file("freeturn-core.properties").inputStream().use { load(it) }
+}
+val freeturnCoreVersion = providers.gradleProperty("freeturnCore")
+    .orElse(providers.environmentVariable("FREETURN_CORE_VERSION"))
+    .orElse(freeturnCoreProps.getProperty("version")).get()
+
 // The RAW version is independent of the Android app and the legacy TURN core.
 val rawCoreProps = Properties().apply {
     rootProject.file("raw-core.properties").inputStream().use { load(it) }
@@ -44,10 +52,11 @@ android {
         applicationId = "com.litar.freeturn"
         resValue("string", "shortcut_target_package", "com.litar.freeturn")
         resValue("string", "raw_core_version", rawCoreVersion)
+        resValue("string", "freeturn_core_version", freeturnCoreVersion.removePrefix("v"))
         // Native VPN integration targets Android API 24 or newer.
         minSdk = 24
         targetSdk = 37
-        versionName = "4.2.0" // x-release-please-version
+        versionName = "4.2.1" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()
@@ -69,7 +78,7 @@ android {
         resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         jniLibs.useLegacyPackaging = true
         // RAW is a Go PIE executable, preserve the tested binary byte-for-byte.
-        jniLibs.keepDebugSymbols += "**/libfturnraw.so"
+        jniLibs.keepDebugSymbols += setOf("**/libfturnraw.so", "**/libfreeturn.so")
         // WireGuard dependency is used only for its wg-quick parser.
         jniLibs.excludes += setOf("**/libwg-go.so", "**/libwg-quick.so", "**/libwg.so")
     }
@@ -316,12 +325,8 @@ abstract class FetchFreeturnCore : DefaultTask() {
 val fetchFreeturnCore = tasks.register<FetchFreeturnCore>("fetchFreeturnCore") {
     description = "Качает нативное ядро из релизов free-turn-proxy в jniLibs"
     group = "build"
-    repo.set(providers.gradleProperty("freeturnCoreRepo").orElse("LiTarPc/fturn-core"))
-    version.set(
-        providers.gradleProperty("freeturnCore")
-            .orElse(providers.environmentVariable("FREETURN_CORE_VERSION"))
-            .orElse("v4.1.3")
-    )
+    repo.set(providers.gradleProperty("freeturnCoreRepo").orElse(freeturnCoreProps.getProperty("repo")))
+    version.set(freeturnCoreVersion)
     assetNames.set(mapOf("arm64-v8a" to "client-android-arm64"))
     token.set(providers.environmentVariable("GITHUB_TOKEN"))
     cacheDir.set(layout.dir(provider { File(gradle.gradleUserHomeDir, "caches/freeturn-core") }))

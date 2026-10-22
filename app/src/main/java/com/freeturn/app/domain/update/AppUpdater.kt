@@ -1,11 +1,14 @@
 package com.freeturn.app.domain.update
 
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.content.pm.Signature
 import android.os.Build
+import android.provider.Settings
+import androidx.core.net.toUri
 import androidx.core.content.FileProvider
 import com.freeturn.app.domain.UpdateState
 import kotlinx.coroutines.CancellationException
@@ -16,6 +19,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
 import java.io.File
 import java.security.MessageDigest
@@ -32,6 +37,24 @@ class AppUpdater(private val context: Context) {
     private val partialApkFile: File
         get() = File(context.cacheDir, "update-download.apk")
     private val http = UpdateHttpClient()
+    private val operation = Mutex()
+    private val installer = UpdateInstallCoordinator(object : UpdateInstallCoordinator.Platform {
+        override fun hasDownloadedApk() = apkFile.isFile && apkFile.length() > 0
+        override fun canInstallPackages() = Build.VERSION.SDK_INT < Build.VERSION_CODES.O ||
+            context.packageManager.canRequestPackageInstalls()
+        override fun openInstallPermissionSettings() {
+            context.startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                "package:${context.packageName}".toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }
+        override fun launchInstaller() {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", apkFile)
+            context.startActivity(Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                clipData = ClipData.newRawUri("Fturn update", uri)
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            })
+        }
+    }) { _state.value = it }
 
     private fun getCurrentVersion(): String = try {
         context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
@@ -42,7 +65,17 @@ class AppUpdater(private val context: Context) {
     /**
      * @param silent true - игнорировать ошибки сети (автопроверка). false - показывать ошибки (ручная).
      */
-    suspend fun checkForUpdate(silent: Boolean = false) {
+    suspend fun checkForUpdate(silent: Boolean = false) = operation.withLock {
+        // A completed download survives process recreation and works offline.
+        val restored = withContext(Dispatchers.IO) {
+            if (!apkFile.isFile) false
+            else if (apkValidationError(apkFile) == null) true
+            else { apkFile.delete(); false }
+        }
+        if (restored) {
+            _state.value = UpdateState.ReadyToInstall
+            return@withLock
+        }
         _state.value = UpdateState.Checking
         try {
             val release = withContext(Dispatchers.IO) {
@@ -71,10 +104,10 @@ class AppUpdater(private val context: Context) {
         }
     }
 
-    suspend fun downloadUpdate() {
+    suspend fun downloadUpdate() = operation.withLock {
         val url = latestApkUrl ?: run {
             _state.value = UpdateState.Error("URL обновления не найден")
-            return
+            return@withLock
         }
 
         _state.value = UpdateState.Downloading(0)
@@ -97,11 +130,12 @@ class AppUpdater(private val context: Context) {
                 }
             }
             // Only promote a complete APK with the installed package and signing certificate.
-            val trusted = withContext(Dispatchers.IO) { isSignedBySameCert(partialApkFile) }
-            if (!trusted) {
+            _state.value = UpdateState.Verifying
+            val validationError = withContext(Dispatchers.IO) { apkValidationError(partialApkFile) }
+            if (validationError != null) {
                 partialApkFile.delete()
-                _state.value = UpdateState.Error("Подпись обновления не совпадает - установка отменена")
-                return
+                _state.value = UpdateState.Error(validationError)
+                return@withLock
             }
             withContext(Dispatchers.IO) {
                 check(partialApkFile.renameTo(apkFile)) { "Could not save the completed update" }
@@ -116,44 +150,41 @@ class AppUpdater(private val context: Context) {
         }
     }
 
-    fun installUpdate() {
-        if (!apkFile.exists()) {
-            _state.value = UpdateState.Error("Файл обновления не найден")
-            return
-        }
+    fun installUpdate() = installer.install()
 
-        val uri = FileProvider.getUriForFile(
-            context, "${context.packageName}.fileprovider", apkFile
-        )
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
-        }
-        context.startActivity(intent)
-    }
+    fun onAppResumed() = installer.onAppResumed()
 
     fun resetState() {
+        installer.cancel()
         _state.value = UpdateState.Idle
     }
 
     // Private
 
-    /** [apk] подписан тем же сертификатом и тем же packageName, что установленное приложение. */
+    /** Null means a newer APK for this package, signed by the installed certificate. */
     @Suppress("DEPRECATION")
-    private fun isSignedBySameCert(apk: File): Boolean = try {
+    private fun apkValidationError(apk: File): String? = try {
         val pm = context.packageManager
         val flag = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
         val archive = pm.getPackageArchiveInfo(apk.absolutePath, flag)
         val installed = pm.getPackageInfo(context.packageName, flag)
-        val downloadedSigs = signatureHashes(archive)
-        val installedSigs = signatureHashes(installed)
-        archive?.packageName == context.packageName &&
-            downloadedSigs.isNotEmpty() &&
-            downloadedSigs == installedSigs
+        when {
+            archive == null -> "Не удалось прочитать скачанный APK. Скачайте обновление ещё раз."
+            archive.packageName != context.packageName ->
+                "Пакет APK (${archive.packageName}) не совпадает с установленным (${context.packageName}). Релизный Fturn нужно установить отдельно: он не заменяет тестовые Fturn RAW/.debug."
+            signatureHashes(archive).isEmpty() || signatureHashes(archive) != signatureHashes(installed) ->
+                "Подпись обновления не совпадает с установленным приложением. Установка отменена."
+            versionCode(archive) <= versionCode(installed) -> "Скачанная версия уже установлена или старее текущей."
+            else -> null
+        }
     } catch (_: Exception) {
-        false
+        "Не удалось проверить скачанный APK. Установка отменена."
     }
+
+    @Suppress("DEPRECATION")
+    private fun versionCode(info: PackageInfo): Long =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) info.longVersionCode else info.versionCode.toLong()
 
     @Suppress("DEPRECATION")
     private fun signatureHashes(info: PackageInfo?): Set<String> {

@@ -11,4 +11,10 @@
     <string name="bypass_rules_saved">Список сохранён. Новые правила применятся при следующем подключении.</string>
     <string name="bypass_rules_running">Списки можно загружать при работающем VPN. Переключение обхода и удаление правил доступны после отключения.</string>
     <string name="update_through_vpn">Загрузка через подключённый VPN</string>
+    <string name="update_verifying">Проверка скачанного APK…</string>
+    <string name="update_verifying_desc">Проверяем версию, пакет приложения и подпись обновления.</string>
+    <string name="update_install_permission_title">Разрешение на установку</string>
+    <string name="update_install_permission_desc">Разрешите Fturn установку приложений из этого источника в настройках Android, затем вернитесь в приложение. Скачивать APK повторно не нужно.</string>
+    <string name="update_open_settings">Открыть настройки</string>
+    <string name="update_error_title">Не удалось обновить приложение</string>
 </resources>
