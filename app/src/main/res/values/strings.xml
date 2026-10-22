@@ -222,10 +222,10 @@
     <string name="manual_captcha">Ручной ввод капчи</string>
     <string name="manual_captcha_desc">Решать капчу вручную вместо автоматического распознавания</string>
     <string name="use_carrier_dns">DNS оператора связи</string>
-    <string name="use_carrier_dns_desc">Использовать DNS текущей сети вместо системного резолвера</string>
+    <string name="use_carrier_dns_desc">DNS текущей Wi-Fi или мобильной сети для подключения к сервису</string>
     <string name="use_carrier_dns_overridden">Отключено: действует ручной DNS-список выше</string>
     <string name="dns_mode_title">DNS-резолвер</string>
-    <string name="dns_mode_desc">Авто - пробует системный DNS, переключается на DNS-over-HTTPS при блокировке</string>
+    <string name="dns_mode_desc">Авто — сначала обычный DNS, при недоступности переход на DoH с уведомлением</string>
     <string name="dns_mode_auto">Авто</string>
     <string name="dns_mode_udp">UDP/53</string>
     <string name="dns_mode_doh">DoH</string>
@@ -533,4 +533,10 @@
     <string name="bypass_rules_download">Загрузить / обновить RU IPv4 (IPdeny)</string>
     <string name="bypass_rules_remove">Удалить</string>
     <string name="bypass_rules_stop">Остановите соединение для изменения правил.</string>
+    <string name="notif_channel_dns">Резервный DNS</string>
+    <string name="notif_dns_title">Переход на резервный DNS</string>
+    <string name="notif_dns_carrier_missing">DNS текущей сети не найден. Используется резервный DNS.</string>
+    <string name="notif_dns_carrier_doh">DNS текущей сети недоступен. Перешли на DoH.</string>
+    <string name="notif_dns_doh">Обычный DNS недоступен. Перешли на DoH.</string>
+    <string name="log_dns_carrier_selected">DNS текущей физической сети: %1$s</string>
 </resources>

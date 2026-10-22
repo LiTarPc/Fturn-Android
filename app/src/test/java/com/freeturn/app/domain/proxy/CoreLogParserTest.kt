@@ -135,6 +135,25 @@ class CoreLogParserTest {
         assertTrue(CoreLogParser.parse("log mentions panic: in the middle").none { it is CoreLogEvent.FatalStartup })
     }
 
+    @Test fun `actual sticky DNS failover is detected in both core log formats`() {
+        for (prefix in listOf("", "2026/10/22 12:00:00 [WARN] ")) {
+            assertEquals(listOf<CoreLogEvent>(CoreLogEvent.DnsFallbackToDoh),
+                CoreLogParser.parse(prefix + "[DNS] UDP/53 unreachable; sticky-switching to DoH"))
+        }
+    }
+
+    @Test fun `working carrier UDP DNS produces no failover alert`() {
+        assertFalse(CoreLogParser.parse("[DNS] UDP/53 probe OK, using UDP")
+            .contains(CoreLogEvent.DnsFallbackToDoh))
+    }
+
+    @Test fun `intentional DoH and unrelated failures do not claim a DNS transition`() {
+        for (line in listOf("[DNS] mode=doh", "[Captcha] request to DoH example failed",
+            "[DNS] retrying UDP/53")) {
+            assertFalse(CoreLogParser.parse(line).contains(CoreLogEvent.DnsFallbackToDoh))
+        }
+    }
+
     // --- Quota ---
 
     @Test

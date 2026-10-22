@@ -105,12 +105,7 @@ class NetworkHandoverMonitor(
      * Пусто, если сеть недоступна или у linkProperties нет DNS (норма на эмуляторе).
      */
     fun activeDnsServers(): String = try {
-        val net = cm.activeNetwork ?: return ""
-        val lp = cm.getLinkProperties(net) ?: return ""
-        lp.dnsServers
-            .mapNotNull { it.hostAddress }
-            .filter { it.isNotBlank() }
-            .joinToString(",")
+        PhysicalNetworks.select(cm)?.dnsServers.orEmpty().joinToString(",")
     } catch (_: Exception) {
         ""
     }
@@ -121,27 +116,6 @@ class NetworkHandoverMonitor(
      * ложная "смена сети". link-адреса не в ключе - ротация IPv6/DHCP идёт на той же
      * сети; реальный хендовер меняет транспорт/iface.
      */
-    private fun physicalNetworkKey(cm: ConnectivityManager): String? {
-        // allNetworks deprecated с API 31, но это единственный синхронный способ снять
-        // полный снимок текущих сетей внутри колбэка. Подавляем осознанно.
-        @Suppress("DEPRECATION")
-        return cm.allNetworks.mapNotNull { network ->
-            val caps = cm.getNetworkCapabilities(network) ?: return@mapNotNull null
-            if (caps.hasTransport(NetworkCapabilities.TRANSPORT_VPN) ||
-                !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ||
-                !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)) {
-                return@mapNotNull null
-            }
-            val (priority, transport) = when {
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> 0 to "ethernet"
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> 1 to "wifi"
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> 2 to "cellular"
-                caps.hasTransport(NetworkCapabilities.TRANSPORT_BLUETOOTH) -> 3 to "bluetooth"
-                else -> return@mapNotNull null
-            }
-            val iface = cm.getLinkProperties(network)?.interfaceName.orEmpty()
-            // tie-break по iface - детерминированный выбор при равном приоритете.
-            Triple(priority, iface, "$transport|$iface")
-        }.minWithOrNull(compareBy({ it.first }, { it.second }))?.third
-    }
+    private fun physicalNetworkKey(cm: ConnectivityManager): String? =
+        PhysicalNetworks.select(cm)?.let { "${it.transportRank}|${it.interfaceName}" }
 }

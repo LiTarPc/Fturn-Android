@@ -2,6 +2,7 @@ package com.freeturn.app.service
 import com.freeturn.app.domain.proxy.ProxyServiceState
 
 import android.app.Notification
+import android.app.ActivityManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -9,6 +10,11 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
+import android.widget.Toast
+import com.freeturn.app.domain.proxy.DnsFallback
+import com.freeturn.app.domain.proxy.DnsFallbackAlerts
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.freeturn.app.R
@@ -24,8 +30,10 @@ class ProxyNotifier(private val service: Service) {
     companion object {
         const val NOTIF_ID_FG = 1
         private const val NOTIF_ID_CAPTCHA = 2
+        private const val NOTIF_ID_DNS = 3
         private const val CHANNEL_PROXY = "ProxyChannel"
         private const val CHANNEL_CAPTCHA = "CaptchaChannel"
+        private const val CHANNEL_DNS = "DnsFallbackChannel"
     }
 
     private val openAppIntent: PendingIntent? by lazy {
@@ -33,6 +41,9 @@ class ProxyNotifier(private val service: Service) {
             PendingIntent.getActivity(service, 0, it, PendingIntent.FLAG_IMMUTABLE)
         }
     }
+
+    private val dnsAlerts = DnsFallbackAlerts()
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private var baseStatus = ""
     private var speedText = ""
@@ -55,6 +66,10 @@ class ProxyNotifier(private val service: Service) {
                 service.getString(R.string.notif_channel_captcha),
                 NotificationManager.IMPORTANCE_HIGH
             )
+        )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_DNS, service.getString(R.string.notif_channel_dns),
+                NotificationManager.IMPORTANCE_HIGH).apply { setSound(null, null) }
         )
     }
 
@@ -161,4 +176,41 @@ class ProxyNotifier(private val service: Service) {
         NotificationManagerCompat.from(service).cancel(NOTIF_ID_CAPTCHA)
         captchaActive = false
     }
+    fun resetDnsAlerts() {
+        dnsAlerts.reset()
+        cancelDnsAlert()
+    }
+
+    fun showDnsFallback(fallback: DnsFallback, carrierSelected: Boolean = false) {
+        if (!dnsAlerts.mark(fallback)) return
+        val text = service.getString(when (fallback) {
+            DnsFallback.CARRIER_UNAVAILABLE -> R.string.notif_dns_carrier_missing
+            DnsFallback.DOH -> if (carrierSelected) R.string.notif_dns_carrier_doh else R.string.notif_dns_doh
+        })
+        val process = ActivityManager.RunningAppProcessInfo()
+        ActivityManager.getMyMemoryState(process)
+        val foreground = process.importance <= ActivityManager.RunningAppProcessInfo.IMPORTANCE_FOREGROUND
+        if (foreground) mainHandler.post { Toast.makeText(service, text, Toast.LENGTH_LONG).show() }
+        val notification = NotificationCompat.Builder(service, CHANNEL_DNS)
+            .setContentTitle(service.getString(R.string.notif_dns_title))
+            .setContentText(text)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(text))
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_STATUS)
+            .setSilent(foreground)
+            .setAutoCancel(true)
+            .setContentIntent(openAppIntent)
+            .build()
+        try {
+            NotificationManagerCompat.from(service).notify(NOTIF_ID_DNS, notification)
+        } catch (_: SecurityException) {
+            // The foreground toast remains visible when notification permission is denied.
+        }
+    }
+
+    fun cancelDnsAlert() {
+        NotificationManagerCompat.from(service).cancel(NOTIF_ID_DNS)
+    }
+
 }

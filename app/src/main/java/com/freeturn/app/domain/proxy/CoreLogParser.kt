@@ -9,6 +9,7 @@ sealed interface CoreLogEvent {
     data class TcpActive(val active: Int) : CoreLogEvent
     data class FatalStartup(val line: String) : CoreLogEvent
     data object QuotaError : CoreLogEvent
+    data object DnsFallbackToDoh : CoreLogEvent
 }
 
 object CoreLogParser {
@@ -73,6 +74,9 @@ object CoreLogParser {
 
         if (lower.contains("quota")) events += CoreLogEvent.QuotaError
 
+        if (line.contains("[DNS] UDP/53 unreachable; sticky-switching to DoH")) {
+            events += CoreLogEvent.DnsFallbackToDoh
+        }
         return events
     }
 }

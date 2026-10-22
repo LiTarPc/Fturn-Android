@@ -111,6 +111,7 @@ class ProxyService : Service() {
         ProxyServiceState.resetTraffic()
         networkMonitor.unregister()
         notifier.cancelCaptcha()
+        notifier.cancelDnsAlert()
         ProxyServiceState.addLog("Остановка")
         controller.destroyProcessAndTunnel()
         serviceScope.cancel()
