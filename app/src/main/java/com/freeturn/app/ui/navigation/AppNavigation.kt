@@ -22,6 +22,7 @@ import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteItem
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffold
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteScaffoldDefaults
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,6 +52,10 @@ import com.freeturn.app.ui.screens.share.ImportSheet
 import com.freeturn.app.ui.theme.LocalReducedMotion
 import com.freeturn.app.viewmodel.proxy.ProxyViewModel
 import com.freeturn.app.viewmodel.server.ServerViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.freeturn.app.ui.screens.home.UpdateDialogs
 import com.freeturn.app.viewmodel.settings.SettingsViewModel
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -75,6 +80,16 @@ fun AppNavigation(
     if (!isInitialized) return
 
     val proxyState by proxyViewModel.proxyState.collectAsStateWithLifecycle()
+    val updateState by settingsViewModel.updateState.collectAsStateWithLifecycle()
+    val suppressUpdatePrompt by settingsViewModel.suppressUpdatePrompt.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, settingsViewModel) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) settingsViewModel.onUpdateInstallerResumed()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val initialTgSubscribeShown by settingsViewModel.initialTgSubscribeShown.collectAsStateWithLifecycle()
     val initialSuppressTgPrompt by settingsViewModel.initialSuppressTgPrompt.collectAsStateWithLifecycle()
     val nerdMode by settingsViewModel.nerdMode.collectAsStateWithLifecycle()
@@ -154,6 +169,15 @@ fun AppNavigation(
 
     ImportSheet(
         onImported = { navController.navigateToTab(HomeGraph) }
+    )
+
+    // Download completion and errors must remain visible from every tab.
+    UpdateDialogs(
+        updateState = updateState,
+        suppressAvailablePrompt = suppressUpdatePrompt,
+        onDownload = settingsViewModel::downloadUpdate,
+        onInstall = settingsViewModel::installUpdate,
+        onReset = settingsViewModel::resetUpdateState
     )
 
     // Диалог капчи поверх любого экрана. Оборачиваем в key(sessionId), чтобы для

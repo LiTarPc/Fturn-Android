@@ -302,6 +302,8 @@ private fun UpdateCard(
         is UpdateState.Checking -> stringResource(R.string.update_checking)
         is UpdateState.Available -> stringResource(R.string.update_available, state.version)
         is UpdateState.Downloading -> stringResource(R.string.update_downloading, state.progress) + if (state.viaVpn) " • VPN" else ""
+        is UpdateState.Verifying -> stringResource(R.string.update_verifying)
+        is UpdateState.InstallPermissionRequired -> stringResource(R.string.update_install_permission_title)
         is UpdateState.ReadyToInstall -> stringResource(R.string.update_ready_desc_short)
         is UpdateState.NoUpdate -> stringResource(R.string.update_no_update)
         is UpdateState.Error -> stringResource(R.string.update_error, state.message)
@@ -341,21 +343,21 @@ private fun UpdateCard(
             } else {
                 val action = when (state) {
                     is UpdateState.Available -> onDownload
-                    is UpdateState.ReadyToInstall -> onInstall
+                    is UpdateState.ReadyToInstall, is UpdateState.InstallPermissionRequired -> onInstall
                     else -> onCheck
                 }
                 FilledTonalButton(
                     onClick = action,
-                    enabled = state !is UpdateState.Checking,
+                    enabled = state !is UpdateState.Checking && state !is UpdateState.Verifying,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    if (state is UpdateState.Checking) {
+                    if (state is UpdateState.Checking || state is UpdateState.Verifying) {
                         LoadingIndicator(modifier = Modifier.size(22.dp))
                     } else {
                         Text(
                             when (state) {
                                 is UpdateState.Available -> stringResource(R.string.update_download)
-                                is UpdateState.ReadyToInstall -> stringResource(R.string.update_install)
+                                is UpdateState.ReadyToInstall, is UpdateState.InstallPermissionRequired -> stringResource(R.string.update_install)
                                 else -> stringResource(R.string.update_check)
                             },
                             maxLines = 1

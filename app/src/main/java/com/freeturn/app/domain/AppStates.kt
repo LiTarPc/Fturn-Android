@@ -71,6 +71,8 @@ sealed class UpdateState {
     data class Available(val version: String) : UpdateState()
     object NoUpdate : UpdateState()
     data class Downloading(val progress: Int, val viaVpn: Boolean = false) : UpdateState()
+    object Verifying : UpdateState()
+    object InstallPermissionRequired : UpdateState()
     object ReadyToInstall : UpdateState()
     data class Error(val message: String) : UpdateState()
 }

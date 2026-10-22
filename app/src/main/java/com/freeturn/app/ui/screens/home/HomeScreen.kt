@@ -74,8 +74,6 @@ fun HomeScreen(
     val trafficSnapshot by proxyViewModel.trafficSnapshot.collectAsStateWithLifecycle()
     val tunnelActive by proxyViewModel.tunnelActive.collectAsStateWithLifecycle()
     val clientConfig by settingsViewModel.clientConfig.collectAsStateWithLifecycle()
-    val updateState by settingsViewModel.updateState.collectAsStateWithLifecycle()
-    val suppressUpdatePrompt by settingsViewModel.suppressUpdatePrompt.collectAsStateWithLifecycle()
     val privacyMode by settingsViewModel.privacyMode.collectAsStateWithLifecycle()
     val nerdMode by settingsViewModel.nerdMode.collectAsStateWithLifecycle()
     val serversSnapshot by settingsViewModel.serversSnapshot.collectAsStateWithLifecycle()
@@ -281,11 +279,5 @@ fun HomeScreen(
         )
     }
 
-    UpdateDialogs(
-        updateState = updateState,
-        suppressAvailablePrompt = suppressUpdatePrompt,
-        onDownload = settingsViewModel::downloadUpdate,
-        onInstall = settingsViewModel::installUpdate,
-        onReset = settingsViewModel::resetUpdateState
-    )
+
 }

@@ -106,7 +106,7 @@ fun AboutScreen(onBack: () -> Unit) {
                         SettingsEntryRow(
                             iconRes = R.drawable.terminal_24px,
                             title = stringResource(R.string.proxy_core),
-                            subtitle = "LiTarPc/fturn-core",
+                            subtitle = "Fturn Core ${stringResource(R.string.freeturn_core_version)}",
                             trailingRes = R.drawable.open_in_new_24px,
                             trailingTint = MaterialTheme.colorScheme.primary,
                             onClick = { open("https://github.com/LiTarPc/fturn-core") }

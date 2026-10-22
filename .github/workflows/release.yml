@@ -9,7 +9,7 @@ on:
       tag_name:
         description: 'Existing release tag (e.g. v4.0.0)'
         required: true
-        default: 'v4.2.0'
+        default: 'v4.2.1'
 
 permissions:
   contents: write
@@ -115,6 +115,12 @@ jobs:
                   assert required in names, f'Missing bundled component: {required}'
               assert not any(name.endswith(('/libwg-go.so', '/libwg-quick.so', '/libwg.so')) for name in names)
               assert archive.read('assets/rules/ru-aggregated.zone').strip(), 'RU rules must not be empty'
+              core_pin = dict(line.split('=', 1) for line in Path('freeturn-core.properties').read_text().splitlines() if line and not line.startswith('#'))
+              core_version = core_pin['version']
+              assert Path('app/src/main/jniLibs/.core-version').read_text().strip() == 'v' + core_version
+              core_digest = hashlib.sha256(archive.read('lib/arm64-v8a/libfreeturn.so')).hexdigest()
+              assert core_digest == hashlib.sha256(Path('app/src/main/jniLibs/arm64-v8a/libfreeturn.so').read_bytes()).hexdigest()
+              core = {'version': core_version, 'repo': core_pin['repo'], 'binarySha256': core_digest}
               raw = json.loads(archive.read('assets/raw-core.json'))
               pinned = json.loads(Path('third_party/raw-core/SOURCE.json').read_text())
               assert raw['version'] == pinned['coreVersion'] == '1.0.0'
@@ -123,6 +129,7 @@ jobs:
           Path('dist').mkdir(exist_ok=True)
           shutil.copy2(apk, f'dist/fturn-{version}-arm64-v8a.apk')
           shutil.make_archive('dist/fturn-raw-core-1.0.0-android-source', 'gztar', 'third_party', 'raw-core')
+          Path(f'dist/freeturn-core-{core_version}.json').write_text(json.dumps(core, indent=2) + '\n')
           Path('dist/raw-core-1.0.0.json').write_text(json.dumps(raw, indent=2) + '\n')
           shutil.copy2('third_party/raw-core-NOTICES.txt', 'dist/RAW-CORE-THIRD-PARTY-NOTICES.txt')
           PY

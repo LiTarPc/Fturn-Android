@@ -77,6 +77,29 @@ internal fun UpdateDialogs(
             )
         }
 
+        is UpdateState.Verifying -> {
+            AlertDialog(
+                onDismissRequest = {},
+                title = { Text(stringResource(R.string.update_verifying)) },
+                text = { Text(stringResource(R.string.update_verifying_desc)) },
+                confirmButton = {}
+            )
+        }
+
+        is UpdateState.InstallPermissionRequired -> {
+            AlertDialog(
+                onDismissRequest = onReset,
+                title = { Text(stringResource(R.string.update_install_permission_title)) },
+                text = { Text(stringResource(R.string.update_install_permission_desc)) },
+                confirmButton = {
+                    TextButton(onClick = onInstall) { Text(stringResource(R.string.update_open_settings)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = onReset) { Text(stringResource(R.string.cancel)) }
+                }
+            )
+        }
+
         is UpdateState.ReadyToInstall -> {
             AlertDialog(
                 onDismissRequest = onReset,
@@ -92,6 +115,17 @@ internal fun UpdateDialogs(
                     TextButton(onClick = onReset) {
                         Text(stringResource(R.string.cancel))
                     }
+                }
+            )
+        }
+
+        is UpdateState.Error -> {
+            AlertDialog(
+                onDismissRequest = onReset,
+                title = { Text(stringResource(R.string.update_error_title)) },
+                text = { Text(state.message) },
+                confirmButton = {
+                    TextButton(onClick = onReset) { Text(stringResource(android.R.string.ok)) }
                 }
             )
         }
