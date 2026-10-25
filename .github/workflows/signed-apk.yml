@@ -1,0 +1,149 @@
+name: Signed APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/settings-audit-4.2.6']
+    paths:
+      - '.github/workflows/signed-apk.yml'
+      - 'app/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: '17'
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  RELEASE_TAG: v4.2.6
+  RELEASE_CERT_SHA256: 95a28637777d471e901c59cd4c1fb5ebbe6433d7128a79855106d626e3e2a85f
+
+jobs:
+  build:
+    name: Test and sign Fturn APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.5'
+          cache: false
+
+      - name: Build sing-box Android library
+        run: |
+          sdkmanager 'ndk;28.2.13676358'
+          bash scripts/build-libbox.sh
+
+      - name: RAW bridge tests
+        working-directory: third_party/raw-core
+        env:
+          GOTOOLCHAIN: go1.26.6
+          GOTELEMETRY: 'off'
+        run: go test -mod=readonly ./internal/rawsocks
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Setup release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          for name in ['KEYSTORE_BASE64', 'KEYSTORE_PASSWORD', 'KEY_ALIAS', 'KEY_PASSWORD']:
+              if not os.environ.get(name):
+                  raise SystemExit(f'{name} is required for a signed release')
+          key = Path(os.environ['RUNNER_TEMP']) / 'release.jks'
+          key.write_bytes(base64.b64decode(''.join(os.environ['KEYSTORE_BASE64'].split()), validate=True))
+          def escaped(value):
+              return ''.join('\\u%04x' % ord(c) if ord(c) > 126 or c in '\\ \r\n\t' else c for c in value)
+          props = {'storeFile': str(key), 'storePassword': os.environ['KEYSTORE_PASSWORD'],
+                   'keyAlias': os.environ['KEY_ALIAS'], 'keyPassword': os.environ['KEY_PASSWORD']}
+          Path('keystore.properties').write_text(''.join(f'{k}={escaped(v)}\n' for k, v in props.items()))
+          PY
+
+      - name: Test and assemble release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease -PrawBuild=false
+
+      - name: Verify release and collect artifacts
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, shutil, zipfile
+          from pathlib import Path
+          version = os.environ['RELEASE_TAG'].removeprefix('v')
+          metadata = json.loads(Path('app/build/outputs/apk/release/output-metadata.json').read_text())
+          element = metadata['elements'][0]
+          assert metadata['applicationId'] == 'com.litar.freeturn'
+          assert element['versionName'] == version, 'Tag and APK version must match'
+          major, minor, patch = map(int, version.split('.'))
+          assert element['versionCode'] == major * 10000 + minor * 100 + patch
+          apk = Path('app/build/outputs/apk/release') / element['outputFile']
+          with zipfile.ZipFile(apk) as archive:
+              names = archive.namelist()
+              for required in ['assets/rules/ru-aggregated.zone', 'lib/arm64-v8a/libbox.so', 'lib/arm64-v8a/libfreeturn.so', 'lib/arm64-v8a/libfturnraw.so', 'assets/raw-core.json']:
+                  assert required in names, f'Missing bundled component: {required}'
+              assert not any(name.endswith(('/libwg-go.so', '/libwg-quick.so', '/libwg.so')) for name in names)
+              assert archive.read('assets/rules/ru-aggregated.zone').strip(), 'RU rules must not be empty'
+              core_pin = dict(line.split('=', 1) for line in Path('freeturn-core.properties').read_text().splitlines() if line and not line.startswith('#'))
+              core_version = core_pin['version']
+              assert Path('app/src/main/jniLibs/.core-version').read_text().strip() == 'v' + core_version
+              core_digest = hashlib.sha256(archive.read('lib/arm64-v8a/libfreeturn.so')).hexdigest()
+              assert core_digest == hashlib.sha256(Path('app/src/main/jniLibs/arm64-v8a/libfreeturn.so').read_bytes()).hexdigest()
+              core = {'version': core_version, 'repo': core_pin['repo'], 'binarySha256': core_digest}
+              raw = json.loads(archive.read('assets/raw-core.json'))
+              pinned = json.loads(Path('third_party/raw-core/SOURCE.json').read_text())
+              assert raw['version'] == pinned['coreVersion'] == '1.0.0'
+              assert raw['sourceSnapshotSha256'] == pinned['sourceSnapshotSha256']
+              assert hashlib.sha256(archive.read('lib/arm64-v8a/libfturnraw.so')).hexdigest() == raw['binarySha256']
+          Path('dist').mkdir(exist_ok=True)
+          shutil.copy2(apk, f'dist/fturn-{version}-arm64-v8a.apk')
+          shutil.make_archive('dist/fturn-raw-core-1.0.0-android-source', 'gztar', 'third_party', 'raw-core')
+          Path(f'dist/freeturn-core-{core_version}.json').write_text(json.dumps(core, indent=2) + '\n')
+          Path('dist/raw-core-1.0.0.json').write_text(json.dumps(raw, indent=2) + '\n')
+          shutil.copy2('third_party/raw-core-NOTICES.txt', 'dist/RAW-CORE-THIRD-PARTY-NOTICES.txt')
+          PY
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "dist/fturn-${RELEASE_TAG#v}-arm64-v8a.apk" | tee "$RUNNER_TEMP/signature.txt"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          marker = 'certificate SHA-256 digest:'
+          output = (Path(os.environ['RUNNER_TEMP']) / 'signature.txt').read_text()
+          certificates = {line.split(marker, 1)[1].strip().lower()
+                          for line in output.splitlines() if marker in line}
+          assert certificates == {os.environ['RELEASE_CERT_SHA256'].lower()}, 'Unexpected release signing certificate'
+          PY
+          (cd dist && sha256sum *.apk *.tar.gz *.json *NOTICES.txt > SHA256SUMS.txt)
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: fturn-signed-4.2.6
+          path: dist/*
+          retention-days: 7
+
+      - name: Remove signing files
+        if: always()
+        run: rm -f keystore.properties "$RUNNER_TEMP/release.jks"
