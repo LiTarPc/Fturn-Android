@@ -19,9 +19,21 @@ val keystoreProps = Properties().apply {
 val freeturnCoreProps = Properties().apply {
     rootProject.file("freeturn-core.properties").inputStream().use { load(it) }
 }
-val freeturnCoreVersion = providers.gradleProperty("freeturnCore")
-    .orElse(providers.environmentVariable("FREETURN_CORE_VERSION"))
-    .orElse(freeturnCoreProps.getProperty("version")).get()
+val freeturnCoreVersion = freeturnCoreProps.getProperty("version")
+
+val buildFreeturnCore = tasks.register<Exec>("buildFreeturnCore") {
+    group = "build"
+    description = "Verify and build the pinned TURN Android core"
+    inputs.dir(rootProject.file(freeturnCoreProps.getProperty("source"))).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(rootProject.file("freeturn-core.properties"), rootProject.file("scripts/build-freeturn-core.py"))
+    outputs.file(layout.projectDirectory.file("src/main/jniLibs/arm64-v8a/libfreeturn.so"))
+    outputs.file(layout.projectDirectory.file("src/main/jniLibs/.core-version"))
+    outputs.file(layout.buildDirectory.file("generated/freeturnCoreAssets/freeturn-core.json"))
+    workingDir(rootProject.projectDir)
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+        rootProject.file("scripts/build-freeturn-core.py").absolutePath)
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(buildFreeturnCore) }
 
 // The RAW version is independent of the Android app and the legacy TURN core.
 val rawCoreProps = Properties().apply {
@@ -56,7 +68,7 @@ android {
         // Native VPN integration targets Android API 24 or newer.
         minSdk = 24
         targetSdk = 37
-        versionName = "4.2.6" // x-release-please-version
+        versionName = "4.3.0" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()
@@ -64,6 +76,7 @@ android {
     }
 
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/rawCoreAssets").get().asFile)
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/freeturnCoreAssets").get().asFile)
 
     splits {
         abi {
@@ -338,7 +351,7 @@ val fetchFreeturnCore = tasks.register<FetchFreeturnCore>("fetchFreeturnCore") {
 
 // В debug ядро подкладывается руками, поэтому по умолчанию качаем только на release.
 // matching, а не named - таски вариантов AGP создаёт позже конфигурации скрипта.
-val coreFetchHook = when (providers.gradleProperty("coreFetch").orNull ?: "release") {
+val coreFetchHook = when (providers.gradleProperty("coreFetch").orNull ?: "none") {
     "none" -> null
     "all" -> "preBuild"
     else -> "preReleaseBuild"

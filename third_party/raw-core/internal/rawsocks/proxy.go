@@ -278,11 +278,22 @@ func (d *Device) handle(c net.Conn) {
 	}
 	c.SetDeadline(time.Time{})
 	done := make(chan struct{})
-	go func() { io.Copy(target, c); target.CloseWrite(); close(done) }()
-	io.Copy(c, target)
+	go func() {
+		_, err := io.Copy(target, c)
+		target.CloseWrite()
+		if err != nil {
+			c.Close()
+			target.Close()
+		}
+		close(done)
+	}()
+	_, err := io.Copy(c, target)
 	c.(*net.TCPConn).CloseWrite()
-	c.Close()
-	target.Close()
+	if err != nil {
+		c.Close()
+		target.Close()
+	}
+	// EOF closes only this direction. The peer may still be receiving upload.
 	<-done
 }
 func (d *Device) resolve(ctx context.Context, host string) (netip.Addr, error) {
@@ -318,7 +329,9 @@ func (d *Device) resolve(ctx context.Context, host string) (netip.Addr, error) {
 	}
 	return netip.Addr{}, errors.New("no IPv4 DNS answer")
 }
-func (d *Device) associate(c net.Conn) {
+func (d *Device) associate(c net.Conn) { d.associateWithTimeout(c, 2*time.Minute) }
+
+func (d *Device) associateWithTimeout(c net.Conn, idle time.Duration) {
 	relay, e := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	if e != nil {
 		reply(c, 1, 0)
@@ -339,15 +352,22 @@ func (d *Device) associate(c net.Conn) {
 		header []byte
 	}
 	flows := map[string]*flow{}
+	var flowMu sync.Mutex
+	var readers sync.WaitGroup
 	defer func() {
+		cancel()
+		relay.Close()
+		c.Close()
+		flowMu.Lock()
 		for _, f := range flows {
 			f.conn.Close()
 		}
+		flowMu.Unlock()
+		readers.Wait()
 	}()
 	var peer *net.UDPAddr
 	b := make([]byte, 65535)
 	for {
-		relay.SetReadDeadline(time.Now().Add(2 * time.Minute))
 		n, from, e := relay.ReadFromUDP(b)
 		if e != nil {
 			return
@@ -368,9 +388,12 @@ func (d *Device) associate(c net.Conn) {
 		}
 		offset := n - len(reader)
 		key := net.JoinHostPort(host, strconv.Itoa(int(port)))
+		flowMu.Lock()
 		f := flows[key]
+		full := len(flows) >= 128
+		flowMu.Unlock()
 		if f == nil {
-			if len(flows) >= 128 {
+			if full {
 				continue
 			}
 			lookupCtx, lookupCancel := context.WithTimeout(ctx, 10*time.Second)
@@ -387,11 +410,23 @@ func (d *Device) associate(c net.Conn) {
 			addr := ip.As4()
 			head := []byte{0, 0, 0, 1, addr[0], addr[1], addr[2], addr[3], byte(port >> 8), byte(port)}
 			f = &flow{conn, head}
+			flowMu.Lock()
 			flows[key] = f
-			go func(f *flow, peer net.UDPAddr) {
+			flowMu.Unlock()
+			readers.Add(1)
+			go func(key string, f *flow, peer net.UDPAddr) {
+				defer readers.Done()
+				defer func() {
+					flowMu.Lock()
+					if flows[key] == f {
+						delete(flows, key)
+					}
+					flowMu.Unlock()
+					f.conn.Close()
+				}()
 				out := make([]byte, 65535)
 				for {
-					f.conn.SetReadDeadline(time.Now().Add(2 * time.Minute))
+					f.conn.SetReadDeadline(time.Now().Add(idle))
 					n, e := f.conn.Read(out)
 					if e != nil {
 						return
@@ -400,10 +435,19 @@ func (d *Device) associate(c net.Conn) {
 						return
 					}
 				}
-			}(f, *peer)
+			}(key, f, *peer)
 		}
+		// Outbound traffic also keeps a one-way UDP flow alive.
+		f.conn.SetReadDeadline(time.Now().Add(idle))
 		f.conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
-		f.conn.Write(b[offset:n])
+		if _, err := f.conn.Write(b[offset:n]); err != nil {
+			flowMu.Lock()
+			if flows[key] == f {
+				delete(flows, key)
+			}
+			flowMu.Unlock()
+			f.conn.Close()
+		}
 	}
 }
 

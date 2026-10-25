@@ -47,7 +47,6 @@ type Client struct {
 
 	lockout           atomic.Int64
 	captchaPause      atomic.Int64
-	rateLimitStreak   atomic.Uint32
 	cooldown          cooldownStore
 	networkPauseUntil atomic.Int64
 
@@ -277,7 +276,6 @@ func (c *Client) fetch(ctx context.Context, link string, streamID int) (string, 
 
 		user, pass, addrs, err := c.tokenChain(ctx, link, streamID, creds, jar)
 		if err == nil {
-			c.rateLimitStreak.Store(0)
 			c.log.Debugf("[STREAM %d] [VK Auth] Success with client_id=%s", streamID, creds.ClientID)
 			return user, pass, addrs, nil
 		}
@@ -286,13 +284,6 @@ func (c *Client) fetch(ctx context.Context, link string, streamID int) (string, 
 			return "", "", nil, err
 		}
 		c.log.Warnf("[STREAM %d] [VK Auth] Failed with client_id=%s: %v", streamID, creds.ClientID, err)
-		if errors.Is(err, captcha.ErrRateLimited) {
-			// solveCaptcha may already have recorded this refusal.
-			if errors.Is(err, ErrCaptchaWaitRequired) || errors.Is(err, ErrFatalCaptchaNoStreams) {
-				return "", "", nil, err
-			}
-			return "", "", nil, c.rateLimited(streamID, err)
-		}
 		if isNetworkTimeout(err) {
 			c.networkPauseUntil.Store(time.Now().Add(30 * time.Second).Unix())
 			c.log.Warnf("[STREAM %d] [VK Auth] Network timeout; pausing VK requests for 30 seconds", streamID)
@@ -326,6 +317,10 @@ func (c *Client) fetch(ctx context.Context, link string, streamID int) (string, 
 			errors.Is(err, ErrInvalidJoinLink) || errors.Is(err, ErrAnonymousBlocked) ||
 			errors.Is(err, ErrCallFull) || errors.Is(err, captcha.ErrUnavailable) {
 			return "", "", nil, err
+		}
+		es := err.Error()
+		if strings.Contains(es, "error_code:29") || strings.Contains(es, "error_code: 29") || strings.Contains(es, "Rate limit") {
+			c.log.Warnf("[STREAM %d] [VK Auth] Rate limit detected, trying next credentials", streamID)
 		}
 	}
 	return "", "", nil, fmt.Errorf("all VK credentials failed: %w", lastErr)

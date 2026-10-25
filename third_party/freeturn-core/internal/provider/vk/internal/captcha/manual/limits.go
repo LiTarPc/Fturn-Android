@@ -4,12 +4,13 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
 	"sync"
 
-	"github.com/samosvalishe/free-turn-proxy/internal/provider/vk/internal/captcha"
+	"github.com/LiTarPc/fturn-core/internal/provider/vk/internal/captcha"
 )
 
 // limitTransport shares one stop signal between both proxy routes.
@@ -33,9 +34,10 @@ func (t *limitTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 	var refusal error
 	source := captcha.SafeURL(req.URL.String())
-	if resp.StatusCode == http.StatusTooManyRequests {
-		refusal = captcha.NewRateLimitError(source+" HTTP 429", resp.Header.Get("Retry-After"))
-	} else if strings.Contains(req.URL.Path, "captchaNotRobot.") {
+	if err := captcha.ResponseError(source, resp.StatusCode, resp.Header.Get("Retry-After"), nil); err != nil {
+		refusal = err
+	}
+	if refusal != nil || strings.Contains(req.URL.Path, "captchaNotRobot.") {
 		body, readErr := io.ReadAll(resp.Body)
 		closeErr := resp.Body.Close()
 		resp.Body = io.NopCloser(bytes.NewReader(body))
@@ -56,9 +58,15 @@ func (t *limitTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 				}
 			}
 		}
+		if refusal != nil {
+			refusal = captcha.WithResponseBody(refusal, payload)
+		}
 		var raw map[string]any
-		if json.Unmarshal(payload, &raw) == nil && captcha.LimitedResponse(raw) {
-			refusal = captcha.NewRateLimitError(source+" API limit", resp.Header.Get("Retry-After"))
+		if json.Unmarshal(payload, &raw) == nil {
+			err := captcha.ResponseError(source, resp.StatusCode, resp.Header.Get("Retry-After"), raw)
+			if errors.Is(err, captcha.ErrRateLimited) || errors.Is(err, captcha.ErrUnavailable) {
+				refusal = err
+			}
 		}
 	}
 	if refusal != nil {

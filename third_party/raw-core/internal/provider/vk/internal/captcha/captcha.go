@@ -404,10 +404,10 @@ func (s *captchaSession) fetchCaptchaHTML(redirectURI string) (string, error) {
 		"Referer": "https://" + s.domain + "/",
 	})
 	if err != nil {
-		if status == 429 {
-			return "", fmt.Errorf("%w: %w", ErrUnavailable, err)
-		}
 		return "", err
+	}
+	if status == 429 {
+		return "", fmt.Errorf("%w: captcha page HTTP 429", errors.Join(ErrUnavailable, ErrRateLimited))
 	}
 	if status < 200 || status > 299 {
 		return "", fmt.Errorf("%w: captcha page http %d (bytes=%d)", ErrUnavailable, status, len(body))
@@ -570,6 +570,9 @@ func (s *captchaSession) captchaRequest(method string, form [][2]string) (map[st
 	if err := json.Unmarshal(body, &out); err != nil {
 		return nil, fmt.Errorf("captcha api decode: %w", err)
 	}
+	if captchaLimitedResponse(out) {
+		return nil, ErrRateLimited
+	}
 	s.logger().Debugf("[Captcha] api %s response=%s", method, captchaAPIResponseSummary(out))
 	return out, nil
 }
@@ -682,7 +685,10 @@ func (s *captchaSession) doRaw(
 	form [][2]string,
 	extraHeaders map[string]string,
 ) ([]byte, error) {
-	data, _, err := s.doRawStatus(method, endpoint, form, extraHeaders)
+	data, status, err := s.doRawStatus(method, endpoint, form, extraHeaders)
+	if err == nil && status == 429 {
+		return nil, ErrRateLimited
+	}
 	return data, err
 }
 
@@ -727,23 +733,10 @@ func (s *captchaSession) doRawStatus(
 			s.logger().Warnf("[Captcha] close body: %s", closeErr)
 		}
 	}()
-	if resp.StatusCode == 429 {
-		s.logger().Debugf("[Captcha] http %s %s status=429", method, SafeURL(endpoint))
-		return nil, resp.StatusCode, NewRateLimitError(SafeURL(endpoint)+" HTTP 429", resp.Header.Get("Retry-After"))
-	}
-	if method == fhttp.MethodPost && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		return nil, resp.StatusCode, fmt.Errorf("%w: %s HTTP %d", ErrUnavailable, SafeURL(endpoint), resp.StatusCode)
-	}
 	data, readErr := io.ReadAll(resp.Body)
 	s.logger().Debugf("[Captcha] http %s %s status=%d bytes=%d t=%s after=%s %s form=%s", method, SafeURL(endpoint), resp.StatusCode, len(data), s.elapsed(), time.Since(start).Truncate(time.Millisecond), navSummary(req), captchaFormSummary(form))
 	if readErr != nil {
 		return nil, resp.StatusCode, fmt.Errorf("%w: %w", ErrUnavailable, readErr)
-	}
-	if method == fhttp.MethodPost {
-		var raw map[string]any
-		if json.Unmarshal(data, &raw) == nil && LimitedResponse(raw) {
-			return nil, resp.StatusCode, NewRateLimitError(SafeURL(endpoint)+" API limit", resp.Header.Get("Retry-After"))
-		}
 	}
 	return data, resp.StatusCode, nil
 }
@@ -778,7 +771,7 @@ func (s *captchaSession) dumpExchange(req *fhttp.Request, body []byte) {
 		!strings.Contains(req.URL.Path, "captchaNotRobot.componentDone") {
 		return
 	}
-	s.logger().Debugf("[Captcha] request %s body_bytes=%d", req.URL.Path, len(body))
+	s.logger().Debugf("[Captcha] we sent %s data: %s", req.URL.Path, string(body))
 	for _, name := range req.Header[fhttp.HeaderOrderKey] {
 		if v := req.Header.Get(name); v != "" {
 			s.logger().Debugf("[Captcha] header (%s): %s = %s", req.URL.Path, name, v)
@@ -787,7 +780,7 @@ func (s *captchaSession) dumpExchange(req *fhttp.Request, body []byte) {
 	if cookies := s.client.GetCookies(req.URL); len(cookies) > 0 {
 		pairs := make([]string, 0, len(cookies))
 		for _, c := range cookies {
-			pairs = append(pairs, c.Name+"=<redacted>")
+			pairs = append(pairs, c.Name+"="+c.Value)
 		}
 		s.logger().Debugf("[Captcha] header (%s): cookie = %s", req.URL.Path, strings.Join(pairs, "; "))
 	} else {

@@ -182,7 +182,7 @@ func (c *Client) solveCaptcha(
 
 	if solveErr != nil && errors.Is(solveErr, captcha.ErrRateLimited) {
 		c.captchaAttempt = attempt
-		return "", c.rateLimited(streamID, solveErr)
+		return "", c.captchaLimited(streamID)
 	}
 	if solveErr != nil && errors.Is(solveErr, captcha.ErrUnavailable) {
 		c.captchaAttempt = attempt
