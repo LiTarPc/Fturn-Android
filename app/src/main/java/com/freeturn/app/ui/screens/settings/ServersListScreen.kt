@@ -33,8 +33,6 @@ import com.freeturn.app.ui.components.EmptyServersState
 import com.freeturn.app.ui.components.ServerRow
 import com.freeturn.app.ui.components.SettingsBackButton
 import com.freeturn.app.ui.components.SettingsContentMaxWidth
-import com.freeturn.app.ui.components.SettingsCard
-import com.freeturn.app.ui.components.SettingsSwitchRow
 import com.freeturn.app.ui.components.SettingsGroup
 import com.freeturn.app.ui.components.settingsItemShape
 import com.freeturn.app.ui.util.redact
@@ -50,7 +48,6 @@ fun ServersListScreen(
 ) {
     val snapshot by settingsViewModel.serversSnapshot.collectAsStateWithLifecycle()
     val privacyMode by settingsViewModel.privacyMode.collectAsStateWithLifecycle()
-    val restartServerOnSwitch by settingsViewModel.restartServerOnSwitch.collectAsStateWithLifecycle()
     val nerdMode by settingsViewModel.nerdMode.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -84,15 +81,6 @@ fun ServersListScreen(
                     .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
-                SettingsCard {
-                    SettingsSwitchRow(
-                        title = stringResource(R.string.restart_server_on_switch),
-                        subtitle = stringResource(R.string.restart_server_on_switch_desc),
-                        iconRes = R.drawable.restart_alt_24px,
-                        checked = restartServerOnSwitch,
-                        onCheckedChange = { settingsViewModel.setRestartServerOnSwitch(it) }
-                    )
-                }
                 // Активный сервер закрепляем сверху - быстрый доступ к нему.
                 val ordered = remember(snapshot.list, snapshot.activeId) {
                     snapshot.list.sortedByDescending { it.id == snapshot.activeId }
