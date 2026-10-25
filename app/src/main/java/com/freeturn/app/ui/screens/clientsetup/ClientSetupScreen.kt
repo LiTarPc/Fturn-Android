@@ -147,7 +147,8 @@ fun ClientSetupScreen(
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+        // Embedded screens have no collapsing app bar to consume scroll.
+        modifier = if (embedded) Modifier else Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             if (!embedded) LargeFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.provider_connection_settings)) },
