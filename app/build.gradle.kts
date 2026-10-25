@@ -42,7 +42,7 @@ val buildRawCore = tasks.register<Exec>("buildRawCore") {
 tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(buildRawCore) }
 
 // RAW debug installs have their own Android data and VPN permission.
-val rawBuild = providers.gradleProperty("rawBuild").map { it.toBooleanStrict() }.orElse(true).get()
+val rawBuild = providers.gradleProperty("rawBuild").map { it.toBooleanStrict() }.orElse(false).get()
 
 android {
     namespace = "com.freeturn.app"
@@ -56,7 +56,7 @@ android {
         // Native VPN integration targets Android API 24 or newer.
         minSdk = 24
         targetSdk = 37
-        versionName = "4.2.5" // x-release-please-version
+        versionName = "4.2.6" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()
@@ -107,6 +107,7 @@ android {
             resValue("string", "shortcut_target_package", if (rawBuild) "com.litar.freeturn.raw" else "com.litar.freeturn.debug")
         }
         release {
+            if (providers.gradleProperty("previewBuild").orNull == "true") versionNameSuffix = "-debug"
             resValue("string", "app_name", "Fturn")
             signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true

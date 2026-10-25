@@ -311,8 +311,8 @@
 
     <string name="dynamic_theme_title">Динамическая тема</string>
     <string name="dynamic_theme_desc">Использовать системные цвета (Material You)</string>
-    <string name="privacy_mode_title">Приватный режим</string>
-    <string name="privacy_mode_desc">Скрывает IP и порты</string>
+    <string name="privacy_mode_title">Скрывать адреса серверов</string>
+    <string name="privacy_mode_desc">Скрывать IP и порты на экранах приложения</string>
 
     <!-- Notifications -->
     <string name="notif_proxy_title">Fturn</string>
@@ -368,16 +368,16 @@
     <string name="wireguard_tunnel_name">Имя туннеля</string>
 
     <!-- Split tunneling -->
-    <string name="split_tunnel_title">Раздельное туннелирование</string>
+    <string name="split_tunnel_title">Приложения через VPN</string>
     <string name="split_tunnel_mode_label">Режим</string>
     <string name="split_tunnel_mode_include">Только приложения из списка работают через VPN</string>
     <string name="split_tunnel_mode_exclude">Приложения из списка не работают через VPN</string>
     <string name="split_tunnel_search">Поиск приложений</string>
     <string name="split_tunnel_empty">Приложения не найдены</string>
-    <string name="split_tunnel_off_hint">Включите, чтобы выбрать приложения</string>
-    <string name="split_tunnel_locked">Остановите подключение, чтобы изменить раздельное туннелирование</string>
-    <string name="split_tunnel_status_off">Раздельное туннелирование выключено</string>
-    <string name="split_tunnel_status_on">Раздельное туннелирование включено</string>
+    <string name="split_tunnel_off_hint">Все приложения используют VPN. Выберите другой режим, чтобы настроить список.</string>
+    <string name="split_tunnel_locked">Остановите подключение, чтобы изменить выбор приложений</string>
+    <string name="split_tunnel_status_off">Все приложения через VPN</string>
+    <string name="split_tunnel_status_on">Выбор приложений включён</string>
 
     <!-- Servers sheet -->
     <string name="servers_sheet_title">Серверы</string>
@@ -387,7 +387,7 @@
     <string name="logs_enabled_desc">Вывод ядра и кнопка логов на главном экране</string>
 
     <!-- Продвинутые / отладка -->
-    <string name="settings_advanced">Продвинутые</string>
+    <string name="settings_advanced">Диагностика</string>
     <string name="settings_advanced_desc">Отладка и диагностика</string>
     <string name="nerd_mode">Режим отладки</string>
     <string name="nerd_mode_desc">Открывает отладочную информацию: состояние ядра, журнал сервера и подробные логи</string>
@@ -414,7 +414,7 @@
     <string name="nav_settings">Настройки</string>
     <string name="settings_title">Настройки</string>
     <string name="settings_servers">Серверы</string>
-    <string name="settings_servers_desc">Управление добавленными серверами и их настройками</string>
+    <string name="settings_servers_desc">Профили и параметры подключения</string>
     <string name="settings_empty_servers">Нет добавленных серверов</string>
     <string name="provider_vk_calls">Звонки в мессенджере</string>
     <string name="server_delete_confirm_title">Удалить сервер?</string>
@@ -447,8 +447,8 @@
     <string name="cleanup_kept_foreign_wg">Интерфейс ft-wg0 (создан не приложением)</string>
     <string name="cleanup_kept_wg_tools">Пакет wireguard-tools (установлен не приложением)</string>
     <string name="cleanup_kept_ip_forward">Системная настройка ip_forward</string>
-    <string name="provider_connection_settings">Настройки подключения</string>
-    <string name="provider_connection_settings_desc">Параметры клиента: адрес, потоки, DNS</string>
+    <string name="provider_connection_settings">Транспорт TURN</string>
+    <string name="provider_connection_settings_desc">Адрес, потоки и DNS</string>
     <string name="provider_server_settings">Настройки сервера</string>
     <string name="provider_server_settings_desc">Состояние, обфускация, проброс и управление ядром</string>
     <!-- Живой статус сервера в хабе -->
@@ -475,8 +475,8 @@
     <string name="rename_server_title">Переименовать сервер</string>
     <string name="server_name_label">Имя сервера</string>
     <string name="save">Сохранить</string>
-    <string name="connection_mode_title">Режим подключения</string>
-    <string name="provider_connection_mode_desc">Proxy или VPN (WireGuard / VLESS), импорт конфига</string>
+    <string name="connection_mode_title">Прокси и VPN</string>
+    <string name="provider_connection_mode_desc">Тип туннеля и его конфигурация</string>
     <string name="mode_proxy">Прокси</string>
     <string name="mode_vpn">VPN</string>
     <string name="mode_proxy_desc">Трафик идёт через локальный прокси, без туннеля.</string>
@@ -487,13 +487,13 @@
 
     <!-- Приложение -->
     <string name="settings_app">Приложение</string>
-    <string name="settings_app_desc">Тема, приватность и обновления</string>
+    <string name="settings_app_desc">Оформление, резервные копии и диагностика</string>
     <string name="app_section_interface">Интерфейс</string>
     <string name="app_section_prompts">Подсказки</string>
-    <string name="suppress_update_prompt_title">Не предлагать обновления</string>
-    <string name="suppress_update_prompt_desc">Не показывать диалог с предложением обновиться</string>
-    <string name="suppress_tg_prompt_title">Не предлагать Telegram</string>
-    <string name="suppress_tg_prompt_desc">Не показывать диалог с предложением подписаться на канал</string>
+    <string name="suppress_update_prompt_title">Предлагать обновления</string>
+    <string name="suppress_update_prompt_desc">Показывать предложение установить новую версию</string>
+    <string name="suppress_tg_prompt_title">Предлагать Telegram-канал</string>
+    <string name="suppress_tg_prompt_desc">Показывать приглашение подписаться</string>
     <string name="app_section_updates">Обновления</string>
     <string name="app_section_reset">Сброс</string>
     <string name="app_reset_desc">Удалить все данные приложения</string>
@@ -501,9 +501,9 @@
 
     <!-- Резервная копия (экспорт/восстановление) -->
     <string name="app_section_backup">Резервная копия</string>
-    <string name="backup_export_title">Экспорт настроек</string>
+    <string name="backup_export_title">Создать резервную копию</string>
     <string name="backup_export_desc">Профили и настройки в зашифрованный файл</string>
-    <string name="backup_export_action">Экспортировать</string>
+    <string name="backup_export_action">Создать копию</string>
     <string name="backup_restore_title">Восстановление</string>
     <string name="backup_restore_action">Восстановить</string>
     <string name="backup_password_label">Пароль</string>
@@ -520,8 +520,8 @@
     <string name="backup_restore_bad_file">Неверный формат файла</string>
 
     <!-- О проекте -->
-    <string name="settings_about">О проекте</string>
-    <string name="settings_about_desc">Версия, описание и ссылки</string>
+    <string name="settings_about">О приложении</string>
+    <string name="settings_about_desc">Версия, обновления и ссылки</string>
     <string name="about_description">Fturn проксирует WireGuard и Xray-трафик через публичные TURN-сервера. Открытый исходный код и никакой телеметрии: все настройки хранятся только на вашем устройстве.</string>
     <string name="about_links">Ссылки</string>
     <string name="vless_uri_label">Ссылка VLESS</string>
@@ -539,4 +539,20 @@
     <string name="notif_dns_carrier_doh">DNS текущей сети недоступен. Перешли на DoH.</string>
     <string name="notif_dns_doh">Обычный DNS недоступен. Перешли на DoH.</string>
     <string name="log_dns_carrier_selected">DNS текущей физической сети: %1$s</string>
+    <string name="settings_vpn">VPN</string>
+    <string name="settings_vpn_desc">Приложения, сайты и раздача подключения</string>
+    <string name="vpn_profile_label">Профиль: %1$s</string>
+    <string name="vpn_profile_desc">Правила применяются только к этому профилю.</string>
+    <string name="vpn_global_label">Для всех профилей</string>
+    <string name="vpn_apps_all">Все приложения</string>
+    <string name="vpn_apps_selected">Только выбранные</string>
+    <string name="vpn_apps_except">Все, кроме выбранных</string>
+    <string name="backup_actions_desc">Создать копию или восстановить из файла</string>
+    <string name="connection_parameters">Параметры подключения</string>
+    <string name="journal_level">Журнал приложения</string>
+    <string name="journal_level_desc">Сбор записей меняется сразу, подробность ядра — при следующем подключении.</string>
+    <string name="journal_off">Выключен</string>
+    <string name="journal_normal">Обычный</string>
+    <string name="journal_verbose">Подробный</string>
+    <string name="connection_parameters_desc">Транспорт TURN и конфигурация прокси или VPN</string>
 </resources>

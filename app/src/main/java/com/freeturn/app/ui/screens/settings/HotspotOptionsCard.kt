@@ -26,7 +26,7 @@ fun HotspotOptionsCard(vm: SettingsViewModel) {
     var revealPassword by remember { mutableStateOf(false) }
     val valid = port.toIntOrNull() in 1024..65535 && password.toByteArray(Charsets.UTF_8).size in 8..255
     SettingsCard {
-        SettingsSwitchRow(title = "SOCKS5 Hotspot", subtitle = "Раздача VPN через прокси-порт без root",
+        SettingsSwitchRow(title = "Раздача VPN", subtitle = "Другим устройствам через SOCKS5-прокси",
             checked = enabled, onCheckedChange = { vm.setHotspotProxyEnabled(it) })
         if (enabled) Column(Modifier.fillMaxWidth().padding(Spacing.lg), verticalArrangement = Arrangement.spacedBy(Spacing.md)) {
             Text("Включите точку доступа Android. На другом устройстве укажите SOCKS5: IP телефона в сети раздачи и порт ниже. TCP и UDP; для UDP нужна поддержка SOCKS5 UDP на клиенте.", style = MaterialTheme.typography.bodySmall)

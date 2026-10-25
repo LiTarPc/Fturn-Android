@@ -32,8 +32,9 @@ internal fun ModeDropdown(
     val context = LocalContext.current
     var expanded by remember { mutableStateOf(false) }
     val options = listOf(
-        SplitTunnelMode.INCLUDE to stringResource(R.string.split_tunnel_mode_include),
-        SplitTunnelMode.EXCLUDE to stringResource(R.string.split_tunnel_mode_exclude)
+        SplitTunnelMode.ALL to stringResource(R.string.vpn_apps_all),
+        SplitTunnelMode.INCLUDE to stringResource(R.string.vpn_apps_selected),
+        SplitTunnelMode.EXCLUDE to stringResource(R.string.vpn_apps_except)
     )
     val current = options.firstOrNull { it.first == mode }?.second.orEmpty()
 
@@ -47,7 +48,7 @@ internal fun ModeDropdown(
             onValueChange = {},
             readOnly = true,
             enabled = enabled,
-            minLines = 2,
+            minLines = 1,
             label = { Text(stringResource(R.string.split_tunnel_mode_label)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier

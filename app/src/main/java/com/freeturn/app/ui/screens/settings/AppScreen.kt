@@ -5,9 +5,6 @@
 
 package com.freeturn.app.ui.screens.settings
 
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -37,7 +34,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -53,7 +49,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freeturn.app.R
 import com.freeturn.app.domain.UpdateState
 import com.freeturn.app.data.HapticUtil
-import com.freeturn.app.ui.components.BackupPasswordDialog
 import com.freeturn.app.ui.components.BusyProgressIndicator
 import com.freeturn.app.ui.components.SectionLabel
 import com.freeturn.app.ui.components.SettingsBackButton
@@ -69,43 +64,20 @@ import com.freeturn.app.ui.util.hapticClickable
 import com.freeturn.app.viewmodel.settings.BackupEvent
 import com.freeturn.app.viewmodel.settings.RestoreFailReason
 import com.freeturn.app.viewmodel.settings.SettingsViewModel
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
-/** "Приложение": интерфейсные тоггл-настройки, обновление и сброс. */
+/** "Приложение": оформление, резервные копии, диагностика и сброс. */
 @Suppress("AssignedValueIsNeverRead") // showResetDialog пишется в лямбдах диалога
 @Composable
 fun AppScreen(
     settingsViewModel: SettingsViewModel,
+    onOpenBackup: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onBack: () -> Unit
 ) {
-    val context = LocalContext.current
     val appTheme by settingsViewModel.appTheme.collectAsStateWithLifecycle()
     val privacyMode by settingsViewModel.privacyMode.collectAsStateWithLifecycle()
-    val suppressUpdatePrompt by settingsViewModel.suppressUpdatePrompt.collectAsStateWithLifecycle()
-    val suppressTgPrompt by settingsViewModel.suppressTgPrompt.collectAsStateWithLifecycle()
-    val updateState by settingsViewModel.updateState.collectAsStateWithLifecycle()
-    val appVersion = rememberAppVersion()
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
-    var showExportDialog by rememberSaveable { mutableStateOf(false) }
-    var exportPassword by rememberSaveable { mutableStateOf("") }
-    val snackbarHostState = remember { SnackbarHostState() }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-
-    // SAF: имя выбирает пользователь, пароль уже введён в диалоге выше.
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri: Uri? ->
-        if (uri != null) settingsViewModel.exportBackup(uri, exportPassword)
-    }
-
-    // Снекбар по результату экспорта/импорта.
-    LaunchedEffect(Unit) {
-        settingsViewModel.backupEvents.collect { event ->
-            snackbarHostState.showSnackbar(backupEventMessage(context, event))
-        }
-    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -116,7 +88,6 @@ fun AppScreen(
                 scrollBehavior = scrollBehavior
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
         contentWindowInsets = WindowInsets(0, 0, 0, 0)
     ) { padding ->
         Column(
@@ -169,58 +140,16 @@ fun AppScreen(
                     }
                 }
 
-                SectionLabel(stringResource(R.string.app_section_prompts))
                 SettingsGroup {
                     SettingsGroupItem(0, 2) {
-                        SettingsSwitchRow(
-                            title = stringResource(R.string.suppress_update_prompt_title),
-                            subtitle = stringResource(R.string.suppress_update_prompt_desc),
-                            iconRes = R.drawable.cloud_download_24px,
-                            checked = suppressUpdatePrompt,
-                            onCheckedChange = { settingsViewModel.setSuppressUpdatePrompt(it) }
-                        )
+                        SettingsEntryRow(iconRes = R.drawable.cloud_download_24px,
+                            title = stringResource(R.string.app_section_backup),
+                            subtitle = stringResource(R.string.backup_actions_desc), onClick = onOpenBackup)
                     }
                     SettingsGroupItem(1, 2) {
-                        SettingsSwitchRow(
-                            title = stringResource(R.string.suppress_tg_prompt_title),
-                            subtitle = stringResource(R.string.suppress_tg_prompt_desc),
-                            iconRes = R.drawable.group_off_24px,
-                            checked = suppressTgPrompt,
-                            onCheckedChange = { settingsViewModel.setSuppressTgPrompt(it) }
-                        )
-                    }
-                }
-
-                SectionLabel(stringResource(R.string.app_section_updates))
-                UpdateCard(
-                    state = updateState,
-                    appVersion = appVersion,
-                    onCheck = {
-                        HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
-                        settingsViewModel.checkForUpdate()
-                    },
-                    onDownload = {
-                        HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
-                        settingsViewModel.downloadUpdate()
-                    },
-                    onInstall = {
-                        HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
-                        settingsViewModel.installUpdate()
-                    }
-                )
-
-                SectionLabel(stringResource(R.string.app_section_backup))
-                SettingsGroup {
-                    SettingsGroupItem(0, 1) {
-                        SettingsEntryRow(
-                            iconRes = R.drawable.cloud_download_24px,
-                            title = stringResource(R.string.backup_export_title),
-                            subtitle = stringResource(R.string.backup_export_desc),
-                            onClick = {
-                                HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
-                                showExportDialog = true
-                            }
-                        )
+                        SettingsEntryRow(iconRes = R.drawable.terminal_24px,
+                            title = stringResource(R.string.settings_advanced),
+                            subtitle = stringResource(R.string.nerd_mode), onClick = onOpenDiagnostics)
                     }
                 }
 
@@ -256,20 +185,7 @@ fun AppScreen(
         )
     }
 
-    if (showExportDialog) {
-        BackupPasswordDialog(
-            title = stringResource(R.string.backup_export_title),
-            confirmLabel = stringResource(R.string.backup_export_action),
-            requireConfirmation = true,
-            onConfirm = { password ->
-                exportPassword = password
-                showExportDialog = false
-                val stamp = SimpleDateFormat("yyyyMMdd-HHmm", Locale.US).format(Date())
-                exportLauncher.launch("freeturn-backup-$stamp.ftbackup")
-            },
-            onDismiss = { showExportDialog = false }
-        )
-    }
+
 }
 
 /** Текст снекбара по результату экспорта/восстановления (строки выбирает UI, не ViewModel). */
@@ -290,7 +206,7 @@ internal fun backupEventMessage(context: android.content.Context, event: BackupE
  * во всю ширину - кнопка по состоянию либо прогресс загрузки. В одну строку не влезает на узких экранах.
  */
 @Composable
-private fun UpdateCard(
+internal fun UpdateCard(
     state: UpdateState,
     appVersion: String,
     onCheck: () -> Unit,

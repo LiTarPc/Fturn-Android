@@ -44,6 +44,7 @@ class AppPreferences(context: Context) {
         val SUPPRESS_TG_PROMPT = booleanPreferencesKey("suppress_tg_prompt")
         val BATTERY_PROMPT_SHOWN = booleanPreferencesKey("battery_prompt_shown")
         val RESTART_SERVER_ON_SWITCH = booleanPreferencesKey("restart_server_on_switch")
+        val SERVERS_JSON_RECOVERY = stringPreferencesKey("servers_json_recovery")
         val SERVERS_JSON = stringPreferencesKey("servers_json")
         val ACTIVE_SERVER_ID = stringPreferencesKey("active_server_id")
         val OWN_CLIENT_ID = stringPreferencesKey("own_client_id")
@@ -59,11 +60,19 @@ class AppPreferences(context: Context) {
             .flowOn(Dispatchers.Default)
 
     val serversSnapshot: Flow<ServersSnapshot> = prefFlow { prefs ->
-        ServersSnapshot(
-            list = ServerJson.decodeList(prefs[SERVERS_JSON]),
-            activeId = prefs[ACTIVE_SERVER_ID]?.takeIf { it.isNotBlank() },
-            loaded = true
-        )
+        prefs[SERVERS_JSON] to prefs[ACTIVE_SERVER_ID]
+    }.distinctUntilChanged().map { (json, activeId) ->
+        ServersSnapshot(list = ServerJson.decodeList(json),
+            activeId = activeId?.takeIf { it.isNotBlank() }, loaded = true)
+    }.flowOn(Dispatchers.Default)
+
+    private fun profilesForUpdate(prefs: MutablePreferences): List<Server> {
+        val raw = prefs[SERVERS_JSON]
+        return try { ServerJson.decodeListStrict(raw) } catch (_: Exception) {
+            // Preserve the exact damaged source atomically with any subsequent edit.
+            if (raw != null) prefs[SERVERS_JSON_RECOVERY] = raw
+            ServerJson.decodeList(raw)
+        }
     }
 
     // Производные от serversSnapshot: их читает рантайм (ProxyService, оркестратор,
@@ -130,7 +139,7 @@ class AppPreferences(context: Context) {
     suspend fun updateServer(id: String, transform: (Server) -> Server): Boolean {
         var changed = false
         context.dataStore.edit { prefs ->
-            val list = ServerJson.decodeList(prefs[SERVERS_JSON])
+            val list = profilesForUpdate(prefs)
             val updated = list.map { if (it.id == id) transform(it) else it }
             changed = updated != list
             if (changed) prefs[SERVERS_JSON] = ServerJson.encodeList(updated)
@@ -142,7 +151,7 @@ class AppPreferences(context: Context) {
         var changed = false
         context.dataStore.edit { prefs ->
             val activeId = prefs[ACTIVE_SERVER_ID]?.takeIf { it.isNotBlank() } ?: return@edit
-            val list = ServerJson.decodeList(prefs[SERVERS_JSON])
+            val list = profilesForUpdate(prefs)
             val updated = list.map { if (it.id == activeId) transform(it) else it }
             changed = updated != list
             if (changed) prefs[SERVERS_JSON] = ServerJson.encodeList(updated)
@@ -152,7 +161,7 @@ class AppPreferences(context: Context) {
 
     suspend fun addServer(server: Server, activate: Boolean = false): String {
         context.dataStore.edit { prefs ->
-            val list = ServerJson.decodeList(prefs[SERVERS_JSON])
+            val list = profilesForUpdate(prefs)
             val base = server.name.trim().ifBlank { Server.FALLBACK_NAME }
             val named = server.copy(name = uniqueServerName(base, list))
             prefs[SERVERS_JSON] = ServerJson.encodeList(list + named)
@@ -164,7 +173,7 @@ class AppPreferences(context: Context) {
     suspend fun cloneServer(id: String): String? {
         var newId: String? = null
         context.dataStore.edit { prefs ->
-            val list = ServerJson.decodeList(prefs[SERVERS_JSON])
+            val list = profilesForUpdate(prefs)
             val source = list.firstOrNull { it.id == id } ?: return@edit
             val copy = source.copy(
                 id = UUID.randomUUID().toString(),
@@ -178,7 +187,7 @@ class AppPreferences(context: Context) {
 
     suspend fun renameServer(id: String, name: String) {
         context.dataStore.edit { prefs ->
-            val list = ServerJson.decodeList(prefs[SERVERS_JSON])
+            val list = profilesForUpdate(prefs)
             val target = list.firstOrNull { it.id == id } ?: return@edit
             val unique = uniqueServerName(name.trim().ifBlank { target.name }, list, excludingId = id)
             if (unique == target.name) return@edit
@@ -189,7 +198,7 @@ class AppPreferences(context: Context) {
 
     suspend fun deleteServer(id: String) {
         context.dataStore.edit { prefs ->
-            val list = ServerJson.decodeList(prefs[SERVERS_JSON])
+            val list = profilesForUpdate(prefs)
             val remaining = list.filterNot { it.id == id }
             if (remaining.size == list.size) return@edit
             prefs[SERVERS_JSON] = ServerJson.encodeList(remaining)
@@ -289,7 +298,8 @@ class AppPreferences(context: Context) {
     }
 
     suspend fun exportData(): BackupData {
-        val snap = serversSnapshot.first()
+        val stored = context.dataStore.data.first()
+        val snap = ServersSnapshot(ServerJson.decodeListStrict(stored[SERVERS_JSON]), stored[ACTIVE_SERVER_ID], true)
         return BackupData(
             servers = snap.list,
             activeId = snap.activeId,

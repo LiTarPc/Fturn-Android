@@ -25,6 +25,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -56,6 +57,7 @@ fun ClientSetupScreen(
     serverViewModel: ServerViewModel,
     // null = активный сервер; не-null = конкретный сервер по id (Settings-флоу).
     serverId: String? = null,
+    embedded: Boolean = false,
     onBack: (() -> Unit)? = null
 ) {
     val snapshot by settingsViewModel.serversSnapshot.collectAsStateWithLifecycle()
@@ -116,22 +118,29 @@ fun ClientSetupScreen(
         }
     }
 
-    // Авто-сохранение с дебаунсом 600 мс.
-    LaunchedEffect(
-        fieldsKey, serverAddress, vkLink, threads, streamsPerCred, localPort, magicTurn, customDns
-    ) {
-        if (!fieldsDirty) return@LaunchedEffect
-        delay(600)
-        clientEdit { current ->
-            current.copy(
-                serverAddress = serverAddress.trim(),
-                vkLink        = vkLink.trim(),
-                threads       = threads.roundToInt(),
-                streamsPerCred = streamsPerCred.roundToInt(),
-                localPort     = localPort.trim(),
-                magicTurn     = magicTurn.trim(),
-                customDns     = customDns.trim()
-            )
+    // Capture both the profile id and field values. The ViewModel owns the write,
+    // so leaving the screen cannot cancel the final pending edit.
+    val draft = saved.copy(serverAddress = serverAddress.trim(), vkLink = vkLink.trim(),
+        threads = threads.roundToInt(), streamsPerCred = streamsPerCred.roundToInt(),
+        localPort = localPort.trim(), magicTurn = magicTurn.trim(), customDns = customDns.trim())
+    val saveDraft = {
+        fieldsKey?.let { id ->
+            settingsViewModel.updateServerClient(id) { current ->
+                current.copy(serverAddress = draft.serverAddress, vkLink = draft.vkLink,
+                    threads = draft.threads, streamsPerCred = draft.streamsPerCred,
+                    localPort = draft.localPort, magicTurn = draft.magicTurn, customDns = draft.customDns)
+            }
+        }
+    }
+    val latestSave = remember(fieldsKey) { mutableStateOf(saveDraft) }.apply { value = saveDraft }
+    val latestDirty = remember(fieldsKey) { mutableStateOf(fieldsDirty) }.apply { value = fieldsDirty }
+    DisposableEffect(fieldsKey) {
+        onDispose { if (latestDirty.value) latestSave.value() }
+    }
+    LaunchedEffect(fieldsKey, serverAddress, vkLink, threads, streamsPerCred, localPort, magicTurn, customDns) {
+        if (fieldsDirty) {
+            delay(600)
+            saveDraft()
         }
     }
 
@@ -140,7 +149,7 @@ fun ClientSetupScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeFlexibleTopAppBar(
+            if (!embedded) LargeFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.provider_connection_settings)) },
                 navigationIcon = {
                     if (onBack != null) {
@@ -155,7 +164,7 @@ fun ClientSetupScreen(
                 scrollBehavior = scrollBehavior
             )
         },
-        contentWindowInsets = if (onBack != null) WindowInsets(0, 0, 0, 0) else WindowInsets.navigationBars
+        contentWindowInsets = if (embedded || onBack != null) WindowInsets(0, 0, 0, 0) else WindowInsets.navigationBars
     ) { padding ->
         Column(
             modifier = Modifier

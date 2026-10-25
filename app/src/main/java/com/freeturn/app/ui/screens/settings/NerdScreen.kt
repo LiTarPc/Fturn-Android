@@ -5,6 +5,7 @@
 
 package com.freeturn.app.ui.screens.settings
 
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -45,9 +46,6 @@ import com.freeturn.app.domain.server.ServerStartOptions
 import com.freeturn.app.data.HapticUtil
 import com.freeturn.app.ui.components.SettingsBackButton
 import com.freeturn.app.ui.components.SettingsContentMaxWidth
-import com.freeturn.app.ui.components.SettingsGroup
-import com.freeturn.app.ui.components.SettingsGroupItem
-import com.freeturn.app.ui.components.SettingsSwitchRow
 import com.freeturn.app.ui.util.redact
 import com.freeturn.app.viewmodel.server.ServerHubState
 import com.freeturn.app.viewmodel.server.ServerViewModel
@@ -114,11 +112,8 @@ fun NerdScreen(
                         privacyMode = privacyMode,
                         sshLog = sshLog,
                         logsLoading = logsLoading,
-                        onDebugModeChange = { v ->
-                            settingsViewModel.updateServerClient(serverId) { it.copy(debugMode = v) }
-                        },
-                        onLogsEnabledChange = { v ->
-                            settingsViewModel.updateServerClient(serverId) { it.copy(logsEnabled = v) }
+                        onJournalChange = { enabled, verbose ->
+                            settingsViewModel.updateServerClient(serverId) { it.copy(logsEnabled = enabled, debugMode = verbose) }
                         },
                         onFetchJournal = {
                             HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
@@ -142,31 +137,26 @@ private fun NerdContent(
     privacyMode: Boolean,
     sshLog: List<String>,
     logsLoading: Boolean,
-    onDebugModeChange: (Boolean) -> Unit,
-    onLogsEnabledChange: (Boolean) -> Unit,
+    onJournalChange: (Boolean, Boolean) -> Unit,
     onFetchJournal: () -> Unit,
     onClearLog: () -> Unit
 ) {
     val client = server.client
 
-    // Per-server отладочные флаги. updateServerClient разводит active/inactive и
-    // применяет logsEnabled живьём - отдельные VM-сеттеры не нужны.
-    SettingsGroup {
-        SettingsGroupItem(0, 2) {
-            SettingsSwitchRow(
-                title = stringResource(R.string.debug_mode),
-                subtitle = stringResource(R.string.debug_mode_desc),
-                checked = client.debugMode,
-                onCheckedChange = onDebugModeChange
-            )
-        }
-        SettingsGroupItem(1, 2) {
-            SettingsSwitchRow(
-                title = stringResource(R.string.logs_enabled),
-                subtitle = stringResource(R.string.logs_enabled_desc),
-                checked = client.logsEnabled,
-                onCheckedChange = onLogsEnabledChange
-            )
+    com.freeturn.app.ui.components.SettingsCard {
+        com.freeturn.app.ui.components.SettingsFieldSlot {
+            Text(stringResource(R.string.journal_level), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.journal_level_desc), style = MaterialTheme.typography.bodyMedium)
+            val selected = if (!client.logsEnabled) 0 else if (client.debugMode) 2 else 1
+            listOf(R.string.journal_off, R.string.journal_normal, R.string.journal_verbose).forEachIndexed { index, label ->
+                Row(Modifier.fillMaxWidth().selectable(selected = selected == index,
+                    role = androidx.compose.ui.semantics.Role.RadioButton,
+                    onClick = { onJournalChange(index != 0, if (index == 0) client.debugMode else index == 2) }),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    androidx.compose.material3.RadioButton(selected = selected == index, onClick = null)
+                    Text(stringResource(label), modifier = Modifier.padding(Spacing.md))
+                }
+            }
         }
     }
 

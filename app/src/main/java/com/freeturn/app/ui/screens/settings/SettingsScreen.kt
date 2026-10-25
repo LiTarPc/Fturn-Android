@@ -47,12 +47,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 
-/** Корневой экран настроек (нижнее меню): серверы, приложение, продвинутые, о проекте. */
+/** Корневой экран настроек (нижнее меню): серверы, VPN, приложение, о приложении. */
 @Composable
 fun SettingsScreen(
     onOpenServers: () -> Unit,
     onOpenApp: () -> Unit,
-    onOpenAdvanced: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenBypass: () -> Unit
 ) {
@@ -83,7 +82,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 SettingsGroup {
-                    SettingsGroupItem(0, 5) {
+                    SettingsGroupItem(0, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.database_24px,
                             title = stringResource(R.string.settings_servers),
@@ -91,15 +90,15 @@ fun SettingsScreen(
                             onClick = onOpenServers
                         )
                     }
-                    SettingsGroupItem(1, 5) {
+                    SettingsGroupItem(1, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.public_24px,
-                            title = stringResource(R.string.site_bypass_title),
-                            subtitle = stringResource(R.string.site_bypass_desc),
+                            title = stringResource(R.string.settings_vpn),
+                            subtitle = stringResource(R.string.settings_vpn_desc),
                             onClick = onOpenBypass
                         )
                     }
-                    SettingsGroupItem(2, 5) {
+                    SettingsGroupItem(2, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.mobile_24px,
                             title = stringResource(R.string.settings_app),
@@ -107,15 +106,7 @@ fun SettingsScreen(
                             onClick = onOpenApp
                         )
                     }
-                    SettingsGroupItem(3, 5) {
-                        SettingsEntryRow(
-                            iconRes = R.drawable.tune_24px,
-                            title = stringResource(R.string.settings_advanced),
-                            subtitle = stringResource(R.string.settings_advanced_desc),
-                            onClick = onOpenAdvanced
-                        )
-                    }
-                    SettingsGroupItem(4, 5) {
+                    SettingsGroupItem(3, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.info_24px,
                             title = stringResource(R.string.settings_about),
@@ -129,14 +120,13 @@ fun SettingsScreen(
     }
 }
 
-/** "Продвинутые": переключатель "Режим отладки" ([SettingsViewModel.nerdMode]). */
+/** "Диагностика": переключатель "Режим отладки" ([SettingsViewModel.nerdMode]). */
 @Composable
 fun AdvancedScreen(
     settingsViewModel: SettingsViewModel,
     onBack: () -> Unit
 ) {
     val nerdMode by settingsViewModel.nerdMode.collectAsStateWithLifecycle()
-    val restartServerOnSwitch by settingsViewModel.restartServerOnSwitch.collectAsStateWithLifecycle()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     var showPasswordDialog by remember { mutableStateOf(false) }
@@ -186,17 +176,7 @@ fun AdvancedScreen(
                     )
                 }
 
-                HotspotOptionsCard(settingsViewModel)
 
-                SettingsCard {
-                    SettingsSwitchRow(
-                        title = stringResource(R.string.restart_server_on_switch),
-                        subtitle = stringResource(R.string.restart_server_on_switch_desc),
-                        iconRes = R.drawable.restart_alt_24px,
-                        checked = restartServerOnSwitch,
-                        onCheckedChange = { settingsViewModel.setRestartServerOnSwitch(it) }
-                    )
-                }
             }
         }
     }

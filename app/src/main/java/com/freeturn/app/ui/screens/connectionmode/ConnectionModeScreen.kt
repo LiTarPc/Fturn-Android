@@ -38,7 +38,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,17 +52,14 @@ import com.freeturn.app.data.config.ClientConfig
 import com.freeturn.app.data.config.TunnelTransport
 import com.freeturn.app.data.config.VlessProfile
 import com.freeturn.app.ui.util.redact
-import com.freeturn.app.domain.ProxyState
 import com.freeturn.app.data.HapticUtil
-import com.freeturn.app.ui.components.SectionLabel
 import com.freeturn.app.ui.components.SettingsCard
 import com.freeturn.app.ui.components.SettingsContentMaxWidth
 import com.freeturn.app.ui.components.SettingsEntryRow
-import com.freeturn.app.ui.screens.splittunnel.SplitTunnelModal
 import com.freeturn.app.ui.theme.Spacing
-import com.freeturn.app.viewmodel.proxy.ProxyViewModel
 import com.freeturn.app.viewmodel.settings.SettingsViewModel
 import kotlinx.coroutines.Dispatchers
+import com.freeturn.app.data.io.readBounded
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,18 +67,17 @@ import kotlinx.coroutines.withContext
 @Composable
 fun ConnectionModeScreen(
     settingsViewModel: SettingsViewModel,
-    proxyViewModel: ProxyViewModel,
     serverId: String? = null,
+    embedded: Boolean = false,
+    onOpenVpn: () -> Unit,
     onBack: (() -> Unit)? = null
 ) {
     val snapshot by settingsViewModel.serversSnapshot.collectAsStateWithLifecycle()
     val activeClient by settingsViewModel.clientConfig.collectAsStateWithLifecycle()
     val privacyMode by settingsViewModel.privacyMode.collectAsStateWithLifecycle()
-    val proxyState by proxyViewModel.proxyState.collectAsStateWithLifecycle()
 
     val server = serverId?.let { id -> snapshot.list.firstOrNull { it.id == id } }
     val saved = server?.client ?: activeClient
-    val isActive = serverId == null || serverId == snapshot.activeId
 
     fun clientEdit(transform: (ClientConfig) -> ClientConfig) {
         if (serverId != null) {
@@ -117,9 +112,6 @@ fun ConnectionModeScreen(
         }
     }
 
-    var showSplitSheet by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(isActive) { if (!isActive) showSplitSheet = false }
-
     var wgDirty by remember(fieldsKey) { mutableStateOf(false) }
     var pendingSave by remember(fieldsKey) { mutableStateOf(false) }
 
@@ -148,13 +140,15 @@ fun ConnectionModeScreen(
             scope.launch {
                 val text = withContext(Dispatchers.IO) {
                     runCatching {
-                        context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                        context.contentResolver.openInputStream(uri)?.use { it.readBounded(256 * 1024).toString(Charsets.UTF_8) }
                     }.getOrNull()
                 }
                 if (!text.isNullOrBlank()) {
                     wgConfig = text
                     wgDirty = true
                     HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
+                } else {
+                    android.widget.Toast.makeText(context, "Не удалось прочитать конфигурацию (максимум 256 КБ)", android.widget.Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -164,7 +158,7 @@ fun ConnectionModeScreen(
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
-            LargeFlexibleTopAppBar(
+            if (!embedded) LargeFlexibleTopAppBar(
                 title = { Text(stringResource(R.string.connection_mode_title)) },
                 navigationIcon = {
                     if (onBack != null) {
@@ -275,18 +269,10 @@ fun ConnectionModeScreen(
                     )
                     }
 
-                    BypassRulesCard(config = saved, profileId = fieldsKey,
-                        locked = isActive && proxyState !is ProxyState.Idle && proxyState !is ProxyState.Error,
-                        settings = settingsViewModel, edit = ::clientEdit)
-                    SectionLabel(stringResource(R.string.split_tunnel_title))
                     SettingsCard {
-                        SettingsEntryRow(
-                            iconRes = R.drawable.mobile_24px,
-                            title = stringResource(R.string.split_tunnel_title),
-                            trailingRes = R.drawable.unfold_more_24px,
-                            enabled = isActive,
-                            onClick = { showSplitSheet = true }
-                        )
+                        SettingsEntryRow(iconRes = R.drawable.public_24px,
+                            title = stringResource(R.string.settings_vpn),
+                            subtitle = stringResource(R.string.settings_vpn_desc), onClick = onOpenVpn)
                     }
                 }
 
@@ -295,16 +281,4 @@ fun ConnectionModeScreen(
         }
     }
 
-    if (showSplitSheet && isActive) {
-        SplitTunnelModal(
-            mode = saved.splitTunnelMode,
-            apps = saved.splitTunnelApps,
-            useDefaults = saved.splitTunnelUseDefaults,
-            locked = proxyState !is ProxyState.Idle && proxyState !is ProxyState.Error,
-            onModeChange = settingsViewModel::setSplitTunnelMode,
-            onAppsChange = settingsViewModel::setSplitTunnelApps,
-            onDismiss = { showSplitSheet = false },
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
-        )
-    }
 }

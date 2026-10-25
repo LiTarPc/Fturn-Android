@@ -52,14 +52,21 @@ object SettingsBackup {
         } catch (_: Exception) {
             throw BackupCrypto.FormatException("bad payload")
         }
-        val serversJson = o.optJSONArray("servers")?.toString() ?: "[]"
+        if (o.optInt("v", -1) !in 1..FORMAT_VERSION) throw BackupCrypto.FormatException("unsupported payload version")
+        val serversJson = o.optJSONArray("servers")?.toString()
+            ?: throw BackupCrypto.FormatException("missing profiles")
+        val servers = try { ServerJson.decodeListStrict(serversJson) }
+            catch (_: Exception) { throw BackupCrypto.FormatException("corrupted profiles") }
+        val activeId = o.optString("activeId").takeIf { it.isNotBlank() }
+        if (activeId != null && servers.none { it.id == activeId })
+            throw BackupCrypto.FormatException("unknown active profile")
         // Битый/отсутствующий cid валим здесь, до затирания профиля: применить такой бэкап -
         // значит подменить личность на чужую и получить обрыв на allowlist.
         val cid = o.optString("ownClientId")
         if (!ClientId.isValid(cid)) throw BackupCrypto.FormatException("bad client id")
         return BackupData(
-            servers = ServerJson.decodeList(serversJson),
-            activeId = o.optString("activeId").takeIf { it.isNotBlank() },
+            servers = servers,
+            activeId = activeId,
             ownClientId = cid,
             dynamicTheme = o.optBoolean("dynamicTheme", true),
             appTheme = com.freeturn.app.data.config.AppTheme.normalize(o.optString("appTheme")),
