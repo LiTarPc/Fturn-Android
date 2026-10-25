@@ -26,6 +26,8 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var resetJob: kotlinx.coroutines.Job? = null
+    // Invalidates startup waiters when the user stops or begins another attempt.
+    private val commandVersion = MutableStateFlow(0L)
 
     init {
         scope.launch { observeProxyLifecycle() }
@@ -133,7 +135,16 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
             return
         }
 
+        val startVersion = commandVersion.value + 1
+        commandVersion.value = startVersion
         _proxyState.value = ProxyState.Starting
+        val previousStopped = ProxyServiceState.awaitTeardown()
+        if (commandVersion.value != startVersion) return
+        if (!previousStopped) {
+            setErrorWithAutoReset("Предыдущее VPN-подключение ещё останавливается. Повторите подключение позже")
+            return
+        }
+        if (ProxyServiceState.isRunning.value) return
 
         ProxyServiceState.clearLogs()
         ProxyServiceState.setStartupResult(null)
@@ -152,16 +163,17 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
             var everRunning = false
             combine(
                 ProxyServiceState.startupResult,
-                ProxyServiceState.isRunning
-            ) { sr, running -> sr to running }
-                .first { (sr, running) ->
+                ProxyServiceState.isRunning,
+                commandVersion
+            ) { sr, running, version -> Triple(sr, running, version) }
+                .first { (sr, running, version) ->
                     if (running) everRunning = true
-                    sr != null || (everRunning && !running)
+                    version != startVersion || sr != null || (everRunning && !running)
                 }
                 .first
         }
 
-        if (_proxyState.value is ProxyState.Error) return
+        if (commandVersion.value != startVersion || _proxyState.value is ProxyState.Error) return
 
         when (result) {
             null -> {
@@ -185,6 +197,7 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
 
     /** Ждёт фактического доламывания сервиса: `stopService` асинхронен, см. `teardownComplete`. */
     suspend fun stopProxy() {
+        commandVersion.value += 1
         launcher.stop()
         _proxyState.value = ProxyState.Idle
         withTimeoutOrNull(10_000) {

@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -63,6 +65,7 @@ object ProxyServiceState {
      * строки WG попадут в уже очищенный лог, а отложенный рестарт поднимет ядро с конфигом,
      * который к тому моменту успели подменить (restore бэкапа).
      */
+    private var teardownsInFlight = 0
     private val _teardownComplete = MutableStateFlow(true)
     val teardownComplete: StateFlow<Boolean> = _teardownComplete.asStateFlow()
 
@@ -70,12 +73,20 @@ object ProxyServiceState {
         _isRunning.value = value
     }
 
+    @Synchronized
     fun markTeardownStarted() {
+        teardownsInFlight++
         _teardownComplete.value = false
     }
 
+    /** A new session must not race the previous service's asynchronous cleanup. */
+    suspend fun awaitTeardown(timeoutMillis: Long = 15_000): Boolean =
+        withTimeoutOrNull(timeoutMillis) { teardownComplete.first { it } } != null
+
+    @Synchronized
     fun markTeardownComplete() {
-        _teardownComplete.value = true
+        if (teardownsInFlight > 0) teardownsInFlight--
+        _teardownComplete.value = teardownsInFlight == 0
     }
 
     fun setStartupResult(result: StartupResult?) {

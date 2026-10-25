@@ -10,6 +10,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -28,8 +29,10 @@ class LocalProxyManagerTest {
     private class FakeLauncher : ProxyServiceLauncher {
         var started = false
         var stopped = false
-        override fun start() { started = true }
-        override fun stop() { stopped = true }
+        var starts = 0
+        var stops = 0
+        override fun start() { started = true; starts++ }
+        override fun stop() { stopped = true; stops++ }
     }
 
     private class ThrowingLauncher : ProxyServiceLauncher {
@@ -51,6 +54,7 @@ class LocalProxyManagerTest {
 
     private fun resetProxyState() {
         ProxyServiceState.setRunning(false)
+        ProxyServiceState.markTeardownComplete()
         ProxyServiceState.setStartupResult(null)
         ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
         ProxyServiceState.setCaptchaSession(null)
@@ -132,4 +136,114 @@ class LocalProxyManagerTest {
         assertTrue(mgr.proxyState.value is ProxyState.Error)
         assertFalse((mgr.proxyState.value as ProxyState.Error).message.contains("invalid-secret"))
     }
+    @Test
+    fun restartWaitsForPreviousTunnelCleanupBeforeLaunching() = runTest(dispatcher) {
+        val launcher = FakeLauncher()
+        val mgr = LocalProxyManager(launcher)
+        ProxyServiceState.markTeardownStarted()
+        ProxyServiceState.addLog("Previous session is closing")
+
+        val job = launch { mgr.startProxy(validCfg) }
+        runCurrent()
+        assertFalse(launcher.started)
+        assertEquals("Previous session is closing", ProxyServiceState.logs.value.last().text)
+
+        ProxyServiceState.markTeardownComplete()
+        runCurrent()
+        assertTrue(launcher.started)
+        job.cancel()
+    }
+
+    @Test
+    fun cleanupTimeoutDoesNotLaunchAnotherSession() = runTest(dispatcher) {
+        val launcher = FakeLauncher()
+        val mgr = LocalProxyManager(launcher)
+        ProxyServiceState.markTeardownStarted()
+
+        val job = launch { mgr.startProxy(validCfg) }
+        advanceTimeBy(15_001)
+        runCurrent()
+        assertFalse(launcher.started)
+        assertTrue(mgr.proxyState.value is ProxyState.Error)
+        assertTrue(job.isCompleted)
+        assertFalse(ProxyServiceState.teardownComplete.value)
+    }
+
+    @Test
+    fun stopWaitsForCleanupEvenAfterRunningFlagIsCleared() = runTest(dispatcher) {
+        val launcher = FakeLauncher()
+        val mgr = LocalProxyManager(launcher)
+        ProxyServiceState.setRunning(true)
+        ProxyServiceState.markTeardownStarted()
+
+        val job = launch { mgr.stopProxy() }
+        runCurrent()
+        assertTrue(launcher.stopped)
+        ProxyServiceState.setRunning(false)
+        runCurrent()
+        assertFalse(job.isCompleted)
+
+        ProxyServiceState.markTeardownComplete()
+        runCurrent()
+        assertTrue(job.isCompleted)
+    }
+
+    @Test
+    fun overlappingServiceCleanupDoesNotReleaseRestartEarly() = runTest(dispatcher) {
+        val launcher = FakeLauncher()
+        val mgr = LocalProxyManager(launcher)
+        // The user cancels a new service that was waiting for the old one to close.
+        ProxyServiceState.markTeardownStarted()
+        ProxyServiceState.markTeardownStarted()
+        val job = launch { mgr.startProxy(validCfg) }
+        runCurrent()
+
+        ProxyServiceState.markTeardownComplete()
+        runCurrent()
+        assertFalse(ProxyServiceState.teardownComplete.value)
+        assertFalse(launcher.started)
+
+        ProxyServiceState.markTeardownComplete()
+        runCurrent()
+        assertTrue(launcher.started)
+        job.cancel()
+    }
+
+    @Test
+    fun cancelledPendingStartCannotStopTheNextConnectionOnItsOldTimeout() = runTest(dispatcher) {
+        val launcher = FakeLauncher()
+        val mgr = LocalProxyManager(launcher)
+        val first = launch { mgr.startProxy(validCfg) }
+        runCurrent()
+        mgr.stopProxy()
+        advanceTimeBy(60_000)
+
+        val second = launch { mgr.startProxy(validCfg) }
+        ProxyServiceState.setRunning(true)
+        // The new attempt is still authenticating when the old five-minute deadline expires.
+        advanceTimeBy(241_000)
+        runCurrent()
+        assertEquals("The cancelled attempt must not stop the new service", 1, launcher.stops)
+        assertTrue(first.isCompleted)
+        first.cancel()
+        second.cancel()
+    }
+
+    @Test
+    fun cancelWhileWaitingForCleanupDoesNotLaunchWhenCleanupFinishes() = runTest(dispatcher) {
+        val launcher = FakeLauncher()
+        val mgr = LocalProxyManager(launcher)
+        ProxyServiceState.markTeardownStarted()
+        val start = launch { mgr.startProxy(validCfg) }
+        runCurrent()
+        val stop = launch { mgr.stopProxy() }
+        runCurrent()
+
+        ProxyServiceState.markTeardownComplete()
+        runCurrent()
+        assertFalse(launcher.started)
+        assertTrue(start.isCompleted)
+        assertTrue(stop.isCompleted)
+    }
+
 }
