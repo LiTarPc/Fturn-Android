@@ -22,7 +22,7 @@ import org.koin.android.ext.android.inject
 import java.net.NetworkInterface as JavaNetworkInterface
 import java.util.Collections
 
-/** The only owner of the VPN TUN descriptor and native BoxService. */
+/** Owns the Android TUN for direct RAW or the WG/VLESS routing service. */
 class SingBoxVpnService : VpnService(), PlatformInterface {
     inner class LocalBinder : Binder() { val service get() = this@SingBoxVpnService }
     private val binder = LocalBinder()
@@ -30,6 +30,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     private var ruleDownloadEndpoint: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null
     private var tun: ParcelFileDescriptor? = null
     private var rawSession: RawVpnSession? = null
+    private val rawHelpers = mutableListOf<com.freeturn.app.domain.proxy.RawProxyServer>()
     private val prefs: com.freeturn.app.data.AppPreferences by inject()
     private var config: ClientConfig? = null
     private var logRedactor: VpnLogRedactor? = null
@@ -60,7 +61,10 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     fun startTunnel(cfg: ClientConfig, rawBackend: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null) {
         check(prepare(this) == null) { "Требуется разрешение Android VPN" }
         if (cfg.rawVpnActive) {
-            try { startRawTunnel(cfg) } catch (e: Exception) { stopTunnel(); throw e }
+            try { startRawTunnel(cfg) } catch (e: Exception) {
+                android.util.Log.e("FturnRaw", "Direct RAW VPN startup failed", e)
+                stopTunnel(); throw e
+            }
             return
         }
         stopTunnel()
@@ -104,21 +108,24 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         if (Build.VERSION.SDK_INT >= 29) builder.setMetered(false)
         setUnderlyingNetworks(PhysicalNetworks.select(connectivity)?.id?.let { arrayOf(it) })
         tun = builder.establish() ?: error("Android не создал RAW VPN-интерфейс")
-        session.attach(checkNotNull(tun))
+        try { session.attach(checkNotNull(tun)) }
+        catch (e: Exception) { throw IllegalStateException("RAW TUN attach: ${e.message}", e) }
 
-        // Only explicit local update/hotspot proxy requests use this helper.
-        // It has no TUN and its unprotected sockets enter the native RAW VPN.
+        // Explicit proxy clients use normal Android sockets inside this VPN.
+        // No sing-box service or SOCKS bridge processes RAW TUN traffic.
         val hotspot = kotlinx.coroutines.runBlocking { prefs.hotspotConfig() }
-        Libbox.setup(SetupOptions().apply {
-            basePath = filesDir.absolutePath
-            workingPath = filesDir.resolve("sing-box").absolutePath
-            tempPath = cacheDir.resolve("sing-box").absolutePath
-            fixAndroidStack = true
-        })
         val download = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port))
         ruleDownloadEndpoint = download
-        box = Libbox.newService(com.freeturn.app.data.config.RawHelperConfig.build(hotspot, download), this)
-        box!!.start()
+        try {
+            rawHelpers += com.freeturn.app.domain.proxy.RawProxyServer("127.0.0.1", download.port,
+                com.freeturn.app.data.RuleDownloadTunnel.USER, download.password, true).also { it.start() }
+            if (hotspot.enabled) {
+                hotspot.validate()
+                rawHelpers += com.freeturn.app.domain.proxy.RawProxyServer("0.0.0.0", hotspot.port,
+                    com.freeturn.app.data.config.HotspotConfig.USER, hotspot.password, false,
+                    { check(protect(it)) { "Failed to protect hotspot reply socket" } }).also { it.start() }
+            }
+        } catch (e: Exception) { throw IllegalStateException("RAW explicit proxy: ${e.message}", e) }
         com.freeturn.app.data.RuleDownloadTunnel.publish(download)
         if (hotspot.enabled) ProxyServiceState.addLog("SOCKS5 Hotspot: 0.0.0.0:${hotspot.port}, TCP/UDP, логин ${com.freeturn.app.data.config.HotspotConfig.USER}")
         ProxyServiceState.setTunnelActive(true)
@@ -132,6 +139,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         val previous = box
         box = null
         try { previous?.close() } finally {
+            rawHelpers.forEach { runCatching { it.close() } }
+            rawHelpers.clear()
             rawSession?.close()
             rawSession = null
             try { tun?.close() } finally {
