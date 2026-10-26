@@ -7,27 +7,24 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HotspotRoutingTest {
-    @Test fun `RAW shares rule routing and uses authenticated private SOCKS backend`() {
-        val cfg = ClientConfig(tunnelTransport = TunnelTransport.RAW)
-        val rules = JSONArray().put(JSONObject().put("tag", "bypass-0").put("type", "inline"))
-        val json = JSONObject(SingBoxConfig.fromClient(cfg, rules, RuleDownloadTunnel.Endpoint(23456, "private-secret")))
+    @Test fun `RAW helper has no TUN and only authenticated explicit proxy clients`() {
+        val json = JSONObject(RawHelperConfig.build(HotspotConfig(), RuleDownloadTunnel.Endpoint(23456, "private-secret")))
         val proxy = json.getJSONArray("outbounds").getJSONObject(0)
-        assertEquals("socks", proxy.getString("type"))
-        assertEquals("127.0.0.1", proxy.getString("server"))
-        assertEquals(23456, proxy.getInt("server_port"))
-        assertEquals("private-secret", proxy.getString("password"))
+        assertEquals("direct", proxy.getString("type"))
+        assertFalse(json.getJSONObject("route").getBoolean("auto_detect_interface"))
         assertEquals("proxy", json.getJSONObject("route").getString("final"))
-        assertEquals("hijack-dns", json.getJSONObject("route").getJSONArray("rules").getJSONObject(0).getString("action"))
-        val bypass = json.getJSONObject("route").getJSONArray("rules").getJSONObject(3)
-        assertEquals("direct", bypass.getString("outbound"))
-        assertEquals("bypass-0", bypass.getJSONArray("rule_set").getString(0))
-        assertEquals(cfg.rawMtu, json.getJSONArray("inbounds").getJSONObject(0).getInt("mtu"))
+        val inbound = json.getJSONArray("inbounds").getJSONObject(0)
+        assertEquals(1, json.getJSONArray("inbounds").length())
+        assertEquals("http", inbound.getString("type"))
+        assertEquals("127.0.0.1", inbound.getString("listen"))
+        assertEquals(23456, inbound.getInt("listen_port"))
+        assertEquals("private-secret", inbound.getJSONArray("users").getJSONObject(0).getString("password"))
     }
     @Test fun `RAW cannot fall back to an absent backend`() {
         assertThrows(IllegalArgumentException::class.java) { SingBoxConfig.fromClient(ClientConfig(tunnelTransport = TunnelTransport.RAW)) }
     }
     @Test fun `hotspot adds an authenticated listener without overriding VPN or bypass routes`() {
-        val base = SingBoxConfig.fromClient(ClientConfig(tunnelTransport = TunnelTransport.RAW), rawBackend = RuleDownloadTunnel.Endpoint(23456, "private"))
+        val base = RawHelperConfig.build(HotspotConfig(), RuleDownloadTunnel.Endpoint(23456, "private"))
         val hotspot = HotspotConfig(true, 1080, "public-password")
         val result = JSONObject(hotspot.configure(base))
         val inbound = result.getJSONArray("inbounds").getJSONObject(1)

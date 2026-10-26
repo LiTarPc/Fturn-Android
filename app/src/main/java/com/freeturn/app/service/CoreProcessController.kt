@@ -206,11 +206,10 @@ class CoreProcessController(
         try {
             ProxyServiceState.addLog("Команда: ${CoreArgs.redactForLog(cmdArgs, privacy)}")
 
-            // Reserve the bridge credentials without creating a TUN. The RAW core opens
-            // its SOCKS listener first; Android traffic is admitted only after a stream is ready.
-            val rawBackend = if (cfg.rawVpnActive) {
-                com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(prefs.hotspotConfig().port))
-            } else null
+            // Bind private descriptor/protection channels before spawning the core.
+            // Android creates the TUN only after the first authenticated RAW stream.
+            val rawSession = if (cfg.rawVpnActive) singBox.prepareRaw(cfg) else null
+            if (rawSession != null) cmdArgs.addAll(listOf("-bypass-file", rawSession.rulesFile.absolutePath))
             val proc = withContext(Dispatchers.IO + NonCancellable) {
                 // Легаси: сносим осиротевшие профили захвата (сам механизм захвата удалён).
                 context.filesDir.listFiles { f -> f.name.startsWith("vk_profile") }?.forEach { it.delete() }
@@ -218,9 +217,7 @@ class CoreProcessController(
                 // CWD подменяем на writeable dir для логов кэша tls-client и т.п.
                 pb.directory(context.filesDir)
                 if (cfg.rawVpnActive) {
-                    val backend = checkNotNull(rawBackend)
-                    pb.environment()["FREETURN_RAW_SOCKS_PORT"] = backend.port.toString()
-                    pb.environment()["FREETURN_RAW_SOCKS_PASSWORD"] = backend.password
+                    pb.environment().putAll(checkNotNull(rawSession).environment())
                 }
                 pb.start().also {
                     // Register before returning across a cancellable dispatcher boundary.
@@ -309,7 +306,7 @@ class CoreProcessController(
                                             break
                                         }
                                     }
-                                    singBox.startAfterProxyReady(cfg, rawBackend)
+                                    singBox.startAfterProxyReady(cfg)
                                     vpnStarted = cfg.vpnActive
                                     if (userStopped.get() || process.get() !== proc) break
                                     ProxyServiceState.setStartupResult(StartupResult.Success)
@@ -362,7 +359,7 @@ class CoreProcessController(
                 ProxyServiceState.setCaptchaSession(null)
                 notifier.cancelCaptcha()
                 try {
-                    if (vpnStarted) singBox.stop()
+                    if (vpnStarted || cfg.rawVpnActive) singBox.stop()
                 } finally {
                     ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
                     process.getAndSet(null)?.let { previous ->

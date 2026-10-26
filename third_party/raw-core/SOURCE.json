@@ -1,13 +1,13 @@
 {
-  "coreVersion": "1.0.1-beta",
+  "coreVersion": "1.0.1-beta.android.1",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "ed20458f0adad9bf54d2615a5b0350dcea48e368222e90ca2cecb60a7c9e7db5",
-  "description": "Published RAW 1.0.1-beta sources with the Android authenticated SOCKS entry point. Includes upstream half-close, cancellation, lease and TURN fixes.",
+  "sourceSnapshotSha256": "9b73ee8916cf8609636c8ed8a1a64c22dc8ac8592e0117b282a03fd91aff8836",
+  "description": "RAW 1.0.1-beta with Android direct TUN, protected physical-network sockets and native CIDR/SRS bypass; auxiliary explicit proxies do not own the TUN.",
   "files": [
     {
       "path": "cmd/raw-client/main.go",
-      "sha256": "3ff51a1c95c9d7cdd874ca4d92287fd7a81ba45544cb1147085afcce4210b118"
+      "sha256": "1070b43c29cd97fda635d2a0cc9028e531d8f561721a2057c460fb4d6d3c9db6"
     },
     {
       "path": "cmd/raw-server/main.go",
@@ -19,15 +19,15 @@
     },
     {
       "path": "go.mod",
-      "sha256": "8c5697bedb2a01bc1836a8f7971b90ab91b948e811fc4ed175c4a666db3505c9"
+      "sha256": "0a480d0b2e110a853b335fdd87674a917e466f962e24eac5ba8348d844cbadc6"
     },
     {
       "path": "go.sum",
-      "sha256": "2d28439fd6f36700405ceb34e6040fd0728658797887a1573d2eafef8c47b789"
+      "sha256": "d03475a21d322d6b818f907eec5d4a4076ac7bed52b32d4835fd77b548eb8b24"
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "41e4e525d01d3e308d305148059bfb193ec8c5ff3b183827a131320955f38724"
+      "sha256": "85e1e83f7cfff4e070d3b42129139fb87946162b611cdb832dbd0083e3588677"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -43,7 +43,7 @@
     },
     {
       "path": "internal/bypass/device.go",
-      "sha256": "9dc075670e696956706ff657bc8d30d44c73c918929ed29f9dffdc2f95038713"
+      "sha256": "1eca7ae2c321c420446e960a854087696cb5d721cc6082fbe836f999c7c160ff"
     },
     {
       "path": "internal/bypass/device_test.go",
@@ -51,7 +51,7 @@
     },
     {
       "path": "internal/bypass/dns.go",
-      "sha256": "a0613b263280c752b33cf1b1209ac5a6d7fe68ed898227607718c1fa5d107478"
+      "sha256": "05f6530457f4d738ebd482cf6a18ae0e7700b49aa19c883c1a091c68a73c5651"
     },
     {
       "path": "internal/bypass/owner_other.go",
@@ -67,11 +67,19 @@
     },
     {
       "path": "internal/bypass/policy.go",
-      "sha256": "6936bc651762ff2bb1afeba09db2c6b02acd39f9807ce07ce0aab13f165146c2"
+      "sha256": "a37e17ae7a3fdf6f93b86ef8b5d176912c3644c4566d1369800e3fa39d05c840"
     },
     {
       "path": "internal/bypass/policy_test.go",
       "sha256": "972568394e2c8bd09e0336100ce96ea7b630a3df77a350fc0cb8ac65a0ae72fc"
+    },
+    {
+      "path": "internal/bypass/srs.go",
+      "sha256": "e67090b87a7b18efecab3d0f33379cddfae4911fc7ab5b74c67888ed1c82d986"
+    },
+    {
+      "path": "internal/bypass/srs_test.go",
+      "sha256": "cdeddd99347ff0e942227e2c6003fda45c37d8e0e76c7e8cd5dfb29980128185"
     },
     {
       "path": "internal/bypass/tcp.go",
@@ -514,6 +522,10 @@
       "sha256": "32ea7af0e2375b6646f686e1eef3fea671b647d6138bb6b9036b3d03a7db47bf"
     },
     {
+      "path": "internal/rawvpn/android_direct_test.go",
+      "sha256": "beeca95f23b4194717f23fc524539394410ef84d581a2cef9a9fd570a4ebe14f"
+    },
+    {
       "path": "internal/rawvpn/audit_regression_test.go",
       "sha256": "d4185f0c8947d4f19e34c552f8d446e8945a32244ed0b6ae33d5eb99a14ad8b2"
     },
@@ -536,6 +548,10 @@
     {
       "path": "internal/rawvpn/codec_test.go",
       "sha256": "20021f2b3aca40428766a07371c3776be1c2cd949528275acecb599b236b7806"
+    },
+    {
+      "path": "internal/rawvpn/control_android.go",
+      "sha256": "b2c3647926ba737689a449cb93b9bd440d01de63a13f5153b4593797c33856de"
     },
     {
       "path": "internal/rawvpn/control_dns_windows.go",
@@ -563,7 +579,7 @@
     },
     {
       "path": "internal/rawvpn/control_other.go",
-      "sha256": "bf147a9307fd8f776a082ab348c6ed73dbc8d9886dcdfa8bb8988488bed4aba8"
+      "sha256": "a3be9c8a53b1b44219b957251742ac3daaa7a2a8c949c3c79165d619172681e1"
     },
     {
       "path": "internal/rawvpn/control_windows.go",
@@ -579,7 +595,7 @@
     },
     {
       "path": "internal/rawvpn/device_android.go",
-      "sha256": "bdb67c65e4ac742350888acf706b8d1bb5378e7a647587110efca202c61ad1cd"
+      "sha256": "7897a06243d0180885e483e1ad211a1423989a8f4d8ebaf0b8aef2254324c3cb"
     },
     {
       "path": "internal/rawvpn/device_android_test.go",
@@ -943,7 +959,7 @@
     },
     {
       "path": "shared/bypass/rules.go",
-      "sha256": "3f51ed8e52be654aeb597bbab7c6b81f15c84fb129242566a86c4fc9edd6479e"
+      "sha256": "5629abab9ac71377034cc8b0af25295d40ffa76fee2cea9e606f3c9c0275cfa7"
     },
     {
       "path": "shared/bypass/rules_test.go",

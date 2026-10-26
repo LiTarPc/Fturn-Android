@@ -131,7 +131,8 @@ func run() error {
 		if e != nil {
 			return fmt.Errorf("bypass configuration: %w", e)
 		}
-		if rules.Enabled && (runtime.GOOS != "windows" || opts.ControlInterface <= 0) {
+		androidDirect := runtime.GOOS == "android" && os.Getenv("FREETURN_RAW_PROTECT_SOCKET") != "" && os.Getenv("FREETURN_RAW_TUN_SOCKET") != ""
+		if rules.Enabled && !androidDirect && (runtime.GOOS != "windows" || opts.ControlInterface <= 0) {
 			return errors.New("bypass requires a selected Windows control interface")
 		}
 		wrapped, e := bypass.Wrap(ctx, dev, rules, prefix.Addr(), opts.MTU, rawvpn.BypassResolver())

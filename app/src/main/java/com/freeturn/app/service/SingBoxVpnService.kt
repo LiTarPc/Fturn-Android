@@ -29,6 +29,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     private var box: BoxService? = null
     private var ruleDownloadEndpoint: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null
     private var tun: ParcelFileDescriptor? = null
+    private var rawSession: RawVpnSession? = null
     private val prefs: com.freeturn.app.data.AppPreferences by inject()
     private var config: ClientConfig? = null
     private var logRedactor: VpnLogRedactor? = null
@@ -46,17 +47,27 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     override fun onBind(intent: Intent): android.os.IBinder? = if (intent.action == SERVICE_INTERFACE) super.onBind(intent) else binder
 
     @Synchronized
+    fun prepareRaw(cfg: ClientConfig): RawVpnSession {
+        check(cfg.rawVpnActive)
+        check(prepare(this) == null) { "Требуется разрешение Android VPN" }
+        stopTunnel()
+        config = cfg
+        logRedactor = VpnLogRedactor(cfg)
+        return RawVpnSession(this, cfg).also { rawSession = it }
+    }
+
+    @Synchronized
     fun startTunnel(cfg: ClientConfig, rawBackend: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null) {
         check(prepare(this) == null) { "Требуется разрешение Android VPN" }
+        if (cfg.rawVpnActive) {
+            try { startRawTunnel(cfg) } catch (e: Exception) { stopTunnel(); throw e }
+            return
+        }
         stopTunnel()
         config = cfg
         logRedactor = VpnLogRedactor(cfg)
         try {
             val hotspot = kotlinx.coroutines.runBlocking { prefs.hotspotConfig() }
-            if (cfg.rawVpnActive) {
-                com.freeturn.app.data.config.RawVpnConfig.validate(cfg)
-                requireNotNull(rawBackend) { "RAW backend is not prepared" }
-            }
             Libbox.setup(SetupOptions().apply {
                 basePath = filesDir.absolutePath
                 workingPath = filesDir.resolve("sing-box").absolutePath
@@ -81,6 +92,39 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         }
     }
 
+    private fun startRawTunnel(cfg: ClientConfig) {
+        val session = checkNotNull(rawSession) { "RAW session is not prepared" }
+        check(session.cfg == cfg && tun == null) { "RAW session changed during startup" }
+        val address = cfg.rawAddress.split('/')
+        val builder = Builder().setSession("Fturn RAW").setMtu(cfg.rawMtu)
+            .addAddress(address[0], address[1].toInt()).addRoute("0.0.0.0", 0)
+            .addAddress("fdfe:dcba:9876::1", 126).addRoute("::", 0)
+            .addDnsServer("1.1.1.1").addDnsServer("1.0.0.1")
+        configureApplications(builder, cfg)
+        if (Build.VERSION.SDK_INT >= 29) builder.setMetered(false)
+        setUnderlyingNetworks(PhysicalNetworks.select(connectivity)?.id?.let { arrayOf(it) })
+        tun = builder.establish() ?: error("Android не создал RAW VPN-интерфейс")
+        session.attach(checkNotNull(tun))
+
+        // Only explicit local update/hotspot proxy requests use this helper.
+        // It has no TUN and its unprotected sockets enter the native RAW VPN.
+        val hotspot = kotlinx.coroutines.runBlocking { prefs.hotspotConfig() }
+        Libbox.setup(SetupOptions().apply {
+            basePath = filesDir.absolutePath
+            workingPath = filesDir.resolve("sing-box").absolutePath
+            tempPath = cacheDir.resolve("sing-box").absolutePath
+            fixAndroidStack = true
+        })
+        val download = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port))
+        ruleDownloadEndpoint = download
+        box = Libbox.newService(com.freeturn.app.data.config.RawHelperConfig.build(hotspot, download), this)
+        box!!.start()
+        com.freeturn.app.data.RuleDownloadTunnel.publish(download)
+        if (hotspot.enabled) ProxyServiceState.addLog("SOCKS5 Hotspot: 0.0.0.0:${hotspot.port}, TCP/UDP, логин ${com.freeturn.app.data.config.HotspotConfig.USER}")
+        ProxyServiceState.setTunnelActive(true)
+        ProxyServiceState.addLog("RAW VPN: Android TUN → RAW, нативный обход; SOCKS-мост для трафика телефона не используется")
+    }
+
     @Synchronized
     fun stopTunnel() {
         com.freeturn.app.data.RuleDownloadTunnel.clear(ruleDownloadEndpoint)
@@ -88,6 +132,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         val previous = box
         box = null
         try { previous?.close() } finally {
+            rawSession?.close()
+            rawSession = null
             try { tun?.close() } finally {
                 tun = null
                 callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
@@ -134,14 +180,14 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
             .filter { it != packageName && isPackageInstalled(it) }
         if (cfg.splitTunnelMode == SplitTunnelMode.INCLUDE) {
             require(packages.isNotEmpty()) { "Выберите хотя бы одно установленное приложение для VPN" }
-            packages.forEach(builder::addAllowedApplication)
+            (if (cfg.rawVpnActive) packages + packageName else packages).forEach(builder::addAllowedApplication)
         } else {
-            builder.addDisallowedApplication(packageName)
+            if (!cfg.rawVpnActive) builder.addDisallowedApplication(packageName)
             if (cfg.splitTunnelMode == SplitTunnelMode.EXCLUDE) packages.forEach(builder::addDisallowedApplication)
         }
     }
 
-    override fun usePlatformAutoDetectInterfaceControl() = true
+    override fun usePlatformAutoDetectInterfaceControl() = config?.rawVpnActive != true
     override fun autoDetectInterfaceControl(fd: Int) { check(protect(fd)) { "Не удалось защитить сокет VPN" } }
     override fun localDNSTransport(): LocalDNSTransport? = null
     override fun writeLog(message: String?) {

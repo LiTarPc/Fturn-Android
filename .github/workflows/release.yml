@@ -65,7 +65,7 @@ jobs:
         env:
           GOTOOLCHAIN: go1.26.10
           GOTELEMETRY: 'off'
-        run: go test -mod=readonly ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
+        run: go test -mod=readonly ./internal/bypass ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
 
       - name: TURN client regression tests
         working-directory: third_party/freeturn-core

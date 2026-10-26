@@ -22,10 +22,27 @@ class SingBoxTunnelManager(context: Context) {
     private var connection: ServiceConnection? = null
     private var service: SingBoxVpnService? = null
 
+    suspend fun prepareRaw(cfg: ClientConfig): com.freeturn.app.service.RawVpnSession = mutex.withLock {
+        stopLocked()
+        bindLocked()
+        withContext(Dispatchers.IO) { service!!.prepareRaw(cfg) }
+    }
+
     suspend fun startAfterProxyReady(cfg: ClientConfig,
                                     rawBackend: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null) = mutex.withLock {
         if (!cfg.vpnActive) return@withLock
+        if (cfg.rawVpnActive) {
+            try { withContext(Dispatchers.IO) { checkNotNull(service).startTunnel(cfg) } }
+            catch (e: Exception) { stopLocked(); throw e }
+            return@withLock
+        }
         stopLocked()
+        bindLocked()
+        try { withContext(Dispatchers.IO) { service!!.startTunnel(cfg, rawBackend) } }
+        catch (e: Exception) { stopLocked(); throw e }
+    }
+
+    private suspend fun bindLocked() {
         val ready = CompletableDeferred<SingBoxVpnService>()
         val intent = Intent(context, SingBoxVpnService::class.java)
         val binding = object : ServiceConnection {
@@ -45,7 +62,6 @@ class SingBoxTunnelManager(context: Context) {
                 connection = binding
             }
             service = withTimeout(15_000) { ready.await() }
-            withContext(Dispatchers.IO) { service!!.startTunnel(cfg, rawBackend) }
         } catch (e: Exception) {
             stopLocked()
             throw e

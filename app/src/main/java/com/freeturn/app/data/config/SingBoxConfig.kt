@@ -9,15 +9,7 @@ object SingBoxConfig {
                    rawBackend: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null): String {
         require(!cfg.isRawMode) { "VPN не поддерживает raw-команду" }
         return when (cfg.tunnelTransport) {
-            TunnelTransport.RAW -> {
-                val backend = requireNotNull(rawBackend) { "RAW backend is not prepared" }
-                val proxy = JSONObject().put("type", "socks").put("tag", "proxy").put("version", "5")
-                    .put("server", "127.0.0.1").put("server_port", backend.port)
-                    .put("username", "fturn-raw").put("password", backend.password)
-                JSONObject(build(proxy, ruleSets)).apply {
-                    getJSONArray("inbounds").getJSONObject(0).put("mtu", cfg.rawMtu)
-                }.toString()
-            }
+            TunnelTransport.RAW -> throw IllegalArgumentException("RAW owns its Android TUN directly")
             TunnelTransport.VLESS -> VlessProfile.parse(cfg.vlessUri).singBoxConfig(cfg.localPort, ruleSets)
             TunnelTransport.WIREGUARD -> WireGuardProfile.parse(cfg.wireGuardConfig).singBoxConfig(cfg.localPort, ruleSets)
             else -> error("Не выбран протокол VPN")

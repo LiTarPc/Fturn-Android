@@ -3,7 +3,7 @@ name: Signed APK
 on:
   workflow_dispatch:
   push:
-    branches: ['codex/release-4.3.0']
+    branches: ['codex/release-4.3.1']
     paths:
       - '.github/workflows/signed-apk.yml'
       - 'app/**'
@@ -21,7 +21,7 @@ concurrency:
 env:
   JAVA_VERSION: '17'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  RELEASE_TAG: v4.3.0
+  RELEASE_TAG: v4.3.1
   RELEASE_CERT_SHA256: 95a28637777d471e901c59cd4c1fb5ebbe6433d7128a79855106d626e3e2a85f
 
 jobs:
@@ -59,7 +59,7 @@ jobs:
         env:
           GOTOOLCHAIN: go1.26.10
           GOTELEMETRY: 'off'
-        run: go test -mod=readonly ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
+        run: go test -mod=readonly ./internal/bypass ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
 
       - name: TURN client regression tests
         working-directory: third_party/freeturn-core
@@ -116,7 +116,7 @@ jobs:
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: fturn-signed-4.3.0
+          name: fturn-signed-4.3.1
           path: dist/*
           retention-days: 7
 
