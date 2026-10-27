@@ -2,7 +2,7 @@
   "coreVersion": "1.0.1-beta.android.2",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "6acac3a0221462415a06c51d0b6dd41ff82e3b8c67f866354399e670ba94c185",
+  "sourceSnapshotSha256": "f9f4155e5df8e3baca94dca1b72c3893f2bf094d647792409c43e6eb8c5482b1",
   "description": "Android RAW snapshot with 1024-client SOCKS bridge and bounded TCP idle/half-close cleanup. Direct adapter remains available for standalone use.",
   "files": [
     {
@@ -27,7 +27,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "c4011ba56f8510546b4ab38b5cef031505ac91423ec875da13234bb82ef6e6dd"
+      "sha256": "bd650abc1a9bcd61b0191950f01fdede65b9b1f72fb4ac706d41f1512a27cab4"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
