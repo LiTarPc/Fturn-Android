@@ -10,6 +10,29 @@ class HotspotRoutingTest {
     @Test fun `RAW cannot fall back to an absent backend`() {
         assertThrows(IllegalArgumentException::class.java) { SingBoxConfig.fromClient(ClientConfig(tunnelTransport = TunnelTransport.RAW)) }
     }
+    @Test fun `RAW restores the authenticated bridge and TCP DNS for TUN and hotspot`() {
+        val cfg = ClientConfig(tunnelTransport = TunnelTransport.RAW, rawMtu = 1350)
+        val backend = RuleDownloadTunnel.Endpoint(42699, "private-bridge-password")
+        val base = JSONObject(SingBoxConfig.fromClient(cfg, JSONArray(), backend))
+        val tun = base.getJSONArray("inbounds").getJSONObject(0)
+        assertEquals("tun", tun.getString("type"))
+        assertEquals("gvisor", tun.getString("stack"))
+        assertEquals(1350, tun.getInt("mtu"))
+        val outbound = base.getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("socks", outbound.getString("type"))
+        assertEquals("127.0.0.1", outbound.getString("server"))
+        assertEquals(backend.port, outbound.getInt("server_port"))
+        assertEquals("fturn-raw", outbound.getString("username"))
+        assertEquals(backend.password, outbound.getString("password"))
+        val config = JSONObject(HotspotConfig(true, 1080, "hotspot-password").configure(base.toString()))
+        val dns = config.getJSONObject("dns")
+        assertEquals("tcp", dns.getJSONArray("servers").getJSONObject(0).getString("type"))
+        assertEquals("proxy", dns.getJSONArray("servers").getJSONObject(0).getString("detour"))
+        val rules = config.getJSONObject("route").getJSONArray("rules")
+        assertEquals("resolve", rules.getJSONObject(0).getString("action"))
+        assertEquals("hijack-dns", rules.getJSONObject(1).getString("action"))
+        assertEquals(53, rules.getJSONObject(1).getInt("port"))
+    }
     @Test fun `hotspot adds an authenticated listener without overriding VPN or bypass routes`() {
         val base = SingBoxConfig.build(JSONObject().put("type", "direct").put("tag", "proxy"), JSONArray())
         val hotspot = HotspotConfig(true, 1080, "public-password")

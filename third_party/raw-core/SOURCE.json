@@ -1,9 +1,9 @@
 {
-  "coreVersion": "1.0.1-beta.android.1",
+  "coreVersion": "1.0.1-beta.android.2",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "9b73ee8916cf8609636c8ed8a1a64c22dc8ac8592e0117b282a03fd91aff8836",
-  "description": "RAW 1.0.1-beta with Android direct TUN, protected physical-network sockets and native CIDR/SRS bypass; auxiliary explicit proxies do not own the TUN.",
+  "sourceSnapshotSha256": "6acac3a0221462415a06c51d0b6dd41ff82e3b8c67f866354399e670ba94c185",
+  "description": "Android RAW snapshot with 1024-client SOCKS bridge and bounded TCP idle/half-close cleanup. Direct adapter remains available for standalone use.",
   "files": [
     {
       "path": "cmd/raw-client/main.go",
@@ -27,7 +27,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "85e1e83f7cfff4e070d3b42129139fb87946162b611cdb832dbd0083e3588677"
+      "sha256": "c4011ba56f8510546b4ab38b5cef031505ac91423ec875da13234bb82ef6e6dd"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -511,11 +511,19 @@
     },
     {
       "path": "internal/rawsocks/proxy.go",
-      "sha256": "507223a886e0faa2e32acb96040ffd20ac0a1babf94bece6faa601ea4002a707"
+      "sha256": "b94c07985b645cef9f8f19a8213e474e826bd25fecb382ba82724f90137e64d6"
     },
     {
       "path": "internal/rawsocks/proxy_test.go",
       "sha256": "30582bd926273821d0e0e5e6d744cf14fe303a78a0faf709deb64adae2201e05"
+    },
+    {
+      "path": "internal/rawsocks/tcp_relay.go",
+      "sha256": "b701544c1209335b1ca6d646582967a49773f68a3d2f6d7c9c7744ba18f828ca"
+    },
+    {
+      "path": "internal/rawsocks/tcp_relay_test.go",
+      "sha256": "59bf5ca14cdb420600bc049415148d560fe2b2ab169341498fc6dd1ff3d1c2b7"
     },
     {
       "path": "internal/rawsocks/udp_lifecycle_test.go",

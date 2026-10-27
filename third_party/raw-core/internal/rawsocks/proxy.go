@@ -29,6 +29,8 @@ import (
 
 const User = "fturn-raw"
 
+const maxBridgeConnections = 1024
+
 type Device struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
@@ -51,7 +53,7 @@ func Open(address netip.Addr, mtu, port int, password string) (*Device, error) {
 		return nil, e
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	d := &Device{ctx: ctx, cancel: cancel, listener: l, password: password, slots: make(chan struct{}, 256), sockets: map[net.Conn]struct{}{}}
+	d := &Device{ctx: ctx, cancel: cancel, listener: l, password: password, slots: make(chan struct{}, maxBridgeConnections), sockets: map[net.Conn]struct{}{}}
 	d.link = channel.New(1024, uint32(mtu), "")
 	d.stack = stack.New(stack.Options{NetworkProtocols: []stack.NetworkProtocolFactory{ipv4.NewProtocol}, TransportProtocols: []stack.TransportProtocolFactory{tcp.NewProtocol, udp.NewProtocol}})
 	if e := d.stack.CreateNIC(1, d.link); e != nil {
@@ -277,24 +279,7 @@ func (d *Device) handle(c net.Conn) {
 		return
 	}
 	c.SetDeadline(time.Time{})
-	done := make(chan struct{})
-	go func() {
-		_, err := io.Copy(target, c)
-		target.CloseWrite()
-		if err != nil {
-			c.Close()
-			target.Close()
-		}
-		close(done)
-	}()
-	_, err := io.Copy(c, target)
-	c.(*net.TCPConn).CloseWrite()
-	if err != nil {
-		c.Close()
-		target.Close()
-	}
-	// EOF closes only this direction. The peer may still be receiving upload.
-	<-done
+	relayTCP(d.ctx, c, target, 10*time.Minute, time.Minute)
 }
 func (d *Device) resolve(ctx context.Context, host string) (netip.Addr, error) {
 	if ip, e := netip.ParseAddr(host); e == nil {

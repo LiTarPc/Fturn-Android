@@ -9,13 +9,15 @@ From the Android repository in PowerShell:
 ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug -PcoreFetch=none -PrawBuild=true
 ```
 
-RAW core 1.0.1-beta.android.1 is pinned in `raw-core.properties` and `third_party/raw-core`.
+RAW core 1.0.1-beta.android.2 is pinned in `raw-core.properties` and `third_party/raw-core`.
 Gradle preBuild verifies SOURCE.json and compiles that source automatically with
 Go 1.26.10. It does not depend on a sibling checkout or an unversioned binary.
 The APK includes assets/raw-core.json with the source snapshot and binary hashes.
-From app 4.3.1, Android uses the direct TUN adapter in `internal/rawvpn/device_android.go`
-and the native `internal/bypass` router. The old SOCKS entry point is retained only
-for standalone compatibility. The Go linker flag `-checklinkname=0` is
+From app 4.3.2, Android again uses sing-box TUN/routing and the authenticated
+loopback SOCKS adapter in `internal/rawsocks`, matching the stable 4.1.0 RAW debug
+build. The bridge admits 1024 concurrent TCP/control handlers. The direct TUN
+adapter and native bypass remain available to standalone core users.
+The Go linker flag `-checklinkname=0` is
 required by the existing `github.com/wlynxg/anet v0.0.5` Android dependency.
 
 APK: `app/build/outputs/apk/debug/app-arm64-v8a-debug.apk`.
@@ -45,41 +47,37 @@ profiles cannot be used as RAW profiles. The default client address is
 `10.77.0.2/24`; change it in Connection mode → RAW when another active client uses
 that address. Server-side network/routing must support the chosen address.
 
-Android always creates an IPv4 default VPN route, regardless of the Windows
-link's `mode` (`full` or `tunnel`). Per-application include/exclude selection is
-supported. Native CIDR and SRS destination/domain, network and port rules route
-matching IPv4 TCP/UDP traffic directly. SRS rules requiring OS metadata are
-rejected explicitly, without widening the bypass. DNS ports 53/853 remain in RAW;
-domain matching learns addresses from plain DNS responses inside the tunnel.
-External encrypted DNS does not expose those domain associations to the router.
-IPv6 is rejected. The application's UID is included in RAW so authenticated
-update/hotspot helpers use the VPN. Every native VK/TURN/direct-bypass socket is
-protected and bound to the physical network through a same-UID descriptor channel.
+Android creates an IPv4 default VPN route, regardless of the Windows link's
+`mode` (`full` or `tunnel`). sing-box applies per-application selection, CIDR/SRS
+bypass and authenticated hotspot routing. IPv6 is rejected. Ordinary DNS on port
+53 is intercepted and sent over TCP through RAW; encrypted external DNS uses its
+own transport. The app and child core UID are excluded from Android VPN routing,
+so control sockets and replies to hotspot peers use the underlying network.
+Payload connections enter the authenticated loopback RAW bridge explicitly.
 
 ## Integration
 
 The original core remains `libfreeturn.so`; RAW is selected explicitly as
-`libfturnraw.so`. `VpnService` owns interface addresses, MTU, routes and lifecycle.
-For RAW, VpnService creates TUN after the first authenticated stream is ready and
-sends a duplicate descriptor to the deferred native Android adapter. Ordinary
-phone packets pass directly between TUN and RAW; they do not use sing-box or the
-256-handler SOCKS bridge. The existing native bypass terminates only selected
-direct TCP/UDP flows. The SRS parser dependency does not start a sing-box service.
-The RAW wire protocol and encryption are unchanged.
+`libfturnraw.so`. The RAW SOCKS listener starts before sing-box creates TUN; the
+first authenticated RAW server stream gates TUN activation. sing-box owns the
+Android interface, DNS, rule engine, hotspot and authenticated update proxy.
+Its RAW outbound authenticates to a private loopback listener, whose gVisor
+sockets emit IPv4 packets into the RAW transport instead of the host network.
+The RAW wire protocol and server configuration remain compatible.
 
-Same-UID Unix sockets carry TUN descriptors and socket-protection requests. Each
-protection request binds the descriptor to the selected physical Android network.
-Private socket names and the bypass file are scoped to the session. Close wakes
-deferred reads even when TUN has not yet been attached.
+The bridge budget is 1024 simultaneous handlers, including UDP associations.
+Inactive TCP relays close after ten minutes, or one minute after a half-close
+with no further activity. Both directions share an activity clock, preserving
+responses sent after upload EOF. Cancellation closes both directions and frees
+the admission slot. A selector-based Java proxy was evaluated during diagnosis;
+it is not part of the restored sing-box app path.
 
-Explicit update requests use an authenticated loopback HTTP CONNECT server;
-optional hotspot requests use an authenticated SOCKS5 TCP/UDP listener. Their
-ordinary Android destination sockets enter RAW and honor its bypass rules. Only
-the hotspot UDP reply socket is protected for delivery back to the LAN peer.
-Stopping closes these handlers before removing TUN. WG/VLESS continue to use
-sing-box and exclude their control UID as before.
+Version 4.3.1 used direct Android TUN/native bypass and Java explicit proxies.
+That historical implementation had a 128-client explicit proxy budget and a
+blocking-read cleanup defect. The 4.3.2 candidate restores the older routing
+architecture rather than retaining that explicit-proxy implementation.
 
-Native Android adapter tests can run on a connected phone:
+The standalone direct Android adapter tests remain available:
 
 ```powershell
 # In the RAW core checkout (restore environment variables afterwards):
