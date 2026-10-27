@@ -33,7 +33,18 @@ On the 4.3.1 production Java handler, two diagnostic regressions failed: client 
 - Stop removed the old RAW process, Android TUN, bridge/update listeners and hotspot listener. Reconnection succeeded in the same application process, and the restored hotspot and HTTP/3 probes passed again.
 - Network ADB was temporarily enabled for the proposed router check and then returned to USB mode when the user could not move the phone. TCP ADB port 5555 was no longer listening.
 
-Repeated hotspot/DNS/HTTP3 checks on the unchanged second session are recorded locally and will be summarized once complete.
+- Repeated checks: 10 samples over 256.4 seconds, on unchanged application and RAW process IDs, all passed hotspot authentication/HTTPS, SOCKS UDP DNS and HTTP/3. This is a short observation window, not a multi-hour reliability result.
+- Actual HTTP/3 over the installed authenticated SOCKS UDP hotspot also passed: Cloudflare 200 / HTTP/3.0 and Google 204 / HTTP/3.0, with certificate validation and no TCP fallback.
+- RU bypass: an HTTPS request to a destination in the bundled RU CIDRs returned 200 with an egress different from the RAW server, consistent with the restored bypass route.
+- Final installed APK hashes still match the tested 4.3.2 candidate and the original separate 4.1.0-raw-debug package. Named diagnostic executables/JARs/UI dumps were removed from the phone, and the temporary DPAPI-encrypted hotspot credential was deleted. The main application and RAW session remain running.
+
+## Published candidate
+
+- Release: https://github.com/LiTarPc/Fturn-Android/releases/tag/v4.3.2-rc.1 (release 425226749), published as a prerelease.
+- Publication CI: https://github.com/LiTarPc/Fturn-Android/actions/runs/40478374628 succeeded.
+- Tag points to `12c1d9d684f3d1f2c43876617986a260b0f03ac5`; its application/build sources match tested commit `b6c281534a0a6efe7fadbb00f47f5706c7332a79`.
+- Independently checked all eight published asset SHA-256 digests and sizes against the local signed CI artifact, including the exact installed APK and `SHA256SUMS.txt`; all match.
+- Stable Latest remains `v4.3.1` (release 424609373). This candidate does not replace it.
 
 ## Practical limits
 
