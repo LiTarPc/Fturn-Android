@@ -12,9 +12,18 @@ object DiagnosticRedactor {
     private val userInfo = Regex("(?<=://)[^/\\s@]+@")
     private val uuid = Regex("(?i)\\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\\b")
 
+    private val captchaBody = Regex("(?i)\\bdata:\\s*|pow envelope:\\s*")
+
+    // Also applied on export to captcha bodies recorded by previous app versions.
+    fun redactLegacyCaptchaPayload(message: String): String {
+        if (!message.contains("[Captcha", ignoreCase = true)) return message
+        val body = captchaBody.find(message) ?: return message
+        return message.substring(0, body.range.last + 1) + "<redacted>"
+    }
+
     fun redact(message: String, secrets: List<String> = emptyList()): String {
         if (message.length > 64 * 1024) return "[oversized log entry omitted: ${message.length} characters]"
-        var safe = message
+        var safe = redactLegacyCaptchaPayload(message)
         secrets.filter { it.length >= 4 }.forEach { safe = safe.replace(it, "<credential>") }
         safe = ansi.replace(safe, "")
         val params = safe.indexOf("request_params", ignoreCase = true)

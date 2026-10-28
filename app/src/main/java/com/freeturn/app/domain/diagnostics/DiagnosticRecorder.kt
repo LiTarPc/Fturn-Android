@@ -51,7 +51,14 @@ class DiagnosticRecorder(
                             is Command.Export -> command.result.complete(store.exportArchive(
                                 File(exportDirectory, "fturn-diagnostics.zip"),
                                 DiagnosticRedactor.redact(sessionInfo) + "\nJournal limit: 50 MiB\nDropped entries: ${totalDrops.get()}\n"))
-                            is Command.Clear -> { store.clear(); command.result.complete(Unit) }
+                            is Command.Clear -> {
+                                store.clear()
+                                for (name in listOf("fturn-diagnostics.zip", "fturn-diagnostics.zip.part")) {
+                                    val cached = File(exportDirectory, name)
+                                    check(!cached.exists() || cached.delete()) { "Cannot remove cached diagnostic archive" }
+                                }
+                                command.result.complete(Unit)
+                            }
                         }
                         _status.value = Status(true, store.sizeBytes(), totalDrops.get())
                     } catch (e: Exception) {

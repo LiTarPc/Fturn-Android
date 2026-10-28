@@ -93,7 +93,12 @@ class RotatingLogStore(
                 zip.write(metadata.toByteArray(Charsets.UTF_8))
                 zip.closeEntry()
                 zip.putNextEntry(ZipEntry("events.log"))
-                files().forEach { file -> file.inputStream().use { it.copyTo(zip) } }
+                // Sanitize legacy captcha bodies without rescanning all already redacted lines.
+                files().forEach { file ->
+                    file.bufferedReader(Charsets.UTF_8).useLines { lines ->
+                        lines.forEach { line -> zip.write((DiagnosticRedactor.redactLegacyCaptchaPayload(line) + "\n").toByteArray(Charsets.UTF_8)) }
+                    }
+                }
                 zip.closeEntry()
             }
             remove(target)

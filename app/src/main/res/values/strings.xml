@@ -566,4 +566,10 @@
     <string name="logs_journal_error">Ошибка записи журнала. Проверьте свободное место.</string>
     <string name="logs_journal_dropped">Пропущено строк при перегрузке записи: %1$d</string>
     <string name="logs_export_saved">Журнал сохранён</string>
+    <string name="support_title">Поддержка</string>
+    <string name="logs_save_journal">Сохранить журнал</string>
+    <string name="logs_save_journal_desc">ZIP с историей приложения, до 50 МБ</string>
+    <string name="support_send_logs">Отправить логи в поддержку</string>
+    <string name="support_send_logs_desc">@FturnSupport · прикрепите сохранённый ZIP в Telegram</string>
+    <string name="support_open_failed">Не удалось открыть поддержку. Адрес: t.me/FturnSupport</string>
 </resources>

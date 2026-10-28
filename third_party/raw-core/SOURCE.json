@@ -1,9 +1,9 @@
 {
-  "coreVersion": "1.0.1-beta.android.3",
+  "coreVersion": "1.0.1-beta.android.3-reconnect.1",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "0e39d293ee16c09ef57db969d4d785df1ac1a511e09cedf37a5cbf16598ab86d",
-  "description": "Android RAW snapshot with 1024-client SOCKS bridge, bounded TCP cleanup and explicit timeout replies instead of handshake-deadline EOF.",
+  "sourceSnapshotSha256": "c196b6a2e2ab40e2280714254a06829acb43629f46231cc4d0daf303b1486360",
+  "description": "Android .android.3 plus two verified RAW reconnect fixes: pace allocations after credential waits and allow cached credentials during authorization cooldowns.",
   "files": [
     {
       "path": "cmd/raw-client/main.go",
@@ -27,7 +27,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "2fd055989685e9601c97a80a5254116fba885795f214d1ba550639b120eb5ed4"
+      "sha256": "325d735b8d7397c0c91d533e960582d89f00740bf4684c5d260a4f98edb4dbc1"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -539,7 +539,7 @@
     },
     {
       "path": "internal/rawvpn/client.go",
-      "sha256": "5d4086c2f8d31a6cdd54c2f3de538bc685dafacfc979960c760ebbf6598439f8"
+      "sha256": "9fe47ac035db37aa3b332f14f769534512953777c289da648a228ba49337b28c"
     },
     {
       "path": "internal/rawvpn/clients.go",
@@ -652,6 +652,10 @@
     {
       "path": "internal/rawvpn/raw_test.go",
       "sha256": "adde223dadb619aa88c2ea10c4e6bebeb4da465389911eed2a8f58ccb2a5833b"
+    },
+    {
+      "path": "internal/rawvpn/reconnect_stress_test.go",
+      "sha256": "c79bc36b55e866782b55465ee3bf7c3d663044fee011f105745fe655d3556c0d"
     },
     {
       "path": "internal/rawvpn/reconnect_test.go",

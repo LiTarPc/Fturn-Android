@@ -68,6 +68,7 @@ class DiagnosticJournalTest {
             assertTrue(text.contains("first"))
             assertTrue(text.contains("next-session"))
             reopened.clear()
+            assertFalse(File(export, "fturn-diagnostics.zip").exists())
             reopened.append("new-history")
             text = events(reopened.exportArchive())
             assertFalse(text.contains("first"))
@@ -85,6 +86,21 @@ class DiagnosticJournalTest {
             } catch (_: IllegalStateException) {
                 assertTrue(recorder.status.value.writeError)
             } finally { recorder.close() }
+        }
+    }
+
+
+    @Test fun exportRedactsOldCaptchaPayloadsWithoutRemovingHistory() {
+        val dir = temp.newFolder()
+        RotatingLogStore(dir, 4096, 1024).use { store ->
+            store.append("[Captcha] we sent /method/check data: session_id=old-secret&hash=old-proof")
+            store.append("[Captcha Proxy] real browser sent /method/check data: old-browser-secret")
+            store.append("[Captcha] pow envelope: {hash:old-pow-secret}")
+            store.append("[Captcha] http POST check status=200 duration_ms=120")
+            val text = events(store.exportArchive(File(temp.root, "old.zip"), "old history"))
+            listOf("old-secret", "old-proof", "old-browser-secret", "old-pow-secret").forEach { assertFalse(text.contains(it)) }
+            assertTrue(text.contains("status=200 duration_ms=120"))
+            assertTrue(text.contains("[Captcha] we sent /method/check data: <redacted>"))
         }
     }
 

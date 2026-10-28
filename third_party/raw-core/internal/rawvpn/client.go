@@ -26,21 +26,22 @@ const deviceLimitRetryWindow = 2 * time.Minute
 var ErrDeviceLimit = errors.New("raw: server device limit reached; disconnect another device and retry")
 
 type ClientConfig struct {
-	workerToken  [16]byte // stable across reconnects of one logical worker
-	group        [16]byte
-	Peer         *net.UDPAddr
-	Address      netip.Addr
-	MTU          int
-	Profile      string
-	Key          []byte
-	Host, Port   string
-	TransportUDP bool
-	UplinkMode   string
-	Streams      int
-	Provider     provider.Provider
-	Connected    *atomic.Int32
-	OnTURN       func(net.IP)
-	Log          logx.Logger
+	allocatePacer *allocpace.Pacer // shared by workers, applied after credential waits
+	workerToken   [16]byte         // stable across reconnects of one logical worker
+	group         [16]byte
+	Peer          *net.UDPAddr
+	Address       netip.Addr
+	MTU           int
+	Profile       string
+	Key           []byte
+	Host, Port    string
+	TransportUDP  bool
+	UplinkMode    string
+	Streams       int
+	Provider      provider.Provider
+	Connected     *atomic.Int32
+	OnTURN        func(net.IP)
+	Log           logx.Logger
 }
 
 func (c ClientConfig) validate() error {
@@ -117,7 +118,7 @@ func RunClient(ctx context.Context, dev Device, cfg ClientConfig) error {
 			packets.enqueue(packet)
 		}
 	})
-	pacer := allocpace.New(allocpace.DefaultInterval)
+	cfg.allocatePacer = allocpace.New(allocpace.DefaultInterval)
 	for id := 1; id <= cfg.Streams; id++ {
 		workerCfg := cfg
 		if _, err := rand.Read(workerCfg.workerToken[:]); err != nil {
@@ -127,9 +128,6 @@ func RunClient(ctx context.Context, dev Device, cfg ClientConfig) error {
 		wg.Go(func() {
 			var limitSince time.Time
 			for runCtx.Err() == nil {
-				if !pacer.Wait(runCtx) {
-					return
-				}
 				err := clientStream(runCtx, dev, workerCfg, id, packets, retirements)
 				if runCtx.Err() != nil {
 					return
@@ -145,11 +143,17 @@ func RunClient(ctx context.Context, dev Device, cfg ClientConfig) error {
 					report(err)
 					return
 				}
-				cfg.Log.Warnf("RAW stream %d: %v; retrying", id, err)
+				retryDelay := 3 * time.Second
+				if errors.Is(err, provider.ErrBackoffActive) {
+					if until := cfg.Provider.BackoffUntilUnix(); until > time.Now().Unix() {
+						retryDelay = max(retryDelay, time.Until(time.Unix(until, 0)))
+					}
+				}
+				cfg.Log.Warnf("RAW stream %d: %v; retrying in %s", id, err, retryDelay.Round(time.Millisecond))
 				select {
 				case <-runCtx.Done():
 					return
-				case <-time.After(3 * time.Second):
+				case <-time.After(retryDelay):
 				}
 			}
 		})
@@ -164,13 +168,8 @@ func RunClient(ctx context.Context, dev Device, cfg ClientConfig) error {
 }
 
 func clientStream(ctx context.Context, dev Device, cfg ClientConfig, id int, packets *uplinkQueue, retirements chan []byte) error {
-	if until := cfg.Provider.BackoffUntilUnix(); until > time.Now().Unix() {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(time.Until(time.Unix(until, 0))):
-		}
-	}
+	// The provider checks authorization cooldowns only when fetching credentials.
+	// Its valid cache must remain usable for reconnecting other worker groups.
 	getCreds := func(ctx context.Context, id int) (string, string, []string, error) {
 		creds, err := cfg.Provider.GetCredentials(ctx, id)
 		if err == nil && cfg.OnTURN != nil {
@@ -193,6 +192,12 @@ func clientStream(ctx context.Context, dev Device, cfg ClientConfig, id int, pac
 					cfg.OnTURN(ips[0].IP)
 				}
 			}
+		}
+		// Authorization can hold an entire credential group for seconds or minutes.
+		// Reserve the Allocate slot only after it finishes, otherwise all waiters
+		// consume their slots early and connect simultaneously when released.
+		if err == nil && !cfg.allocatePacer.Wait(ctx) {
+			return "", "", nil, ctx.Err()
 		}
 		return creds.User, creds.Pass, creds.ServerAddrs, err
 	}

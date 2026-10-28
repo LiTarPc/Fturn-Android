@@ -24,6 +24,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import android.widget.Toast
+import com.freeturn.app.ui.components.SectionLabel
+import com.freeturn.app.ui.util.rememberJournalExport
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freeturn.app.R
 import com.freeturn.app.ui.components.SettingsBackButton
@@ -55,6 +60,9 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit,
     onOpenBypass: () -> Unit
 ) {
+    val export = rememberJournalExport()
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -112,6 +120,31 @@ fun SettingsScreen(
                             title = stringResource(R.string.settings_about),
                             subtitle = stringResource(R.string.settings_about_desc),
                             onClick = onOpenAbout
+                        )
+                    }
+                }
+                SectionLabel(stringResource(R.string.support_title))
+                SettingsGroup {
+                    SettingsGroupItem(0, 2) {
+                        SettingsEntryRow(
+                            iconRes = R.drawable.description_24px,
+                            title = stringResource(if (export.busy) R.string.logs_export_busy else R.string.logs_save_journal),
+                            subtitle = stringResource(R.string.logs_save_journal_desc),
+                            onClick = export.save
+                        )
+                    }
+                    SettingsGroupItem(1, 2) {
+                        SettingsEntryRow(
+                            iconRes = R.drawable.share_24px,
+                            title = stringResource(R.string.support_send_logs),
+                            subtitle = stringResource(R.string.support_send_logs_desc),
+                            trailingRes = R.drawable.open_in_new_24px,
+                            onClick = {
+                                try { uriHandler.openUri("https://t.me/FturnSupport") }
+                                catch (_: Exception) {
+                                    Toast.makeText(context, R.string.support_open_failed, Toast.LENGTH_LONG).show()
+                                }
+                            }
                         )
                     }
                 }

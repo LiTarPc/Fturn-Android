@@ -5,10 +5,6 @@
 
 package com.freeturn.app.ui.screens.logs
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import android.widget.Toast
 import com.freeturn.app.domain.diagnostics.DiagnosticLogs
 import com.freeturn.app.domain.diagnostics.DiagnosticRedactor
@@ -69,6 +65,7 @@ import com.freeturn.app.domain.proxy.LogEntry
 import com.freeturn.app.domain.proxy.LogLevel
 import com.freeturn.app.ui.theme.Spacing
 import com.freeturn.app.ui.theme.extendedColorScheme
+import com.freeturn.app.ui.util.rememberJournalExport
 import com.freeturn.app.ui.util.copyToClipboard
 import com.freeturn.app.viewmodel.proxy.ProxyViewModel
 
@@ -80,39 +77,9 @@ fun LogsScreen(proxyViewModel: ProxyViewModel) {
     val listState = rememberLazyListState()
     val journal by DiagnosticLogs.status.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
-    var journalBusy by rememberSaveable { mutableStateOf(false) }
-    val saveJournal = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) { uri ->
-        if (uri == null) {
-            journalBusy = false
-        } else {
-            scope.launch {
-                try {
-                    val archive = DiagnosticLogs.exportArchive()
-                    withContext(Dispatchers.IO) {
-                        checkNotNull(context.contentResolver.openOutputStream(uri, "wt")).use { output ->
-                            archive.inputStream().use { it.copyTo(output) }
-                        }
-                    }
-                    Toast.makeText(context, R.string.logs_export_saved, Toast.LENGTH_LONG).show()
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (_: Exception) {
-                    Toast.makeText(context, R.string.logs_export_failed, Toast.LENGTH_LONG).show()
-                } finally { journalBusy = false }
-            }
-        }
-    }
-
-    fun exportJournal() {
-        if (journalBusy) return
-        journalBusy = true
-        try {
-            saveJournal.launch("fturn-diagnostics-${System.currentTimeMillis()}.zip")
-        } catch (_: Exception) {
-            journalBusy = false
-            Toast.makeText(context, R.string.logs_export_failed, Toast.LENGTH_LONG).show()
-        }
-    }
+    val export = rememberJournalExport()
+    var clearing by remember { mutableStateOf(false) }
+    val journalBusy = export.busy || clearing
 
     var autoScroll by remember { mutableStateOf(true) }
 
@@ -154,7 +121,7 @@ fun LogsScreen(proxyViewModel: ProxyViewModel) {
             LogsActionsFab(
                 hasLogs = logs.isNotEmpty(),
                 journalBusy = journalBusy,
-                onExport = { if (journal.ready) exportJournal() },
+                onExport = { if (journal.ready) export.save() },
                 onCopy = {
                     context.copyToClipboard("proxy_logs", logs.joinToString("\n") { DiagnosticRedactor.redact(it.text) })
                     HapticUtil.perform(context, HapticUtil.Pattern.SUCCESS)
@@ -162,7 +129,7 @@ fun LogsScreen(proxyViewModel: ProxyViewModel) {
                 onClear = {
                     HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
                     if (!journalBusy) {
-                        journalBusy = true
+                        clearing = true
                         scope.launch {
                             try {
                                 DiagnosticLogs.clear()
@@ -171,7 +138,7 @@ fun LogsScreen(proxyViewModel: ProxyViewModel) {
                                 throw e
                             } catch (_: Exception) {
                                 Toast.makeText(context, R.string.logs_clear_failed, Toast.LENGTH_LONG).show()
-                            } finally { journalBusy = false }
+                            } finally { clearing = false }
                         }
                     }
                 }
