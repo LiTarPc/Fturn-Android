@@ -555,4 +555,15 @@
     <string name="journal_normal">Обычный</string>
     <string name="journal_verbose">Подробный</string>
     <string name="connection_parameters_desc">Транспорт TURN и конфигурация прокси или VPN</string>
+
+    <string name="logs_export">Выгрузить журнал</string>
+    <string name="logs_export_busy">Подготовка журнала…</string>
+    <string name="logs_export_failed">Не удалось выгрузить журнал. Проверьте свободное место.</string>
+    <string name="logs_clear_failed">Не удалось очистить журнал.</string>
+    <string name="logs_copy_screen">Копировать экран</string>
+    <string name="logs_clear_journal">Очистить журнал</string>
+    <string name="logs_journal_size">Журнал: %1$.1f из 50 МБ • сохраняется между запусками</string>
+    <string name="logs_journal_error">Ошибка записи журнала. Проверьте свободное место.</string>
+    <string name="logs_journal_dropped">Пропущено строк при перегрузке записи: %1$d</string>
+    <string name="logs_export_saved">Журнал сохранён</string>
 </resources>

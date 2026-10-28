@@ -24,6 +24,15 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        val version = runCatching { packageManager.getPackageInfo(packageName, 0).versionName }.getOrNull()
+        com.freeturn.app.domain.diagnostics.DiagnosticLogs.initialize(
+            java.io.File(noBackupFilesDir, "diagnostics"),
+            java.io.File(cacheDir, "diagnostics"),
+            "Fturn $version; RAW ${getString(com.freeturn.app.R.string.raw_core_version)}; " +
+                "TURN ${getString(com.freeturn.app.R.string.freeturn_core_version)}; " +
+                "Android ${android.os.Build.VERSION.RELEASE} / API ${android.os.Build.VERSION.SDK_INT}; " +
+                "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}; pid=${android.os.Process.myPid()}"
+        )
         // ed25519/curve25519 работает через Bouncy Castle в classpath. jsch 2.x подхватывает его сам.
         startKoin {
             androidLogger()

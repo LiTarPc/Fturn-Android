@@ -142,6 +142,24 @@ class CoreProcessController(
         }
         ProxyServiceState.setLogsEnabled(cfg.logsEnabled)
         val srv = prefs.serverOptsFlow.first()
+        com.freeturn.app.domain.diagnostics.DiagnosticLogs.registerSecrets(buildList {
+            add(srv.obfKey)
+            add(prefs.hotspotConfigFlow.first().password)
+            add(cfg.clientId)
+            add(prefs.ownClientId())
+            addAll(cfg.vkLink.split(','))
+            add(cfg.vlessUri)
+            runCatching { com.freeturn.app.data.config.VlessProfile.parse(cfg.vlessUri).uuid }
+                .getOrNull()?.let(::add)
+            Regex("(?im)^\\s*(?:PrivateKey|PresharedKey|PublicKey)\\s*=\\s*(\\S+)")
+                .findAll(cfg.wireGuardConfig).forEach { add(it.groupValues[1]) }
+        })
+        if (cfg.logsEnabled) com.freeturn.app.domain.diagnostics.DiagnosticLogs.append(
+            "[PROFILE] transport=${cfg.tunnelTransport} server=${cfg.serverAddress} " +
+                "streams=${cfg.threads} per_credential=${cfg.streamsPerCred} " +
+                "turn_transport=${if (cfg.useUdp) "udp" else "tcp"} " +
+                "raw_uplink=${cfg.rawUplink} raw_mtu=${cfg.rawMtu} bypass=${cfg.bypassRulesEnabled}"
+        )
         val privacy = prefs.privacyModeFlow.first()
 
         val libDir = File(context.applicationInfo.nativeLibraryDir)

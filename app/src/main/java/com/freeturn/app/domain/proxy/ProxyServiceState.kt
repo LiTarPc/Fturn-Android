@@ -103,6 +103,7 @@ object ProxyServiceState {
 
     fun addLog(msg: String) {
         if (!_logsEnabled.value) return
+        com.freeturn.app.domain.diagnostics.DiagnosticLogs.append(msg)
         val entry = LogEntry(logSeq.getAndIncrement(), msg, classifyLogLine(msg))
         _logs.update { current ->
             val next = current + entry
