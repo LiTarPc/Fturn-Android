@@ -1,9 +1,9 @@
 {
-  "coreVersion": "1.0.1-beta.android.2",
+  "coreVersion": "1.0.1-beta.android.3",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "f9f4155e5df8e3baca94dca1b72c3893f2bf094d647792409c43e6eb8c5482b1",
-  "description": "Android RAW snapshot with 1024-client SOCKS bridge and bounded TCP idle/half-close cleanup. Direct adapter remains available for standalone use.",
+  "sourceSnapshotSha256": "0e39d293ee16c09ef57db969d4d785df1ac1a511e09cedf37a5cbf16598ab86d",
+  "description": "Android RAW snapshot with 1024-client SOCKS bridge, bounded TCP cleanup and explicit timeout replies instead of handshake-deadline EOF.",
   "files": [
     {
       "path": "cmd/raw-client/main.go",
@@ -27,7 +27,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "bd650abc1a9bcd61b0191950f01fdede65b9b1f72fb4ac706d41f1512a27cab4"
+      "sha256": "2fd055989685e9601c97a80a5254116fba885795f214d1ba550639b120eb5ed4"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -511,11 +511,11 @@
     },
     {
       "path": "internal/rawsocks/proxy.go",
-      "sha256": "b94c07985b645cef9f8f19a8213e474e826bd25fecb382ba82724f90137e64d6"
+      "sha256": "52af153282d305562bc696aecb88102ec095509a92f8a726205dfb7623324ecc"
     },
     {
       "path": "internal/rawsocks/proxy_test.go",
-      "sha256": "30582bd926273821d0e0e5e6d744cf14fe303a78a0faf709deb64adae2201e05"
+      "sha256": "de09db25b21ef89c6ea6f32ce917dfb363f8b3d095e34f16acc2d58b7e36b4b6"
     },
     {
       "path": "internal/rawsocks/tcp_relay.go",

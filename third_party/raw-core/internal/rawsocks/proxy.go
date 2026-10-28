@@ -261,6 +261,12 @@ func (d *Device) handle(c net.Conn) {
 	}
 	ctx, cancel := context.WithTimeout(d.ctx, 15*time.Second)
 	defer cancel()
+	// The request is complete. Leave a bounded window to write a SOCKS failure
+	// after the outbound dial expires; the handshake deadline may expire first.
+	deadline, _ := ctx.Deadline()
+	if c.SetDeadline(deadline.Add(5*time.Second)) != nil {
+		return
+	}
 	ip, e := d.resolve(ctx, host)
 	if e != nil || port == 0 {
 		reply(c, 4, 0)
@@ -268,7 +274,12 @@ func (d *Device) handle(c net.Conn) {
 	}
 	target, e := gonet.DialContextTCP(ctx, d.stack, tcpip.FullAddress{NIC: 1, Addr: tcpip.AddrFrom4(ip.As4()), Port: port}, ipv4.ProtocolNumber)
 	if e != nil {
-		reply(c, 5, 0)
+		code := byte(5) // connection refused
+		var timeout net.Error
+		if errors.Is(e, context.DeadlineExceeded) || (errors.As(e, &timeout) && timeout.Timeout()) {
+			code = 4 // host unreachable
+		}
+		reply(c, code, 0)
 		return
 	}
 	if !d.track(target) {

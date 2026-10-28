@@ -9,7 +9,7 @@ From the Android repository in PowerShell:
 ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug -PcoreFetch=none -PrawBuild=true
 ```
 
-RAW core 1.0.1-beta.android.2 is pinned in `raw-core.properties` and `third_party/raw-core`.
+RAW core 1.0.1-beta.android.3 is pinned in `raw-core.properties` and `third_party/raw-core`.
 Gradle preBuild verifies SOURCE.json and compiles that source automatically with
 Go 1.26.10. It does not depend on a sibling checkout or an unversioned binary.
 The APK includes assets/raw-core.json with the source snapshot and binary hashes.
@@ -190,3 +190,13 @@ streamed in 72.8 seconds; SHA-256 matched the GitHub asset digest exactly:
 The diagnostic receiver was temporary, shell-protected and removed afterward;
 it is absent from the release source and APK. All 138 Android JVM tests and
 local debug/release builds passed.
+
+## SOCKS timeout regression (4.3.3 candidate)
+
+The former bridge used one 15-second client deadline for the handshake and
+outbound connection. A destination timing out could exhaust that deadline before
+the SOCKS failure reply was written, so sing-box reported EOF at about 15 seconds.
+After the complete request, the bridge now reserves a bounded five-second reply
+window beyond the outbound deadline. A timed-out dial returns host unreachable;
+a refused connection still returns connection refused. This changes failure
+reporting, not the reachability of an unresponsive destination.
