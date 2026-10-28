@@ -84,3 +84,23 @@ The on-device pure collector tests validate storage behavior under ART. They do
 not substitute for checking the document picker and reading an export produced by
 the installed, minified application. Those final UI/export checks remain pending
 because the screen is PIN locked; an unlock request is pending with the user.
+
+## UI/export follow-up after unlocking
+
+The user unlocked the device and authorized unattended UI checks. The actual
+installed/minified 4.3.4 app successfully saved a ZIP through DocumentsUI to
+Downloads. It contained only diagnostic-info.txt and events.log; CRC/UTF-8 and
+version metadata checks passed. The first export had 5,179 lines / 708,451 log
+bytes, covering approximately 47 minutes, with RAW, sing-box and lifecycle records.
+
+After stopping VPN, force-stopping/relaunching Fturn and starting the same profile,
+a second UI export contained the entire first log as an exact byte prefix, plus
+new entries: 6,539 lines / 931,073 bytes, two application sessions and two profile
+sessions, with zero dropped entries. The profile retained 40 streams, 10 streams
+per credential, tcp TURN, tcp-flow RAW, MTU 1350 and bypass enabled.
+
+This closes the earlier PIN-related export/retention limitation. Inspection also
+found verbose captcha request/proof payloads. They are filtered in the subsequent
+4.3.5 recorder and re-filtered when exporting older segments, preserving useful
+status/timing records. The two old test ZIPs are temporary diagnostics, not support
+attachments; a newly filtered export should be used for sharing.
