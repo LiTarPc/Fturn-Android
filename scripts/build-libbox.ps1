@@ -30,6 +30,8 @@ if (!(Get-ChildItem (Join-Path $env:ANDROID_HOME 'platforms') -Directory | Where
 }
 Push-Location $sourceRoot
 try {
+    & python (Join-Path $PSScriptRoot 'patch-sing-socks.py') $sourceRoot
+    if ($LASTEXITCODE) { throw 'SOCKS UDP control lifecycle patch failed' }
     & go mod edit '-require=github.com/klauspost/compress@v1.18.3'
     & go mod download github.com/klauspost/compress
     if ($LASTEXITCODE) { throw 'compress dependency verification failed' }

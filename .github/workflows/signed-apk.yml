@@ -54,6 +54,9 @@ jobs:
           sdkmanager 'ndk;28.2.13676358'
           bash scripts/build-libbox.sh
 
+      - name: SOCKS UDP control lifecycle regression under race detector
+        run: bash scripts/test-socks-control.sh
+
       - name: RAW bridge tests
         working-directory: third_party/raw-core
         env:

@@ -25,6 +25,7 @@ if ! find "$ANDROID_HOME/platforms" -mindepth 1 -maxdepth 1 -type d | grep -Eq '
   export ANDROID_HOME="$overlay_root"
 fi
 cd "$native_root/sing-box-1.12.0"
+python3 "$project_root/scripts/patch-sing-socks.py" "$PWD"
 go mod edit -require=github.com/klauspost/compress@v1.18.3
 go mod download github.com/klauspost/compress
 go install github.com/sagernet/gomobile/cmd/gomobile
