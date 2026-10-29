@@ -2,7 +2,7 @@
   "coreVersion": "1.0.1-beta.android.4",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "035623b3ad0f47618767cf49d6416dfeee704037f100a3a772b881e3d92accac",
+  "sourceSnapshotSha256": "7f347d5fef2a3fbccdd2a475646b07f15e33c7ade862cf4249df721df182fd9f",
   "description": "Android reconnect.1 plus bidirectional UDP association idle reclamation and bounded SOCKS admission/lifecycle diagnostics. Pair with sing SOCKS client TCP control EOF monitoring.",
   "files": [
     {
@@ -27,7 +27,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "d1b3bbc53c9bdb92b4e0ff96a382b0eea64fe7f60990fd72688017e15baa1e30"
+      "sha256": "a8606396b4a6788e655a478c17f039f898c1f78280b49f70030c14f1d1486f3d"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -511,7 +511,7 @@
     },
     {
       "path": "internal/rawsocks/association_idle_test.go",
-      "sha256": "5acec82271a6559be8d983bd8d7cd22d0225f1f6dd916ed2a118e18cba25a5c3"
+      "sha256": "012b9d678307890b6914eaf85b53d1772ba5ee6637d5642bef7f75efbbe952a1"
     },
     {
       "path": "internal/rawsocks/audit_regression_test.go",
