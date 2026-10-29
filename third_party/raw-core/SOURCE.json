@@ -1,9 +1,9 @@
 {
-  "coreVersion": "1.0.1-beta.android.3-reconnect.1",
+  "coreVersion": "1.0.1-beta.android.4",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "c196b6a2e2ab40e2280714254a06829acb43629f46231cc4d0daf303b1486360",
-  "description": "Android .android.3 plus two verified RAW reconnect fixes: pace allocations after credential waits and allow cached credentials during authorization cooldowns.",
+  "sourceSnapshotSha256": "035623b3ad0f47618767cf49d6416dfeee704037f100a3a772b881e3d92accac",
+  "description": "Android reconnect.1 plus bidirectional UDP association idle reclamation and bounded SOCKS admission/lifecycle diagnostics. Pair with sing SOCKS client TCP control EOF monitoring.",
   "files": [
     {
       "path": "cmd/raw-client/main.go",
@@ -27,7 +27,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "325d735b8d7397c0c91d533e960582d89f00740bf4684c5d260a4f98edb4dbc1"
+      "sha256": "d1b3bbc53c9bdb92b4e0ff96a382b0eea64fe7f60990fd72688017e15baa1e30"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -506,16 +506,28 @@
       "sha256": "17a728baec41d8a11075878217d75051f076a35b87dbf1f0cfd0dbe906f88dbe"
     },
     {
+      "path": "internal/rawsocks/association_idle.go",
+      "sha256": "e99ead1ecc683b3ec9df36c636e60b07bf342611dd13785ccf44f7d88932f8b0"
+    },
+    {
+      "path": "internal/rawsocks/association_idle_test.go",
+      "sha256": "5acec82271a6559be8d983bd8d7cd22d0225f1f6dd916ed2a118e18cba25a5c3"
+    },
+    {
       "path": "internal/rawsocks/audit_regression_test.go",
       "sha256": "edb5bf8b6ef4168a326c792b484bbba608eb4b3e96a305ad2bf59f551b9a2eb8"
     },
     {
       "path": "internal/rawsocks/proxy.go",
-      "sha256": "52af153282d305562bc696aecb88102ec095509a92f8a726205dfb7623324ecc"
+      "sha256": "f7178802c99836c3e9624353bd2353f74d4d96b3b05faa8a21bfd4be407ab70d"
     },
     {
       "path": "internal/rawsocks/proxy_test.go",
       "sha256": "de09db25b21ef89c6ea6f32ce917dfb363f8b3d095e34f16acc2d58b7e36b4b6"
+    },
+    {
+      "path": "internal/rawsocks/stats.go",
+      "sha256": "7353d4cc5d692597a32f514bb0c096b9437e9c3e0ea712933af0b1735fe72112"
     },
     {
       "path": "internal/rawsocks/tcp_relay.go",

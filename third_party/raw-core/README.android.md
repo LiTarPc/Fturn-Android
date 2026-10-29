@@ -1,8 +1,13 @@
-RAW 1.0.1-beta sources with the Android direct-TUN integration patch (1.0.1-beta.android.1).
-Android receives TUN only after an authenticated RAW stream is ready. Native control
-and direct-bypass sockets are protected and bound to the physical Android network.
-The native bypass reads CIDR and supported SRS destination rules. The SRS decoder
-is a parser dependency; no sing-box service handles ordinary Android TUN traffic.
-The legacy authenticated SOCKS entry point remains for standalone compatibility.
+RAW 1.0.1-beta.android.4, based on the Android reconnect.1 source snapshot.
+Android uses sing-box for TUN, routing, bypass, DNS and the hotspot SOCKS listener.
+The private authenticated loopback RAW SOCKS bridge carries payload through the
+RAW gVisor stack and emits IPv4 packets into the RAW transport.
 
-SOURCE.json pins all sources and Go 1.26.10. Android/arm64, API 24+.
+The bridge admits 1024 concurrent TCP/control handlers. UDP associations expire
+after two minutes without traffic in either direction, separately from destination
+flow timeouts. Pair this core with the sing SOCKS client TCP control EOF monitor
+in scripts/patch-sing-socks.py. Admission and lifecycle counters are logged every
+30 seconds, with rate-limited admission warnings. Existing reconnect fixes remain.
+
+The standalone direct-TUN/native bypass adapters remain in source. SOURCE.json
+pins all inputs and Go 1.26.10. Android/arm64, API 24+.

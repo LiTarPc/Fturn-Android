@@ -9,7 +9,7 @@ From the Android repository in PowerShell:
 ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug -PcoreFetch=none -PrawBuild=true
 ```
 
-RAW core 1.0.1-beta.android.3 is pinned in `raw-core.properties` and `third_party/raw-core`.
+RAW core 1.0.1-beta.android.4 is pinned in `raw-core.properties` and `third_party/raw-core`.
 Gradle preBuild verifies SOURCE.json and compiles that source automatically with
 Go 1.26.10. It does not depend on a sibling checkout or an unversioned binary.
 The APK includes assets/raw-core.json with the source snapshot and binary hashes.

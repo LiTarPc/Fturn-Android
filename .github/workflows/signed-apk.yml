@@ -21,7 +21,7 @@ concurrency:
 env:
   JAVA_VERSION: '17'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  RELEASE_TAG: v4.3.5
+  RELEASE_TAG: v4.3.6
   RELEASE_CERT_SHA256: 95a28637777d471e901c59cd4c1fb5ebbe6433d7128a79855106d626e3e2a85f
 
 jobs:
@@ -69,7 +69,7 @@ jobs:
         env:
           GOTOOLCHAIN: go1.26.10
           GOTELEMETRY: 'off'
-        run: go test -race -mod=readonly ./internal/rawsocks -run 'TestTCPRelay|TestBridgeAdmits1024|TestConnectTimeout|TestRefusedConnect' -count=1 -timeout=120s
+        run: go test -race -mod=readonly ./internal/rawsocks -run 'TestTCPRelay|TestBridgeAdmits1024|TestConnectTimeout|TestRefusedConnect|TestAssociation|TestUDPAssociation' -count=1 -timeout=120s
 
       - name: TURN client regression tests
         working-directory: third_party/freeturn-core
@@ -126,7 +126,7 @@ jobs:
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: fturn-signed-4.3.5
+          name: fturn-signed-4.3.6
           path: dist/*
           retention-days: 7
 
