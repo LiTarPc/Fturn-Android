@@ -1,0 +1,39 @@
+name: Publish verified Fturn 4.3.6
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/release-4.3.6']
+    paths:
+      - '.github/workflows/publish-verified-4.3.6.yml'
+      - '.github/scripts/publish-verified-4.3.6.py'
+
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: publish-verified-v4.3.6
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Verify application sources match the phone-tested signed build
+        run: |
+          git diff --exit-code afe29a87ce3da2b4e001f0fc9de7942f57031145 -- app third_party scripts gradle '*.gradle.kts' gradle.properties freeturn-core.properties raw-core.properties .github/workflows/signed-apk.yml
+      - uses: actions/download-artifact@v4
+        with:
+          artifact-ids: '12892625048'
+          merge-multiple: true
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: '40860085779'
+          path: dist
+      - name: Verify every asset and publish the phone-tested APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 .github/scripts/publish-verified-4.3.6.py
