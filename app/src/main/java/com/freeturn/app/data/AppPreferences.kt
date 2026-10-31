@@ -38,6 +38,7 @@ class AppPreferences(context: Context) {
         val DYNAMIC_THEME = booleanPreferencesKey("dynamic_theme")
         val APP_THEME = stringPreferencesKey("app_theme")
         val NERD_MODE = booleanPreferencesKey("nerd_mode")
+        val BROWSER_CAPTCHA = booleanPreferencesKey("browser_captcha")
         val PRIVACY_MODE = booleanPreferencesKey("privacy_mode")
         val TG_SUBSCRIBE_SHOWN = booleanPreferencesKey("tg_subscribe_shown")
         val SUPPRESS_UPDATE_PROMPT = booleanPreferencesKey("suppress_update_prompt")
@@ -101,6 +102,8 @@ class AppPreferences(context: Context) {
     val dynamicThemeFlow: Flow<Boolean> = prefFlow { prefs -> prefs[DYNAMIC_THEME] ?: true }
 
     val nerdModeFlow: Flow<Boolean> = prefFlow { prefs -> prefs[NERD_MODE] ?: false }
+
+    val browserCaptchaFlow: Flow<Boolean> = prefFlow { prefs -> prefs[BROWSER_CAPTCHA] ?: true }
 
     val privacyModeFlow: Flow<Boolean> = prefFlow { prefs -> prefs[PRIVACY_MODE] ?: false }
 
@@ -249,6 +252,8 @@ class AppPreferences(context: Context) {
         context.dataStore.edit { prefs -> prefs[DYNAMIC_THEME] = enabled }
     }
 
+    suspend fun setBrowserCaptcha(enabled: Boolean) { context.dataStore.edit { it[BROWSER_CAPTCHA] = enabled } }
+
     suspend fun setNerdMode(enabled: Boolean) {
         context.dataStore.edit { prefs -> prefs[NERD_MODE] = enabled }
     }
@@ -308,6 +313,7 @@ class AppPreferences(context: Context) {
             appTheme = appThemeFlow.first(),
             nerdMode = nerdModeFlow.first(),
             privacyMode = privacyModeFlow.first(),
+            browserCaptcha = browserCaptchaFlow.first(),
             restartServerOnSwitch = restartServerOnSwitchFlow.first(),
             suppressUpdatePrompt = suppressUpdatePromptFlow.first(),
             suppressTgPrompt = suppressTgPromptFlow.first(),
@@ -337,6 +343,7 @@ class AppPreferences(context: Context) {
             prefs[APP_THEME] = com.freeturn.app.data.config.AppTheme.normalize(data.appTheme)
             prefs[NERD_MODE] = data.nerdMode
             prefs[PRIVACY_MODE] = data.privacyMode
+            prefs[BROWSER_CAPTCHA] = data.browserCaptcha
             prefs[RESTART_SERVER_ON_SWITCH] = data.restartServerOnSwitch
             prefs[SUPPRESS_UPDATE_PROMPT] = data.suppressUpdatePrompt
             prefs[SUPPRESS_TG_PROMPT] = data.suppressTgPrompt

@@ -54,6 +54,7 @@ class CoreProcessController(
     }
 
     private val singBox = SingBoxTunnelManager(context)
+    private val captcha = CaptchaCoordinator(context, notifier::updateCaptchaState)
     private val handler = Handler(Looper.getMainLooper())
 
     private val process = AtomicReference<Process?>(null)
@@ -82,8 +83,11 @@ class CoreProcessController(
         process.get()?.destroyCompat()
     }
 
+    fun resumeCaptcha(generation: String) { captcha.resume(generation) }
+
     fun beginShutdown() {
         userStopped.set(true)
+        captcha.close()
         handler.removeCallbacksAndMessages(null)
     }
 
@@ -229,10 +233,13 @@ class CoreProcessController(
             val rawBackend = if (cfg.rawVpnActive) {
                 com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(prefs.hotspotConfig().port))
             } else null
+            val captchaEnvironment = if (cfg.rawVpnActive) captcha.begin(prefs.browserCaptchaFlow.first()) else emptyMap()
+            com.freeturn.app.domain.diagnostics.DiagnosticLogs.registerSecrets(captchaEnvironment.values)
             val proc = withContext(Dispatchers.IO + NonCancellable) {
                 // Легаси: сносим осиротевшие профили захвата (сам механизм захвата удалён).
                 context.filesDir.listFiles { f -> f.name.startsWith("vk_profile") }?.forEach { it.delete() }
                 val pb = ProcessBuilder(cmdArgs).redirectErrorStream(true)
+                pb.environment().putAll(captchaEnvironment)
                 // CWD подменяем на writeable dir для логов кэша tls-client и т.п.
                 pb.directory(context.filesDir)
                 if (cfg.rawVpnActive) {
@@ -278,12 +285,15 @@ class CoreProcessController(
                     }
                     if (line == null) break
                     val l = line
-                    ProxyServiceState.addLog(l)
-
+                    if (cfg.rawVpnActive && captcha.acceptLine(l)) continue
                     val events = CoreLogParser.parse(l)
+                    if (events.any { it is CoreLogEvent.CaptchaUrl }) {
+                        ProxyServiceState.addLog("[AUTH] event=legacy_manual_challenge")
+                    } else ProxyServiceState.addLog(l)
                     var statsChanged = false
                     for (event in events) when (event) {
                         is CoreLogEvent.CaptchaUrl -> {
+                            if (captcha.isStructured()) continue
                             captchaSessionCounter += 1
                             ProxyServiceState.setCaptchaSession(
                                 CaptchaSession(event.url, captchaSessionCounter)
@@ -294,6 +304,7 @@ class CoreProcessController(
                             if (!userStopped.get()) notifier.showDnsFallback(DnsFallback.DOH, carrierSelected)
                         }
                         CoreLogEvent.CaptchaResolved -> {
+                            if (captcha.isStructured()) continue
                             if (ProxyServiceState.captchaSession.value != null) {
                                 ProxyServiceState.setCaptchaSession(null)
                                 notifier.cancelCaptcha()
@@ -377,6 +388,7 @@ class CoreProcessController(
             }
         } finally {
             withContext(NonCancellable) {
+                captcha.end()
                 ProxyServiceState.setCaptchaSession(null)
                 notifier.cancelCaptcha()
                 try {

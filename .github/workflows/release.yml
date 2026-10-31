@@ -68,7 +68,14 @@ jobs:
         env:
           GOTOOLCHAIN: go1.26.10
           GOTELEMETRY: 'off'
-        run: go test -mod=readonly ./internal/bypass ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
+        run: go test -mod=readonly ./internal/bypass ./internal/captchaipc ./internal/provider/vk/internal/vkauth ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
+
+      - name: RAW authorization concurrency under race detector
+        working-directory: third_party/raw-core
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: go test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/internal/vkauth ./internal/rawsocks ./internal/rawvpn -count=1 -timeout=6m
 
       - name: TURN client regression tests
         working-directory: third_party/freeturn-core

@@ -26,6 +26,7 @@ type Config struct {
 	StatePaths      []string
 	Log             logx.Logger
 	Debug           bool
+	Interactive     *InteractiveHooks
 }
 
 // ManualSolverFunc определяет сигнатуру функции для интерактивного решения капчи.
@@ -44,7 +45,7 @@ func New(cfg Config, solver ManualSolverFunc) (*Provider, error) {
 	captcha.SetLogger(cfg.Log)
 	manualcaptcha.SetLogger(cfg.Log)
 	manualcaptcha.Debug = cfg.Debug
-	auth := vkauth.New(vkauth.Config{
+	authConfig := vkauth.Config{
 		Credentials:     cfg.Credentials,
 		Dialer:          cfg.Dialer,
 		ManualOnly:      cfg.ManualOnly,
@@ -55,7 +56,14 @@ func New(cfg Config, solver ManualSolverFunc) (*Provider, error) {
 		FingerprintSeed: cfg.FingerprintSeed,
 		StatePaths:      cfg.StatePaths,
 		Log:             cfg.Log,
-	})
+	}
+	if cfg.Interactive != nil {
+		authConfig.BrowserSolver = cfg.Interactive.BrowserSolver
+		authConfig.BeforeFetch = cfg.Interactive.BeforeFetch
+		authConfig.OnAuthWait = cfg.Interactive.OnAuthWait
+		authConfig.OnAuthSuccess = cfg.Interactive.OnAuthSuccess
+	}
+	auth := vkauth.New(authConfig)
 	return &Provider{link: cfg.Link, auth: auth}, nil
 }
 

@@ -57,4 +57,13 @@ class BackupValidationTest {
         assertThrows(Exception::class.java) { ServerJson.decodeListStrict("[") }
         assertThrows(Exception::class.java) { ServerJson.decodeListStrict("") }
     }
+    @Test fun `browser check preference survives backup and older backups keep the default`() {
+        val legacy = SettingsBackup.decode(payload().toString())
+        assertTrue(legacy.browserCaptcha)
+        val restored = SettingsBackup.decode(SettingsBackup.encode(legacy.copy(browserCaptcha = false)))
+        assertFalse(restored.browserCaptcha)
+        assertEquals(legacy.activeId, restored.activeId)
+        assertEquals(legacy.servers, restored.servers)
+    }
+
 }

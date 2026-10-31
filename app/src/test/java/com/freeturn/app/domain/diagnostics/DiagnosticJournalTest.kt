@@ -120,6 +120,7 @@ class DiagnosticJournalTest {
             assertFalse("Leaked $it in $text", text.contains(it))
         }
         assertTrue(text.contains("timeout EOF 192.0.2.1:1080 120ms"))
+        assertFalse(DiagnosticRedactor.redact("--links opaque-call-value").contains("opaque-call-value"))
         assertTrue(DiagnosticRedactor.redact("x".repeat(70000)).startsWith("[oversized"))
     }
 
@@ -169,6 +170,15 @@ class DiagnosticJournalTest {
                 assertTrue(all.contains("reason=timeout duration_ms=35000"))
             }
         }
+    }
+
+    @Test fun embeddedFlagSuffixDoesNotConsumeFollowingDiagnosticFields() {
+        val text = DiagnosticRedactor.redact("session_token=display-token reason=timeout duration_ms=35000")
+        assertFalse(text.contains("display-token"))
+        assertTrue(text.contains("reason=timeout duration_ms=35000"))
+        val command = DiagnosticRedactor.redact("core --token flag-secret --links opaque-call-value")
+        assertFalse(command.contains("flag-secret"))
+        assertFalse(command.contains("opaque-call-value"))
     }
 
 }

@@ -19,12 +19,14 @@ import kotlinx.coroutines.launch
 /**
  * Управляет жизненным циклом прокси-сервиса (Koin `single`, Application scope).
  */
-class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
+class LocalProxyManager(
+    private val launcher: ProxyServiceLauncher,
+    private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + SupervisorJob()),
+) {
 
     private val _proxyState = MutableStateFlow<ProxyState>(ProxyState.Idle)
     val proxyState: StateFlow<ProxyState> = _proxyState.asStateFlow()
 
-    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var resetJob: kotlinx.coroutines.Job? = null
     // Invalidates startup waiters when the user stops or begins another attempt.
     private val commandVersion = MutableStateFlow(0L)
@@ -177,6 +179,9 @@ class LocalProxyManager(private val launcher: ProxyServiceLauncher) {
 
         when (result) {
             null -> {
+                // The service owns an explicit challenge/user wait; a startup timeout must
+                // not discard its state or recreate authorization every five minutes.
+                if (ProxyServiceState.isRunning.value && ProxyServiceState.captchaUi.value.isWaiting) return
                 stopProxy()
                 setErrorWithAutoReset("Прокси не запустился")
             }

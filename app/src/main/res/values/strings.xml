@@ -572,4 +572,15 @@
     <string name="support_send_logs">Отправить логи в поддержку</string>
     <string name="support_send_logs_desc">@FturnSupport · прикрепите сохранённый ZIP в Telegram</string>
     <string name="support_open_failed">Не удалось открыть поддержку. Адрес: t.me/FturnSupport</string>
+    <string name="auth_browser_title">Проверка подключения в фоне</string>
+    <string name="auth_manual_title">Нужна проверка подключения</string>
+    <string name="auth_waiting_title">Авторизация приостановлена</string>
+    <string name="auth_resuming_title">Повторная проверка подключения…</string>
+    <string name="auth_browser_manual">Вручную</string>
+    <string name="auth_manual_open">Открыть</string>
+    <string name="auth_retry">Повторить проверку</string>
+    <string name="auth_page_unavailable">Не удалось открыть проверку. Попробуйте ещё раз.</string>
+    <string name="auth_browser_setting">Браузерная проверка в фоне</string>
+    <string name="auth_browser_setting_desc">Выполнять браузерный этап без открытого окна. Если нужно ваше действие, появится уведомление. Применяется при следующем подключении.</string>
+    <string name="auth_channels">Доступно каналов: %1$d из %2$d</string>
 </resources>

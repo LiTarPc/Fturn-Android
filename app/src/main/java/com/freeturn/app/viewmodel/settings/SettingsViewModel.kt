@@ -105,6 +105,9 @@ class SettingsViewModel(
     val suppressTgPrompt: StateFlow<Boolean> = prefs.suppressTgPromptFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val browserCaptcha: StateFlow<Boolean> = prefs.browserCaptchaFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     val privacyMode: StateFlow<Boolean> = prefs.privacyModeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -130,6 +133,8 @@ class SettingsViewModel(
             appUpdater.checkForUpdate(silent = true)
         }
     }
+
+    fun setBrowserCaptcha(enabled: Boolean) { viewModelScope.launch { prefs.setBrowserCaptcha(enabled) } }
 
     fun setPrivacyMode(enabled: Boolean) {
         viewModelScope.launch { prefs.setPrivacyMode(enabled) }

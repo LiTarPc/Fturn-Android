@@ -51,7 +51,7 @@ jobs:
         env:
           GOTOOLCHAIN: go1.26.10
           GOTELEMETRY: 'off'
-        run: go test -mod=readonly ./internal/rawsocks
+        run: go test -mod=readonly ./internal/bypass ./internal/captchaipc ./internal/provider/vk/internal/vkauth ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
 
       - uses: gradle/actions/setup-gradle@v6
 

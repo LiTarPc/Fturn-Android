@@ -61,6 +61,11 @@ class ProxyService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ProxyActions.CAPTCHA_RESUME) {
+            if (controller.isRunning) controller.resumeCaptcha(intent.getStringExtra(ProxyActions.CAPTCHA_GENERATION).orEmpty())
+            else stopSelf()
+            return START_NOT_STICKY
+        }
         // ВАЖНО: startForeground вызываем первым для избежания ForegroundServiceDidNotStartInTimeException.
         notifier.prepareConnecting()
         // try/catch для обхода ForegroundServiceStartNotAllowedException и InvalidForegroundServiceTypeException.

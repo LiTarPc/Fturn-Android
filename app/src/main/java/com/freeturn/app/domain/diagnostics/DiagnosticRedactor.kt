@@ -5,7 +5,7 @@ object DiagnosticRedactor {
     private val ansi = Regex("\\x1b\\[[0-?]*[ -/]*[@-~]")
     private val profile = Regex("(?i)\\b(?:fturnraw|freeturn|vless|vmess|ss|trojan|wireguard)://\\S+")
     private val call = Regex("(?i)https?://(?:vk\\.ru|vk\\.com)/call/join/[^\\s\"']+")
-    private val flags = Regex("(?i)(--?(?:obf-key|raw-key|private-key|preshared-key|password|passwd|token|access-token|secret|client-id|links?)(?:=|\\s+))(\"[^\"]*\"|'[^']*'|\\S+)")
+    private val flags = Regex("(?i)(?<![a-z0-9_-])(--?(?:obf-key|raw-key|private-key|preshared-key|password|passwd|token|access-token|secret|client-id|links?)(?:=|\\s+))(\"[^\"]*\"|'[^']*'|\\S+)")
     private const val sensitiveNames = """(?:access[_-]?token|refresh[_-]?token|id[_-]?token|success[_-]?token|session[_-]?(?:token|id|key)|csrf[_-]?token|xsrf[_-]?token|authorization|proxy[_-]authorization|password|passwd|secret|private[_-]?key|preshared[_-]?key|obf[_-]?key|raw[_-]?key|turn[_-]?(?:user(?:name)?|password|credential)|username|client[_-]?id|captcha[_-]?(?:sid|key|token)|token|credential|nonce|key)"""
     private val fieldHints = listOf("link", "key", "token", "session", "pass", "secret", "authorization", "cookie", "username", "client", "credential", "nonce", "request_params", "captcha")
     private val fieldPrefix = """((?<![a-z0-9_])["']?$sensitiveNames["']?\s*[:=]\s*)"""

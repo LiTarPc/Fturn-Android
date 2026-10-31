@@ -13,13 +13,14 @@ type handlerState struct {
 	activity *associationActivity
 }
 type bridgeCounters struct {
-	mu            sync.Mutex
-	handlers      map[net.Conn]*handlerState
-	accepted      uint64
-	rejected      uint64
-	peak          int
-	closed        map[string]uint64
-	lastRejectLog time.Time
+	mu             sync.Mutex
+	handlers       map[net.Conn]*handlerState
+	accepted       uint64
+	rejected       uint64
+	peak           int
+	closed         map[string]uint64
+	lastRejectLog  time.Time
+	lastRequestLog time.Time
 }
 
 // Stats contains no destinations, credentials or packet contents.
@@ -115,5 +116,18 @@ func (d *Device) reportStats() {
 		case <-tick.C:
 			d.logStats("[INFO]", "status")
 		}
+	}
+}
+
+// Request metadata is bounded and contains neither target address nor credentials.
+func (d *Device) logRequestRejection(command, atyp byte, reason string) {
+	d.counters.mu.Lock()
+	emit := time.Since(d.counters.lastRequestLog) >= 5*time.Second
+	if emit {
+		d.counters.lastRequestLog = time.Now()
+	}
+	d.counters.mu.Unlock()
+	if emit {
+		log.Printf("[WARN] [RAW SOCKS] event=request_rejected phase=address command=%d atyp=%d reason=%s", command, atyp, reason)
 	}
 }

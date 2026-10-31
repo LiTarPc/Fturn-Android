@@ -66,9 +66,10 @@ android {
         resValue("string", "raw_core_version", rawCoreVersion)
         resValue("string", "freeturn_core_version", freeturnCoreVersion.removePrefix("v"))
         // Native VPN integration targets Android API 24 or newer.
+        testInstrumentationRunner = "com.freeturn.app.testing.CaptchaFixtureInstrumentation"
         minSdk = 24
         targetSdk = 37
-        versionName = "4.3.6" // x-release-please-version
+        versionName = "4.3.7" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()

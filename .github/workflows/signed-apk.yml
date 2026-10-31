@@ -3,7 +3,7 @@ name: Signed APK
 on:
   workflow_dispatch:
   push:
-    branches: ['codex/restore-raw-stability']
+    branches: ['codex/restore-raw-stability', 'codex/android-4.3.7']
     paths:
       - '.github/workflows/signed-apk.yml'
       - 'app/**'
@@ -21,7 +21,7 @@ concurrency:
 env:
   JAVA_VERSION: '17'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-  RELEASE_TAG: v4.3.6
+  RELEASE_TAG: v4.3.7
   RELEASE_CERT_SHA256: 95a28637777d471e901c59cd4c1fb5ebbe6433d7128a79855106d626e3e2a85f
 
 jobs:
@@ -62,14 +62,14 @@ jobs:
         env:
           GOTOOLCHAIN: go1.26.10
           GOTELEMETRY: 'off'
-        run: go test -mod=readonly ./internal/bypass ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
+        run: go test -mod=readonly ./internal/bypass ./internal/captchaipc ./internal/provider/vk/internal/vkauth ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
 
       - name: RAW bridge concurrency regression under race detector
         working-directory: third_party/raw-core
         env:
           GOTOOLCHAIN: go1.26.10
           GOTELEMETRY: 'off'
-        run: go test -race -mod=readonly ./internal/rawsocks -run 'TestTCPRelay|TestBridgeAdmits1024|TestConnectTimeout|TestRefusedConnect|TestAssociation|TestUDPAssociation' -count=1 -timeout=120s
+        run: go test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/internal/vkauth ./internal/rawsocks ./internal/rawvpn -count=1 -timeout=6m
 
       - name: TURN client regression tests
         working-directory: third_party/freeturn-core
@@ -126,7 +126,7 @@ jobs:
       - name: Upload release artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: fturn-signed-4.3.6
+          name: fturn-signed-4.3.7
           path: dist/*
           retention-days: 7
 

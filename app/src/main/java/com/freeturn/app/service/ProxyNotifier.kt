@@ -48,6 +48,8 @@ class ProxyNotifier(private val service: Service) {
     private var baseStatus = ""
     private var speedText = ""
     private var captchaActive = false
+    private var captchaKey = ""
+    private var authState = com.freeturn.app.domain.captcha.CaptchaUiState()
     private var isActive = false
 
     fun createChannels() {
@@ -111,11 +113,12 @@ class ProxyNotifier(private val service: Service) {
                     stats.active,
                     stats.total
                 ) else null,
+                authStatus().takeIf { it.isNotEmpty() },
                 speedText.takeIf { it.isNotEmpty() }
             ).joinToString(" • ")
         } else {
             title = service.getString(R.string.notif_proxy_title)
-            text = baseStatus
+            text = authStatus().ifEmpty { baseStatus }
         }
 
         val stopIntent = Intent(service, ProxyReceiver::class.java).apply {
@@ -172,9 +175,48 @@ class ProxyNotifier(private val service: Service) {
         }
     }
 
+    private fun authStatus(): String = when (authState.phase) {
+        com.freeturn.app.domain.captcha.CaptchaUiState.Phase.IDLE -> ""
+        com.freeturn.app.domain.captcha.CaptchaUiState.Phase.BROWSER -> service.getString(R.string.auth_browser_title)
+        com.freeturn.app.domain.captcha.CaptchaUiState.Phase.MANUAL -> service.getString(R.string.auth_manual_title)
+        com.freeturn.app.domain.captcha.CaptchaUiState.Phase.WAITING_USER -> service.getString(R.string.auth_waiting_title)
+        com.freeturn.app.domain.captcha.CaptchaUiState.Phase.RESUMING -> service.getString(R.string.auth_resuming_title)
+    }
+
+    fun updateCaptchaState(value: com.freeturn.app.domain.captcha.CaptchaUiState) {
+        authState = value
+        val needsUser = value.phase in setOf(com.freeturn.app.domain.captcha.CaptchaUiState.Phase.MANUAL,
+            com.freeturn.app.domain.captcha.CaptchaUiState.Phase.WAITING_USER)
+        if (!needsUser) cancelCaptcha()
+        else {
+            val key = "${value.generation}:${value.requestId}:${value.phase}"
+            if (captchaKey != key) {
+                captchaKey = key
+                captchaActive = true
+                val notification = NotificationCompat.Builder(service, CHANNEL_CAPTCHA)
+                    .setContentTitle(service.getString(R.string.notif_captcha_title))
+                    .setContentText(authStatus())
+                    .setSmallIcon(R.drawable.ic_notification_captcha)
+                    .setPriority(NotificationCompat.PRIORITY_HIGH)
+                    .setOnlyAlertOnce(true).setAutoCancel(false).setContentIntent(openAppIntent)
+                if (value.phase == com.freeturn.app.domain.captcha.CaptchaUiState.Phase.WAITING_USER) {
+                    val retry = Intent(service, ProxyReceiver::class.java).setAction(ProxyActions.CAPTCHA_RESUME)
+                        .putExtra(ProxyActions.CAPTCHA_GENERATION, value.generation)
+                    val pending = PendingIntent.getBroadcast(service, 437, retry,
+                        PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+                    notification.addAction(0, service.getString(R.string.auth_retry), pending)
+                }
+                try { NotificationManagerCompat.from(service).notify(NOTIF_ID_CAPTCHA, notification.build()) }
+                catch (_: SecurityException) { /* The same action remains available in the app. */ }
+            }
+        }
+        show()
+    }
+
     fun cancelCaptcha() {
         NotificationManagerCompat.from(service).cancel(NOTIF_ID_CAPTCHA)
         captchaActive = false
+        captchaKey = ""
     }
     fun resetDnsAlerts() {
         dnsAlerts.reset()

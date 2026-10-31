@@ -22,8 +22,7 @@ type Error struct {
 // Возвращает nil, если обязательные поля отсутствуют.
 func ParseError(errData map[string]any) *Error {
 	codeFloat, ok := errData["error_code"].(float64)
-	if !ok {
-		Log.Warnf("[Captcha] missing error_code in error data")
+	if !ok || codeFloat != 14 {
 		return nil
 	}
 	code := int(codeFloat)

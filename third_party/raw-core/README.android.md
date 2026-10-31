@@ -1,13 +1,22 @@
-RAW 1.0.1-beta.android.4, based on the Android reconnect.1 source snapshot.
+RAW 1.0.1-beta.android.5, based on the verified Android 4.3.6 pin.
 Android uses sing-box for TUN, routing, bypass, DNS and the hotspot SOCKS listener.
-The private authenticated loopback RAW SOCKS bridge carries payload through the
-RAW gVisor stack and emits IPv4 packets into the RAW transport.
+The authenticated loopback RAW SOCKS bridge carries IPv4 payload via gVisor.
 
-The bridge admits 1024 concurrent TCP/control handlers. UDP associations expire
-after two minutes without traffic in either direction, separately from destination
-flow timeouts. Pair this core with the sing SOCKS client TCP control EOF monitor
-in scripts/patch-sing-socks.py. Admission and lifecycle counters are logged every
-30 seconds, with rate-limited admission warnings. Existing reconnect fixes remain.
+Changes for Android 4.3.7:
+- Authenticated, process-scoped verification IPC; see internal/captchaipc/PROTOCOL.md.
+- Browser/manual host selection and explicit user-resume gate after verification
+  failure; valid cached groups and existing allocations remain usable.
+  A successful fresh fetch completes RESUMING even without another captcha.
+- BOT, provider error 10 and HTTP/API rate-limit handling with bounded retries.
+- Debug output omits raw Cookie, authorization, proof and request payload values.
+- RAW liveness and TURN maintenance counters, without packet contents or secrets.
+- tcp-flow uses the shared 256-packet budget without an early 64-packet path cap.
+- UDP ASSOCIATE accepts an unspecified IPv6 source hint (::, port 0). The transport
+  stays IPv4; this does not enable IPv6 destination forwarding.
 
-The standalone direct-TUN/native bypass adapters remain in source. SOURCE.json
-pins all inputs and Go 1.26.10. Android/arm64, API 24+.
+The 1024-handler bridge limit, bidirectional 2-minute UDP idle reclamation and
+prior reconnect fixes remain. Pair with the sing SOCKS TCP control EOF monitor.
+The standalone direct-TUN/native bypass adapters remain in source.
+SOURCE.json pins all source inputs and Go 1.26.10. Android/arm64, API 24+.
+This is a candidate pin; background WebView and long-run acceptance are separate
+Android integration checks and are not established by the native unit tests.

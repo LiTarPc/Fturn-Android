@@ -22,7 +22,8 @@ data class BackupData(
     val hotspotProxyEnabled: Boolean,
     val appTheme: String = com.freeturn.app.data.config.AppTheme.SYSTEM,
     val hotspotPort: Int = 1080,
-    val hotspotPassword: String = ""
+    val hotspotPassword: String = "",
+    val browserCaptcha: Boolean = true
 )
 
 /** Сериализация [BackupData] в JSON (серверы - через тот же [ServerJson], что и в DataStore). */
@@ -38,6 +39,7 @@ object SettingsBackup {
         put("appTheme", data.appTheme)
         put("nerdMode", data.nerdMode)
         put("privacyMode", data.privacyMode)
+        put("browserCaptcha", data.browserCaptcha)
         put("restartServerOnSwitch", data.restartServerOnSwitch)
         put("suppressUpdatePrompt", data.suppressUpdatePrompt)
         put("suppressTgPrompt", data.suppressTgPrompt)
@@ -72,6 +74,7 @@ object SettingsBackup {
             appTheme = com.freeturn.app.data.config.AppTheme.normalize(o.optString("appTheme")),
             nerdMode = o.optBoolean("nerdMode", true),
             privacyMode = o.optBoolean("privacyMode", false),
+            browserCaptcha = o.optBoolean("browserCaptcha", true),
             restartServerOnSwitch = o.optBoolean("restartServerOnSwitch", false),
             suppressUpdatePrompt = o.optBoolean("suppressUpdatePrompt", false),
             suppressTgPrompt = o.optBoolean("suppressTgPrompt", false),

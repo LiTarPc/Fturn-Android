@@ -42,6 +42,9 @@ object ProxyServiceState {
     private val _captchaSession = MutableStateFlow<CaptchaSession?>(null)
     val captchaSession: StateFlow<CaptchaSession?> = _captchaSession.asStateFlow()
 
+    private val _captchaUi = MutableStateFlow(com.freeturn.app.domain.captcha.CaptchaUiState())
+    val captchaUi: StateFlow<com.freeturn.app.domain.captcha.CaptchaUiState> = _captchaUi.asStateFlow()
+
     private val _connectionStats = MutableStateFlow(ConnectionStats.IDLE)
     val connectionStats: StateFlow<ConnectionStats> = _connectionStats.asStateFlow()
 
@@ -103,8 +106,9 @@ object ProxyServiceState {
 
     fun addLog(msg: String) {
         if (!_logsEnabled.value) return
-        com.freeturn.app.domain.diagnostics.DiagnosticLogs.append(msg)
-        val entry = LogEntry(logSeq.getAndIncrement(), msg, classifyLogLine(msg))
+        val safe = com.freeturn.app.domain.diagnostics.DiagnosticLogs.sanitize(msg)
+        com.freeturn.app.domain.diagnostics.DiagnosticLogs.append(safe)
+        val entry = LogEntry(logSeq.getAndIncrement(), safe, classifyLogLine(safe))
         _logs.update { current ->
             val next = current + entry
             if (next.size > MAX_LOG_LINES) next.drop(next.size - MAX_LOG_LINES) else next
@@ -114,6 +118,8 @@ object ProxyServiceState {
     fun setCaptchaSession(session: CaptchaSession?) {
         _captchaSession.value = session
     }
+
+    fun setCaptchaUi(value: com.freeturn.app.domain.captcha.CaptchaUiState) { _captchaUi.value = value }
 
     fun setConnectionStats(stats: ConnectionStats) {
         _connectionStats.value = stats

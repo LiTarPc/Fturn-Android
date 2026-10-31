@@ -213,11 +213,20 @@ func (d *Device) authenticate(c net.Conn) error {
 	_, e = c.Write([]byte{1, 0})
 	return e
 }
+
+var errSOCKSAddressType = errors.New("unsupported SOCKS address type")
+
 func readTarget(r io.Reader, atyp byte) (string, uint16, error) {
 	var host string
 	switch atyp {
 	case 1:
 		b, e := readN(r, 4)
+		if e != nil {
+			return "", 0, e
+		}
+		host = net.IP(b).String()
+	case 4:
+		b, e := readN(r, 16)
 		if e != nil {
 			return "", 0, e
 		}
@@ -236,7 +245,7 @@ func readTarget(r io.Reader, atyp byte) (string, uint16, error) {
 		}
 		host = string(b)
 	default:
-		return "", 0, errors.New("RAW SOCKS supports IPv4 only")
+		return "", 0, errSOCKSAddressType
 	}
 	b, e := readN(r, 2)
 	if e != nil {
@@ -263,8 +272,26 @@ func (d *Device) handle(c net.Conn) string {
 	}
 	host, port, e := readTarget(c, h[3])
 	if e != nil {
+		reason := "request_address_invalid"
+		if errors.Is(e, errSOCKSAddressType) {
+			reason = "request_address_unsupported"
+		}
+		if errors.Is(e, io.EOF) || errors.Is(e, io.ErrUnexpectedEOF) {
+			reason = "request_truncated"
+		}
+		d.logRequestRejection(h[1], h[3], reason)
 		reply(c, 8, 0)
-		return "handshake_error"
+		return reason
+	}
+	// UDP ASSOCIATE names the client's source endpoint, not the UDP target.
+	// An unspecified IPv6 hint (::, port 0) is valid even with an IPv4 relay.
+	// This does not add IPv6 routing or accept concrete IPv6 destinations.
+	if ip, err := netip.ParseAddr(host); err == nil && ip.Is6() {
+		if h[1] != 3 || !ip.IsUnspecified() || port != 0 {
+			d.logRequestRejection(h[1], h[3], "request_ipv6_unsupported")
+			reply(c, 8, 0)
+			return "request_ipv6_unsupported"
+		}
 	}
 	if h[1] == 3 {
 		return d.associate(c)
