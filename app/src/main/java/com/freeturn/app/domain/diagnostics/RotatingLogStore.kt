@@ -90,13 +90,13 @@ class RotatingLogStore(
             output?.flush()
             ZipOutputStream(FileOutputStream(partial)).use { zip ->
                 zip.putNextEntry(ZipEntry("diagnostic-info.txt"))
-                zip.write(metadata.toByteArray(Charsets.UTF_8))
+                zip.write(DiagnosticRedactor.redact(metadata).toByteArray(Charsets.UTF_8))
                 zip.closeEntry()
                 zip.putNextEntry(ZipEntry("events.log"))
-                // Sanitize legacy captcha bodies without rescanning all already redacted lines.
+                // Reapply the current policy to every historical record, including pre-upgrade logs.
                 files().forEach { file ->
                     file.bufferedReader(Charsets.UTF_8).useLines { lines ->
-                        lines.forEach { line -> zip.write((DiagnosticRedactor.redactLegacyCaptchaPayload(line) + "\n").toByteArray(Charsets.UTF_8)) }
+                        lines.forEach { line -> zip.write((DiagnosticRedactor.redact(line) + "\n").toByteArray(Charsets.UTF_8)) }
                     }
                 }
                 zip.closeEntry()

@@ -90,8 +90,10 @@ class DiagnosticRecorder(
         secrets.updateAndGet { (it + added).distinct().takeLast(128) }
     }
 
+    fun sanitize(message: String): String = DiagnosticRedactor.redact(message, secrets.get())
+
     fun append(message: String) {
-        val line = DiagnosticRedactor.redact(message, secrets.get())
+        val line = sanitize(message)
         if (queue.trySend(Command.Line(line, System.currentTimeMillis())).isFailure) {
             pendingDrops.incrementAndGet()
             totalDrops.incrementAndGet()
@@ -129,6 +131,7 @@ object DiagnosticLogs {
         if (recorder == null) recorder = DiagnosticRecorder(directory, exportDirectory, sessionInfo)
     }
 
+    fun sanitize(message: String): String = recorder?.sanitize(message) ?: DiagnosticRedactor.redact(message)
     fun append(message: String) { recorder?.append(message) }
     fun registerSecrets(values: Iterable<String>) { recorder?.registerSecrets(values) }
     suspend fun exportArchive(): File = checkNotNull(recorder) { "Diagnostic journal unavailable" }.exportArchive()

@@ -122,4 +122,53 @@ class DiagnosticJournalTest {
         assertTrue(text.contains("timeout EOF 192.0.2.1:1080 120ms"))
         assertTrue(DiagnosticRedactor.redact("x".repeat(70000)).startsWith("[oversized"))
     }
+
+    @Test fun sensitiveHeadersAndNestedTokensAreRedactedWithoutLeakingCookieFragments() {
+        val samples = listOf(
+            "2026-10-31 WARN [Captcha Proxy] header (/check): Cookie = first=cookie-first; second=cookie-second",
+            "Set-Cookie: session=cookie-session; Path=/; HttpOnly",
+            "Authorization: Bearer auth-first with trailing auth-second",
+            "proxy-authorization = Basic proxy-auth-value",
+            """{"outer":{"success_token":"success-value","session_token":"session-value","session_id":"session-id-value"}}""",
+            """payload="{\"nested\":{\"success_token\":\"escaped-success-value\"}}" status=503""",
+            """WARN session_token="broken secret with spaces""",
+            "[Captcha Proxy] real browser pow: {opaque:pow-secret}",
+            "[Captcha] loading http://127.0.0.1:8765/secret-path?key=challenge-value",
+            "[Captcha] GET https://api.vk.ru/not_robot_captcha/path-secret?token=page-value",
+            "[Captcha] http POST check status=503 duration_ms=120 outcome=unavailable"
+        )
+        val text = DiagnosticRedactor.redact(samples.joinToString("\n"))
+        listOf("cookie-first", "cookie-second", "cookie-session", "auth-first", "auth-second",
+            "proxy-auth-value", "success-value", "session-value", "session-id-value",
+            "escaped-success-value", "broken secret with spaces", "pow-secret", "secret-path",
+            "challenge-value", "path-secret", "page-value").forEach {
+            assertFalse("Leaked synthetic value $it", text.contains(it))
+        }
+        assertTrue(text.contains("2026-10-31 WARN [Captcha Proxy] header (/check)"))
+        assertTrue(text.contains("status=503 duration_ms=120 outcome=unavailable"))
+        assertEquals(text, DiagnosticRedactor.redact(text))
+    }
+
+    @Test fun exportReappliesCurrentPolicyToLegacyRecordsAndMetadata() {
+        val dir = temp.newFolder()
+        RotatingLogStore(dir, 8192, 4096).use { store ->
+            // Seed raw records as a previous app version would have stored them.
+            store.append("[Captcha Proxy] header: Cookie = one=legacy-one; two=legacy-two")
+            store.append("[Captcha Proxy] real browser pow: {opaque:legacy-proof}")
+            store.append("""legacy={\"session_token\":\"legacy-escaped\"}""")
+            store.append("""{"nested":{"success_token":"legacy-success"}}""")
+            store.append("WARN RAW stream 7 closed: reason=timeout duration_ms=35000")
+            val archive = store.exportArchive(File(temp.root, "legacy-private.zip"), "Authorization: Bearer legacy-auth")
+            ZipFile(archive).use { zip ->
+                val all = zip.entries().asSequence().joinToString("\n") {
+                    zip.getInputStream(it).bufferedReader().use { reader -> reader.readText() }
+                }
+                listOf("legacy-one", "legacy-two", "legacy-proof", "legacy-escaped", "legacy-success", "legacy-auth").forEach {
+                    assertFalse("Export leaked synthetic value $it", all.contains(it))
+                }
+                assertTrue(all.contains("reason=timeout duration_ms=35000"))
+            }
+        }
+    }
+
 }
