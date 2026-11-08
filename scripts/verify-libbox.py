@@ -6,6 +6,7 @@ from pathlib import Path
 import zipfile
 
 MONITOR = b"github.com/sagernet/sing/protocol/socks.(*Client).DialContext.func1"
+SERVER_MONITOR = b"github.com/sagernet/sing/protocol/socks.newFturnServerAssociateConn"
 ROOT = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser()
 parser.add_argument("--aar", type=Path, default=ROOT / "app/libs/libbox.aar")
@@ -16,11 +17,11 @@ with zipfile.ZipFile(args.aar) as archive:
     assert archive.read("classes.jar"), "libbox Java bindings are missing"
 if library[:6] != b"\x7fELF\x02\x01" or int.from_bytes(library[18:20], "little") != 183:
     raise SystemExit("libbox must contain an Android ARM64 shared library")
-if b"./fturn-sing" not in library or MONITOR not in library:
+if b"./fturn-sing" not in library or MONITOR not in library or SERVER_MONITOR not in library:
     raise SystemExit("Stale libbox: SOCKS UDP control monitor missing. Run scripts/build-libbox.ps1 (Windows) or scripts/build-libbox.sh (Linux).")
 report = {"aarSha256": hashlib.sha256(args.aar.read_bytes()).hexdigest(),
           "aarBinarySha256": hashlib.sha256(library).hexdigest(),
-          "privateSingReplacement": True, "outgoingUdpControlMonitor": True}
+          "privateSingReplacement": True, "outgoingUdpControlMonitor": True, "incomingUdpControlMonitor": True}
 if args.report:
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

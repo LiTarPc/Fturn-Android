@@ -24,9 +24,10 @@ with zipfile.ZipFile(apk) as archive:
     libbox = archive.read("lib/arm64-v8a/libbox.so")
     assert b"./fturn-sing" in libbox
     assert b"github.com/sagernet/sing/protocol/socks.(*Client).DialContext.func1" in libbox
+    assert b"github.com/sagernet/sing/protocol/socks.newFturnServerAssociateConn" in libbox
     (out / "libbox-provenance.json").write_text(json.dumps({
         "apkBinarySha256": hashlib.sha256(libbox).hexdigest(),
-        "privateSingReplacement": True, "outgoingUdpControlMonitor": True}, indent=2) + "\n")
+        "privateSingReplacement": True, "outgoingUdpControlMonitor": True, "incomingUdpControlMonitor": True}, indent=2) + "\n")
     assert not any(name.endswith(("/libwg-go.so", "/libwg-quick.so", "/libwg.so")) for name in names)
     for name, binary in [("freeturn", "libfreeturn.so"), ("raw", "libfturnraw.so")]:
         pin = dict(line.split("=", 1) for line in Path(name + "-core.properties").read_text().splitlines()

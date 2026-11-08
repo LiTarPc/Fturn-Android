@@ -1,4 +1,4 @@
-"""Patch the pinned sing SOCKS client without changing the shared module cache."""
+"""Patch the pinned sing SOCKS control lifecycles without changing the shared module cache."""
 import hashlib
 import json
 from pathlib import Path
@@ -11,6 +11,7 @@ MODULE = "github.com/sagernet/sing"
 VERSION = "v0.7.0-beta.2"
 SUM = "h1:UImAKtHGQX205lGYYXKA2qnEeVSml+hKS1oaOwvA14c="
 CLIENT_SHA256 = "9a732dff2ee50aa339bf60697471363265d8ec5294dfd437fa37e0f4cb9716e1"
+HANDSHAKE_SHA256 = "bb6c93ecdbed4fd9207d8792bdd72f7e42845e54f0355fdbaa609cdad4108ff0"
 ROOT = Path(__file__).resolve().parent.parent
 source = Path(sys.argv[1]).resolve()
 config = json.loads(subprocess.check_output(["go", "mod", "edit", "-json"], cwd=source, text=True))
@@ -36,12 +37,48 @@ text = client.read_text(encoding="utf-8")
 if text.count(original) != 1 or text.count('\t"context"\n') != 1:
     raise SystemExit("Unexpected sing SOCKS client layout")
 text = text.replace('\t"context"\n', '\t"context"\n\t"io"\n', 1).replace(original, replacement, 1)
+handshake = upstream / "protocol/socks/handshake.go"
+if hashlib.sha256(handshake.read_bytes()).hexdigest() != HANDSHAKE_SHA256:
+    raise SystemExit("Unexpected sing SOCKS server source; review the control lifecycle patch")
+server_text = handshake.read_text(encoding="utf-8")
+start = server_text.index("\t\t\terr = socks5.WriteResponse(conn, socks5.Response{", server_text.index("case socks5.CommandUDPAssociate:", server_text.index("func HandleConnectionEx")))
+end = server_text.index("\t\t\treturn nil", start)
+server_text = server_text[:start] + """\t\t\tpacketCtx, association := newFturnServerAssociateConn(ctx, udpConn, conn, reader)
+\t\t\thandedOff := false
+\t\t\tdefer func() {
+\t\t\t\tif !handedOff {
+\t\t\t\t\t_ = association.Close()
+\t\t\t\t}
+\t\t\t}()
+\t\t\terr = socks5.WriteResponse(conn, socks5.Response{
+\t\t\t\tReplyCode: socks5.ReplyCodeSuccess,
+\t\t\t\tBind: M.SocksaddrFromNet(udpConn.LocalAddr()),
+\t\t\t})
+\t\t\tif err != nil {
+\t\t\t\treturn E.Cause(err, "socks5: write response")
+\t\t\t}
+\t\t\tfirstPacket := buf.NewPacket()
+\t\t\tdestination, err := association.ReadPacket(firstPacket)
+\t\t\tif err != nil {
+\t\t\t\tfirstPacket.Release()
+\t\t\t\treturn E.Cause(err, "socks5: read first packet")
+\t\t\t}
+\t\t\tsocksPacketConn := bufio.NewCachedPacketConn(association, firstPacket, destination)
+\t\t\t// The router owns the cached packet and onClose after this point.
+\t\t\t// The control monitor closes only the lower transport and context.
+\t\t\thandedOff = true
+\t\t\thandler.NewPacketConnectionEx(packetCtx, socksPacketConn, source, destination, onClose)
+""" + server_text[end:]
 # A private build copy keeps other checkouts and cached upstream modules intact.
 local = source / "fturn-sing"
-test_relative = "protocol/socks/fturn_udp_control_test.go"
+added_files = {
+    "protocol/socks/fturn_udp_control_test.go": ROOT / "scripts/tests/socks_udp_control_test.go",
+    "protocol/socks/fturn_udp_server_test.go": ROOT / "scripts/tests/socks_udp_server_test.go",
+    "protocol/socks/fturn_udp_server.go": ROOT / "scripts/patches/socks_udp_server.go",
+}
 files = {p.relative_to(upstream).as_posix(): p for p in upstream.rglob("*") if p.is_file()}
 if local.exists():
-    extras = {p.relative_to(local).as_posix() for p in local.rglob("*") if p.is_file()} - files.keys() - {test_relative}
+    extras = {p.relative_to(local).as_posix() for p in local.rglob("*") if p.is_file()} - files.keys() - added_files.keys()
     if extras:
         raise SystemExit("Unexpected files in private sing build copy: " + ", ".join(sorted(extras)))
 for relative, path in files.items():
@@ -51,6 +88,9 @@ for relative, path in files.items():
         target.chmod(target.stat().st_mode | stat.S_IWRITE)
     shutil.copyfile(path, target)
 (local / "protocol/socks/client.go").write_text(text, encoding="utf-8", newline="\n")
-shutil.copyfile(ROOT / "scripts/tests/socks_udp_control_test.go", local / test_relative)
+(local / "protocol/socks/handshake.go").write_text(server_text, encoding="utf-8", newline="\n")
+for relative, path in added_files.items():
+    shutil.copyfile(path, local / relative)
+subprocess.run(["gofmt", "-w", "protocol/socks/handshake.go", "protocol/socks/fturn_udp_server.go", "protocol/socks/fturn_udp_server_test.go"], cwd=local, check=True)
 subprocess.run(["go", "mod", "edit", "-replace=" + MODULE + "=./fturn-sing"], cwd=source, check=True)
-print("sing " + VERSION + ": outbound SOCKS UDP control EOF monitor applied (private build copy)")
+print("sing " + VERSION + ": incoming and outgoing SOCKS UDP control monitors applied (private build copy)")
