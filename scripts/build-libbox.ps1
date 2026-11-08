@@ -5,7 +5,7 @@ $sourceRoot = Join-Path $nativeRoot 'sing-box-1.12.0'
 New-Item -ItemType Directory -Force $nativeRoot | Out-Null
 if (!(Test-Path $sourceRoot)) {
     $archive = Join-Path $nativeRoot 'sing-box.zip'
-    Invoke-WebRequest 'https://github.com/SagerNet/sing-box/archive/refs/tags/v1.12.0.zip' -OutFile $archive
+    Invoke-WebRequest 'https://codeload.github.com/SagerNet/sing-box/zip/refs/tags/v1.12.0' -OutFile $archive
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '5F0728F8C7054B4B03ABD50C28CC8A0F8B02D9EB18936A33C86A5DD16855227C') { throw 'sing-box source checksum mismatch' }
     Expand-Archive -LiteralPath $archive -DestinationPath $nativeRoot -Force
 }

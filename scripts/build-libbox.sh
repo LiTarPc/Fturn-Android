@@ -4,7 +4,7 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 native_root="$project_root/.native"
 mkdir -p "$native_root"
 if [ ! -d "$native_root/sing-box-1.12.0" ]; then
-  curl -fL --retry 3 https://github.com/SagerNet/sing-box/archive/refs/tags/v1.12.0.zip -o "$native_root/sing-box.zip"
+  curl -fL --retry 3 https://codeload.github.com/SagerNet/sing-box/zip/refs/tags/v1.12.0 -o "$native_root/sing-box.zip"
   echo "5f0728f8c7054b4b03abd50c28cc8a0f8b02d9eb18936a33c86a5dd16855227c  $native_root/sing-box.zip" | sha256sum -c -
   unzip -q "$native_root/sing-box.zip" -d "$native_root"
 fi
