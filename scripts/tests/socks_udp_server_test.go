@@ -43,10 +43,11 @@ func (l *fturnServerListener) ListenPacket(lc net.ListenConfig, ctx context.Cont
 }
 
 type fturnServerHandler struct {
-	handed chan N.PacketConn
-	done   chan struct{}
-	ctx    chan context.Context
-	closes atomic.Int32
+	handed         chan N.PacketConn
+	done           chan struct{}
+	ctx            chan context.Context
+	closes         atomic.Int32
+	closeAfterEcho atomic.Bool
 }
 
 func (*fturnServerHandler) NewConnectionEx(context.Context, net.Conn, M.Socksaddr, M.Socksaddr, N.CloseHandlerFunc) {
@@ -72,6 +73,9 @@ func (h *fturnServerHandler) NewPacketConnectionEx(ctx context.Context, c N.Pack
 				return
 			}
 			if err = c.WritePacket(b, d); err != nil {
+				return
+			}
+			if h.closeAfterEcho.Load() {
 				return
 			}
 		}
@@ -224,6 +228,9 @@ func TestFturnSocksServerControlAfterExchange(t *testing.T) {
 		t.Run(mode, func(t *testing.T) {
 			for cycle := 0; cycle < 3; cycle++ {
 				f := fturnServerStart(t, false)
+				if mode == "router-close" {
+					f.handler.closeAfterEcho.Store(true)
+				}
 				c := fturnServerExchange(t, f)
 				routed := <-f.handler.handed
 				ctx := <-f.handler.ctx
@@ -236,7 +243,7 @@ func TestFturnSocksServerControlAfterExchange(t *testing.T) {
 				case "cancel":
 					f.cancel()
 				case "router-close":
-					routed.Close()
+					// The router worker closes its cached wrapper after sending the echo.
 				}
 				fturnServerWait(t, f.socket.closed, "routed UDP listener survived control termination")
 				fturnServerWait(t, ctx.Done(), "router context was not cancelled")
