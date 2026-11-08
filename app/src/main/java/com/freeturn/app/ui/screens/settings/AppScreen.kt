@@ -76,6 +76,7 @@ fun AppScreen(
 ) {
     val appTheme by settingsViewModel.appTheme.collectAsStateWithLifecycle()
     val privacyMode by settingsViewModel.privacyMode.collectAsStateWithLifecycle()
+    val browserCaptcha by settingsViewModel.browserCaptcha.collectAsStateWithLifecycle()
     var showResetDialog by rememberSaveable { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -104,6 +105,17 @@ fun AppScreen(
                     .padding(horizontal = Spacing.lg, vertical = Spacing.md),
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
+                SectionLabel(stringResource(R.string.app_section_connection))
+                SettingsCard {
+                    SettingsSwitchRow(
+                        title = stringResource(R.string.auth_browser_setting),
+                        subtitle = stringResource(R.string.auth_browser_setting_desc),
+                        iconRes = R.drawable.ic_notification_captcha,
+                        checked = browserCaptcha,
+                        onCheckedChange = settingsViewModel::setBrowserCaptcha
+                    )
+                }
+
                 SectionLabel(stringResource(R.string.app_section_interface))
                 SettingsGroup {
                     SettingsGroupItem(0, 2) {

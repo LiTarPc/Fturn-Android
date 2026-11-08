@@ -488,6 +488,7 @@
     <!-- Приложение -->
     <string name="settings_app">Приложение</string>
     <string name="settings_app_desc">Оформление, резервные копии и диагностика</string>
+    <string name="app_section_connection">Подключение</string>
     <string name="app_section_interface">Интерфейс</string>
     <string name="app_section_prompts">Подсказки</string>
     <string name="suppress_update_prompt_title">Предлагать обновления</string>
@@ -580,8 +581,8 @@
     <string name="auth_manual_open">Открыть</string>
     <string name="auth_retry">Повторить проверку</string>
     <string name="auth_page_unavailable">Не удалось открыть проверку. Попробуйте ещё раз.</string>
-    <string name="auth_browser_setting">Продвинутое решение капчи</string>
-    <string name="auth_browser_setting_desc">Использовать фоновый браузер для автоматической проверки в RAW и TURN. Если потребуется ручное подтверждение, появится уведомление. Применяется при следующем подключении.</string>
+    <string name="auth_browser_setting">Продвинутая автокапча</string>
+    <string name="auth_browser_setting_desc">Автоматическая проверка VK в фоне для RAW и TURN. Включена по умолчанию. Если потребуется ручное подтверждение, появится уведомление. Изменение применяется при следующем подключении.</string>
     <string name="auth_integration_error_title">Проверка подключения несовместима</string>
     <string name="auth_integration_error_desc">Не удалось запустить проверку с этой версией приложения. Обновите приложение.</string>
     <string name="auth_channels">Доступно каналов: %1$d из %2$d</string>
