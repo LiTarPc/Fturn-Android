@@ -149,6 +149,8 @@ class LocalProxyManager(
         if (ProxyServiceState.isRunning.value) return
 
         ProxyServiceState.clearLogs()
+        // A fresh explicit attempt also clears a previous integration failure in custom/non-VK modes.
+        ProxyServiceState.setCaptchaUi(com.freeturn.app.domain.captcha.CaptchaUiState())
         ProxyServiceState.setStartupResult(null)
         ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
         ProxyServiceState.clearConnectedSince()

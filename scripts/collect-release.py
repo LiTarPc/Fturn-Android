@@ -21,6 +21,12 @@ with zipfile.ZipFile(apk) as archive:
     for required in ["assets/rules/ru-aggregated.zone", "lib/arm64-v8a/libbox.so"]:
         assert required in names, required
     assert archive.read("assets/rules/ru-aggregated.zone").strip()
+    libbox = archive.read("lib/arm64-v8a/libbox.so")
+    assert b"./fturn-sing" in libbox
+    assert b"github.com/sagernet/sing/protocol/socks.(*Client).DialContext.func1" in libbox
+    (out / "libbox-provenance.json").write_text(json.dumps({
+        "apkBinarySha256": hashlib.sha256(libbox).hexdigest(),
+        "privateSingReplacement": True, "outgoingUdpControlMonitor": True}, indent=2) + "\n")
     assert not any(name.endswith(("/libwg-go.so", "/libwg-quick.so", "/libwg.so")) for name in names)
     for name, binary in [("freeturn", "libfreeturn.so"), ("raw", "libfturnraw.so")]:
         pin = dict(line.split("=", 1) for line in Path(name + "-core.properties").read_text().splitlines()
@@ -39,3 +45,5 @@ with zipfile.ZipFile(apk) as archive:
 shutil.copy2(apk, out / ("fturn-" + version + "-arm64-v8a.apk"))
 shutil.copy2("third_party/raw-core-NOTICES.txt", out / "RAW-CORE-THIRD-PARTY-NOTICES.txt")
 shutil.copy2("third_party/freeturn-core/LICENSE", out / "FREETURN-CORE-LICENSE.txt")
+
+shutil.copy2("third_party/freeturn-core/third_party/licenses/free-turn-proxy-HBL.txt", out / "BROWSER-POW-UPSTREAM-LICENSE.txt")

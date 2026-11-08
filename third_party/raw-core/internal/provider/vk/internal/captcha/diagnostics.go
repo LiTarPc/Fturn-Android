@@ -61,7 +61,7 @@ type diagnosticRedactor struct {
 
 func diagnosticSensitive(name string) bool {
 	name = strings.ToLower(strings.NewReplacer("_", "", "-", "", ".", "").Replace(name))
-	for _, part := range []string{"token", "secret", "password", "cookie", "authorization", "fingerprint", "payload", "pow"} {
+	for _, part := range []string{"token", "secret", "password", "cookie", "authorization", "fingerprint", "payload", "pow", "telemetry", "telhash"} {
 		if strings.Contains(name, part) {
 			return true
 		}
@@ -166,3 +166,10 @@ func diagnosticClip(value string, limit int) string {
 	}
 	return value[:limit] + "...<truncated>"
 }
+
+// Preserve errors.Is/As for cancellation/timeouts without echoing a private URL
+// carried by url.Error or a transport implementation's diagnostic string.
+type privateRequestError struct{ cause error }
+
+func (e privateRequestError) Error() string { return "captcha transport request failed" }
+func (e privateRequestError) Unwrap() error { return e.cause }

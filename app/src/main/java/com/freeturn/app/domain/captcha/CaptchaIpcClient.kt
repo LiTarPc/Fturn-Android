@@ -26,6 +26,9 @@ class CaptchaIpcClient(private val generation: String, private val token: String
             if (json.getString("generation") != generation || json.getString("request_id") != event.requestId ||
                 json.getString("mode") != event.mode.name.lowercase() || json.getLong("expires_at_ms") != event.expiresAt ||
                 event.expiresAt <= System.currentTimeMillis()) throw IpcException(Failure.STALE)
+            if (event.version == 2 && json.getString("purpose") != event.purpose.name.lowercase(java.util.Locale.ROOT)) {
+                throw IpcException(Failure.INVALID_RESPONSE)
+            }
             val url = json.getString("url")
             if (!isLocalPage(url, pagePort ?: URI(url).port)) throw IpcException(Failure.INVALID_RESPONSE)
             Descriptor(event, url)

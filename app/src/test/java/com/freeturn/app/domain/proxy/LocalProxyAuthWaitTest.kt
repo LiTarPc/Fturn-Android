@@ -61,4 +61,25 @@ class LocalProxyAuthWaitTest {
             assertTrue(manager.proxyState.value is ProxyState.Error)
         } finally { reset(); Dispatchers.resetMain() }
     }
+    @Test fun newCustomCommandClearsPreviousIntegrationFailureBeforeServiceStart() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            reset()
+            val launcher = object : ProxyServiceLauncher {
+                override fun start() {
+                    assertEquals(CaptchaUiState.Phase.IDLE, ProxyServiceState.captchaUi.value.phase)
+                    ProxyServiceState.setRunning(true)
+                    ProxyServiceState.setConnectionStats(ConnectionStats(1, 1))
+                    ProxyServiceState.setStartupResult(StartupResult.Success)
+                }
+                override fun stop() { ProxyServiceState.setRunning(false) }
+            }
+            val manager = LocalProxyManager(launcher, backgroundScope)
+            ProxyServiceState.setCaptchaUi(CaptchaUiState(CaptchaUiState.Phase.INTEGRATION_ERROR))
+            manager.startProxy(config.copy(isRawMode = true, rawCommand = "client -version"))
+            assertEquals(CaptchaUiState.Phase.IDLE, ProxyServiceState.captchaUi.value.phase)
+            assertTrue(manager.proxyState.value is ProxyState.Running)
+        } finally { reset(); Dispatchers.resetMain() }
+    }
+
 }

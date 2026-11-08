@@ -153,6 +153,84 @@ class CaptchaFixtureInstrumentation : Instrumentation() {
                 } finally { uiAutomation.executeShellCommand("input keyevent 224").close() }
                 main { service.coordinator.end() }
             }
+            stage = "v2_capture_lifecycle"
+            Fixture(2, "pow_capture").use { fixture ->
+                fixture.begin(); fixture.pending("browser", 10_000)
+                await("v2 capture page did not execute JavaScript") { fixture.heartbeats.get() >= 2 }
+                check(CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.BROWSER, "capture opened a manual dialog")
+                val completed = fixture.event("browser", "captured")
+                service.coordinator.acceptLine(completed)
+                await("capture was treated as completed authorization") { CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.RESUMING }
+                record("v2_capture_result_keeps_authorization_pending")
+                fixture.purpose = "solve"
+                fixture.requestId = UUID.randomUUID().toString().replace("-", "")
+                fixture.pending("manual", 20_000)
+                await("separate manual solve was not shown") { CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.MANUAL }
+                service.coordinator.acceptLine(completed)
+                Thread.sleep(250)
+                check(CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.MANUAL, "old capture result cleared the new manual solve")
+                record("v2_old_capture_cannot_clear_new_manual_solve")
+                main { service.coordinator.end() }
+            }
+            stage = "v2_capture_expiry"
+            Fixture(2, "pow_capture").use { fixture ->
+                fixture.begin(); fixture.pending("browser", 1200)
+                await("expired capture was not returned to core authorization") { CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.RESUMING }
+                check(!CaptchaPresentation.state.value.manualOpen, "expired capture became a manual dialog")
+                record("v2_capture_expiry_does_not_expose_capture_page")
+                main { service.coordinator.end() }
+            }
+            stage = "production_pow_observers"
+            for (core in listOf("turn", "raw")) {
+                Fixture(2, "pow_capture", "$core-inject.js").use { fixture ->
+                    fixture.begin(); fixture.pending("browser", 12_000)
+                    await("production $core observer did not deliver valid browser proof", 14_000) { fixture.proofs.get() == 1 }
+                    await("production observer treated proof as completed authorization") { CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.RESUMING }
+                    check(!CaptchaPresentation.state.value.manualOpen, "production proof observer opened a manual dialog")
+                    record("${core}_production_injector_captures_real_webview_sha256")
+                    main { service.coordinator.end() }
+                }
+            }
+            stage = "native_webview_pow"
+            val nativeFixture = java.io.File(targetContext.applicationInfo.nativeLibraryDir, "libpowfixture.so")
+            if (nativeFixture.isFile) runNativePowFixture(nativeFixture)
+            else result.putInt("native_fixture_skipped", 1)
+            stage = "v2_stale_protocol"
+            Fixture(2, "pow_capture").use { fixture ->
+                fixture.begin(); fixture.pending("browser", 10_000)
+                await("stale-protocol fixture did not load") { fixture.heartbeats.get() >= 2 }
+                val stale = JSONObject(fixture.event("browser").removePrefix(CaptchaProtocol.PREFIX))
+                    .put("v", 1).put("generation", "stale-process")
+                service.coordinator.acceptLine(CaptchaProtocol.PREFIX + stale)
+                Thread.sleep(250)
+                check(!service.coordinator.hasIntegrationError() && CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.BROWSER,
+                    "old-generation protocol mismatch broke the active process")
+                record("old_generation_v1_cannot_break_current_v2")
+                main { service.coordinator.end() }
+            }
+            stage = "v2_incompatible_protocol"
+            for (invalidPurpose in listOf(false, true)) {
+                Fixture(2, "pow_capture").use { fixture ->
+                    fixture.begin()
+                    val event = JSONObject(fixture.event("browser").removePrefix(CaptchaProtocol.PREFIX))
+                    if (invalidPurpose) event.put("purpose", "unknown") else event.put("v", 1)
+                    service.coordinator.acceptLine(CaptchaProtocol.PREFIX + event)
+                    await("incompatible metadata did not produce a visible terminal error") {
+                        CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.INTEGRATION_ERROR
+                    }
+                    fixture.pending("browser", 10_000)
+                    Thread.sleep(250)
+                    check(fixture.heartbeats.get() == 0 && fixture.resumes.get() == 0, "failed protocol resumed or loaded a page")
+                    check(service.coordinator.hasIntegrationError(), "failure did not reach process controller")
+                    main { service.coordinator.end() }
+                    check(CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.INTEGRATION_ERROR, "shutdown hid integration failure")
+                    record(if (invalidPurpose) "v2_invalid_purpose_stops_without_retry" else "v2_host_rejects_v1_without_retry")
+                }
+            }
+            stage = "vpn_library_smoke"
+            check(io.nekohasekai.libbox.Libbox.version() == "1.12.0", "unexpected native VPN library version")
+            io.nekohasekai.libbox.Libbox.checkConfig("""{"log":{"disabled":true},"outbounds":[{"type":"direct"}]}""")
+            record("patched_vpn_library_loads_and_validates_config_without_starting_vpn")
             stage = "diagnostic_privacy"
             val archive = runBlocking { DiagnosticLogs.exportArchive() }
             ZipFile(archive).use { zip ->
@@ -171,14 +249,45 @@ class CaptchaFixtureInstrumentation : Instrumentation() {
             result.putString("stream", "FAIL $stage: ${e.javaClass.simpleName}\n")
 
         } finally {
-            runCatching { main { if (::service.isInitialized) service.coordinator.end() } }
+            runCatching { main { if (::service.isInitialized) {
+                service.coordinator.begin(browser = false, protocol = 2)
+                service.coordinator.end()
+            } } }
             connection?.let { runCatching { targetContext.unbindService(it) } }
             runCatching { targetContext.stopService(Intent(targetContext, CaptchaFixtureService::class.java)) }
         }
         finish(resultCode, result)
     }
 
-    private inner class Fixture : AutoCloseable {
+    private fun runNativePowFixture(executable: java.io.File) {
+        var environment: Map<String, String> = emptyMap()
+        main { environment = service.coordinator.begin(browser = false, protocol = 2, advanced = true) }
+        val builder = ProcessBuilder(executable.absolutePath, "-test.run", "^TestBrowserPowWebViewFixture$", "-test.v", "-test.timeout=30s")
+            .directory(targetContext.cacheDir).redirectErrorStream(true)
+        builder.environment().putAll(environment)
+        builder.environment()["FREETURN_RAW_WEBVIEW_FIXTURE"] = "1"
+        builder.environment()["TMPDIR"] = targetContext.cacheDir.absolutePath
+        val process = builder.start()
+        var validated = false
+        var captured = false
+        try {
+            process.inputStream.bufferedReader().useLines { lines -> lines.forEach { line ->
+                if (line.startsWith(CaptchaProtocol.PREFIX)) {
+                    val metadata = JSONObject(line.removePrefix(CaptchaProtocol.PREFIX))
+                    if (metadata.optString("purpose") == "pow_capture" && metadata.optString("phase") == "captured") captured = true
+                    service.coordinator.acceptLine(line)
+                } else if (line == "FTURN_FIXTURE browser_pow=validated authorization=not_assessed") validated = true
+            } }
+            check(process.waitFor(5, TimeUnit.SECONDS) && process.exitValue() == 0 && captured && validated, "native browser PoW fixture failed")
+            await("captured browser proof did not leave authorization pending") { CaptchaPresentation.state.value.phase == CaptchaUiState.Phase.RESUMING }
+            record("native_go_webview_pow_capture_and_validation")
+        } finally {
+            process.destroy()
+            main { service.coordinator.end() }
+        }
+    }
+
+    private inner class Fixture(private val version: Int = 1, var purpose: String = "solve", private val observerAsset: String? = null) : AutoCloseable {
         private val server = ServerSocket(0, 20, InetAddress.getByName("127.0.0.1"))
         private val pool = Executors.newCachedThreadPool { r -> Thread(r).apply { isDaemon = true } }
         @Volatile var generation = ""
@@ -186,25 +295,49 @@ class CaptchaFixtureInstrumentation : Instrumentation() {
         @Volatile var requestId = UUID.randomUUID().toString().replace("-", "")
         @Volatile private var mode = "browser"
         @Volatile private var expiry = System.currentTimeMillis() + 60_000
+        private val proofPath = "/local-captcha-pow/" + UUID.randomUUID().toString().replace("-", "")
+        val proofs = AtomicInteger()
         val heartbeats = AtomicInteger()
         val unavailable = AtomicInteger()
         val resumes = AtomicInteger()
         init { pool.execute { while (!server.isClosed) runCatching { val socket = server.accept(); pool.execute { handle(socket) } } } }
         fun begin() {
             main {
-                val env = service.coordinator.begin(true)
+                val env = service.coordinator.begin(true, protocol = version, advanced = version == 2)
                 generation = env.getValue("FREETURN_RAW_CAPTCHA_GENERATION")
                 token = env.getValue("FREETURN_RAW_CAPTCHA_TOKEN")
                 requestId = UUID.randomUUID().toString().replace("-", "")
             }
         }
         fun event(mode: String, phase: String = "pending") = CaptchaProtocol.PREFIX + JSONObject()
-            .put("v", 1).put("type", "captcha").put("generation", generation).put("ipc_port", server.localPort)
+            .put("v", version).put("type", "captcha").put("generation", generation).put("ipc_port", server.localPort)
             .put("request_id", requestId).put("mode", mode).put("phase", phase).put("expires_at_ms", expiry)
+            .apply { if (version == 2) put("purpose", purpose) }
         fun pending(next: String, ttl: Long = 60_000) {
             mode = next; expiry = System.currentTimeMillis() + ttl
             service.coordinator.acceptLine(event(mode))
         }
+        private fun proofPage(): String {
+            val observer = targetContext.assets.open(requireNotNull(observerAsset)).bufferedReader().use { it.readText() }
+            val origin = "http://127.0.0.1:${server.localPort}"
+            val config = JSONObject().put("local", origin).put("upstream", origin).put("capturePow", true).put("powPath", proofPath)
+            return """<!doctype html><html><head><script>window.__ftpCaptcha=$config;$observer</script><script>
+                (async()=>{const input='offline-injector-fixture';let nonce=0,hash='';
+                do{const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(input+nonce));
+                hash=Array.from(new Uint8Array(digest),v=>v.toString(16).padStart(2,'0')).join('');
+                if(hash.startsWith('0'))break;nonce++;}while(nonce<100000);
+                window.captchaPowResult='v2.'+btoa(JSON.stringify({hash,nonce,duration_ms:1,telemetry:{ua:{ok:true,result:{userAgent:navigator.userAgent}}}}));})();
+                </script></head><body>Offline production observer fixture</body></html>""".trimIndent()
+        }
+        private fun validProof(body: String): Boolean = runCatching {
+            val envelope = java.net.URLDecoder.decode(body.removePrefix("pow="), "UTF-8").substringAfter('.')
+            val proof = JSONObject(String(android.util.Base64.decode(envelope, android.util.Base64.DEFAULT), Charsets.UTF_8))
+            val nonce = proof.getLong("nonce")
+            if (nonce !in 0..100000) return false
+            val digest = java.security.MessageDigest.getInstance("SHA-256").digest(("offline-injector-fixture" + nonce).toByteArray())
+                .joinToString("") { (it.toInt() and 255).toString(16).padStart(2, '0') }
+            digest.startsWith("0") && digest == proof.getString("hash") && proof.has("telemetry")
+        }.getOrDefault(false)
         private fun handle(socket: java.net.Socket) = socket.use {
             it.soTimeout = 3000
             val reader = it.getInputStream().bufferedReader()
@@ -228,12 +361,14 @@ class CaptchaFixtureInstrumentation : Instrumentation() {
                     status = 401; "{}"
                 }
                 path == "/v1/captcha/$requestId" -> JSONObject().put("generation", generation).put("request_id", requestId)
-                    .put("mode", mode).put("expires_at_ms", expiry).put("url", "http://127.0.0.1:${server.localPort}/fixture-private-page").toString()
+                    .put("mode", mode).put("expires_at_ms", expiry).put("url", "http://127.0.0.1:${server.localPort}/fixture-private-page")
+                    .apply { if (version == 2) put("purpose", purpose) }.toString()
                 path == "/v1/captcha/$requestId/host" -> {
                     val data = JSONObject(String(body))
                     if (data.optString("status") in setOf("unavailable", "manual_requested") && data.optString("reason") != "challenge_expired") {
                         if (data.optString("status") == "unavailable") unavailable.incrementAndGet()
-                        mode = "manual"; after = { service.coordinator.acceptLine(event("manual")) }
+                        if (purpose == "pow_capture") after = { service.coordinator.acceptLine(event("browser", "unavailable")) }
+                        else { mode = "manual"; after = { service.coordinator.acceptLine(event("manual")) } }
                     }
                     status = 204; ""
                 }
@@ -249,7 +384,15 @@ class CaptchaFixtureInstrumentation : Instrumentation() {
                 }
                 path == "/fixture-private-page" -> {
                     contentType = "text/html"
-                    "<html><body>Local browser lifecycle fixture<script>setInterval(()=>fetch('/heartbeat',{method:'POST'}),200);fetch('/heartbeat',{method:'POST'});</script></body></html>"
+                    if (observerAsset != null) proofPage()
+                    else "<html><body>Local browser lifecycle fixture<script>setInterval(()=>fetch('/heartbeat',{method:'POST'}),200);fetch('/heartbeat',{method:'POST'});</script></body></html>"
+                }
+                path == proofPath && observerAsset != null -> {
+                    if (validProof(String(body))) {
+                        proofs.incrementAndGet(); status = 204
+                        after = { service.coordinator.acceptLine(event("browser", "captured")) }
+                    } else status = 400
+                    ""
                 }
                 path == "/heartbeat" -> { heartbeats.incrementAndGet(); status = 204; "" }
                 else -> { status = 404; "{}" }

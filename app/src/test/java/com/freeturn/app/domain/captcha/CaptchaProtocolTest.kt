@@ -28,7 +28,7 @@ class CaptchaProtocolTest {
             ((parse(auth) as CaptchaProtocol.Result.Accepted).event as CaptchaProtocol.Auth).phase)
     }
     @Test fun staleMalformedAndExpiredEventsCannotLoadAPage() {
-        listOf(challenge().put("generation", "old-process"), challenge().put("v", 2),
+        listOf(challenge().put("generation", "old-process"), challenge().put("v", 3),
             challenge().put("ipc_port", 0), challenge().put("request_id", "../../private"),
             challenge().put("expires_at_ms", now), challenge().put("expires_at_ms", now + 900_000),
             challenge().put("mode", "unknown")).forEach { assertTrue(parse(it) is CaptchaProtocol.Result.Rejected) }
@@ -51,4 +51,33 @@ class CaptchaProtocolTest {
         assertTrue(CaptchaIpcClient.sameOrigin("http://127.0.0.1:8765/a", "http://127.0.0.1:8765/b"))
         assertFalse(CaptchaIpcClient.sameOrigin("http://127.0.0.1:8765/a", "http://127.0.0.1:8766/b"))
     }
+    @Test fun v2CaptureIsDistinctFromSolvingAndAuthorization() {
+        val capture = challenge().put("v", 2).put("purpose", "pow_capture").put("expires_at_ms", now + 12_000)
+        val pending = (parse(capture) as CaptchaProtocol.Result.Accepted).event as CaptchaProtocol.Challenge
+        assertEquals(CaptchaProtocol.Purpose.POW_CAPTURE, pending.purpose)
+        assertEquals(2, pending.version)
+        capture.put("phase", "captured")
+        assertEquals(CaptchaProtocol.Phase.CAPTURED,
+            ((parse(capture) as CaptchaProtocol.Result.Accepted).event as CaptchaProtocol.Challenge).phase)
+        assertTrue(parse(capture.put("phase", "resolved")) is CaptchaProtocol.Result.Rejected)
+        assertTrue(parse(capture.put("phase", "pending").put("mode", "manual")) is CaptchaProtocol.Result.Rejected)
+        assertTrue(parse(capture.put("mode", "browser").put("expires_at_ms", now + 12_001)) is CaptchaProtocol.Result.Rejected)
+        assertTrue(parse(capture.put("purpose", "solve").put("phase", "captured")) is CaptchaProtocol.Result.Rejected)
+    }
+    @Test fun negotiatedVersionAndPurposeCannotBeDowngradedOrOmitted() {
+        val v2 = challenge().put("v", 2).put("purpose", "solve")
+        assertTrue(CaptchaProtocol.parse(CaptchaProtocol.PREFIX + v2, generation, now, 2) is CaptchaProtocol.Result.Accepted)
+        assertTrue(CaptchaProtocol.parse(CaptchaProtocol.PREFIX + v2, generation, now, 1) is CaptchaProtocol.Result.Rejected)
+        assertTrue(CaptchaProtocol.parse(CaptchaProtocol.PREFIX + challenge(), generation, now, 2) is CaptchaProtocol.Result.Rejected)
+        assertTrue(parse(challenge().put("v", 2)) is CaptchaProtocol.Result.Rejected)
+        assertTrue(parse(v2.put("purpose", "unknown")) is CaptchaProtocol.Result.Rejected)
+        assertTrue(parse(challenge().put("purpose", "pow_capture")) is CaptchaProtocol.Result.Rejected)
+    }
+
+    @Test fun oldGenerationCannotPoisonTheNegotiatedProtocol() {
+        val old = challenge().put("generation", "stale-process")
+        assertEquals(CaptchaProtocol.Result.Rejected("generation"),
+            CaptchaProtocol.parse(CaptchaProtocol.PREFIX + old, generation, now, 2))
+    }
+
 }

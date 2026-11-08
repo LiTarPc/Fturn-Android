@@ -23,6 +23,9 @@ type Config struct {
 	Credentials     []VKCredentials
 	Dialer          net.Dialer
 	ManualOnly      bool
+	AdvancedCaptcha bool
+	AutoRejected    *atomic.Bool
+	PowCapture      PowCaptureFunc
 	StreamsPerCache int
 	StreamsAlive    func() int32
 	AutoSolver      AutoSolveFunc
@@ -38,18 +41,20 @@ type Config struct {
 }
 
 type Client struct {
-	credentials   []VKCredentials
-	dialer        net.Dialer
-	manualOnly    bool
-	platform      browserprofile.Platform
-	streamsFn     func() int32
-	autoSolver    AutoSolveFunc
-	manualSolve   ManualSolveFunc
-	browserSolve  ManualSolveFunc
-	beforeFetch   func(context.Context) error
-	onAuthWait    func()
-	onAuthSuccess func()
-	log           logx.Logger
+	credentials     []VKCredentials
+	dialer          net.Dialer
+	manualOnly      bool
+	platform        browserprofile.Platform
+	streamsFn       func() int32
+	autoSolver      AutoSolveFunc
+	manualSolve     ManualSolveFunc
+	browserSolve    ManualSolveFunc
+	advancedCaptcha bool
+	powCapture      PowCaptureFunc
+	beforeFetch     func(context.Context) error
+	onAuthWait      func()
+	onAuthSuccess   func()
+	log             logx.Logger
 
 	store *Store
 
@@ -59,7 +64,7 @@ type Client struct {
 	cooldown          cooldownStore
 	networkPauseUntil atomic.Int64
 	servicePauseUntil atomic.Int64
-	autoRejected      atomic.Bool
+	autoRejected      *atomic.Bool
 
 	personaMu sync.RWMutex
 	identity  browserprofile.Identity
@@ -69,6 +74,7 @@ type Client struct {
 	fetchMu            sync.Mutex
 	lastFetchTime      time.Time
 	captchaAttempt     int
+	advancedManualUsed bool
 	tokenChain         tokenChainFn
 	minFetchIntervalFn func() time.Duration
 }
@@ -77,19 +83,25 @@ type tokenChainFn func(ctx context.Context, link string, streamID int, creds VKC
 
 func New(cfg Config) *Client {
 	c := &Client{
-		credentials:   cfg.Credentials,
-		dialer:        cfg.Dialer,
-		manualOnly:    cfg.ManualOnly,
-		platform:      cfg.Platform,
-		streamsFn:     cfg.StreamsAlive,
-		autoSolver:    cfg.AutoSolver,
-		manualSolve:   cfg.ManualSolver,
-		browserSolve:  cfg.BrowserSolver,
-		beforeFetch:   cfg.BeforeFetch,
-		onAuthWait:    cfg.OnAuthWait,
-		onAuthSuccess: cfg.OnAuthSuccess,
-		log:           cfg.Log,
-		store:         NewStore(cfg.StreamsPerCache),
+		credentials:     cfg.Credentials,
+		dialer:          cfg.Dialer,
+		manualOnly:      cfg.ManualOnly,
+		platform:        cfg.Platform,
+		streamsFn:       cfg.StreamsAlive,
+		autoSolver:      cfg.AutoSolver,
+		manualSolve:     cfg.ManualSolver,
+		browserSolve:    cfg.BrowserSolver,
+		advancedCaptcha: cfg.AdvancedCaptcha,
+		autoRejected:    cfg.AutoRejected,
+		powCapture:      cfg.PowCapture,
+		beforeFetch:     cfg.BeforeFetch,
+		onAuthWait:      cfg.OnAuthWait,
+		onAuthSuccess:   cfg.OnAuthSuccess,
+		log:             cfg.Log,
+		store:           NewStore(cfg.StreamsPerCache),
+	}
+	if c.autoRejected == nil {
+		c.autoRejected = &atomic.Bool{}
 	}
 	if len(c.credentials) == 0 {
 		c.credentials = DefaultCredentials
@@ -300,6 +312,7 @@ func (c *Client) fetch(ctx context.Context, link string, streamID int) (string, 
 		return "", "", nil, errors.Join(ErrCaptchaWaitRequired, captcha.ErrBotRejected)
 	}
 	c.captchaAttempt = 0
+	c.advancedManualUsed = false
 
 	var lastErr error
 	burns := 0

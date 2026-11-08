@@ -233,7 +233,8 @@ class CoreProcessController(
             val rawBackend = if (cfg.rawVpnActive) {
                 com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(prefs.hotspotConfig().port))
             } else null
-            val captchaEnvironment = if (cfg.rawVpnActive) captcha.begin(prefs.browserCaptchaFlow.first()) else emptyMap()
+            val captchaEnvironment = if (!cfg.isRawMode && cfg.provider == com.freeturn.app.data.config.Provider.VK)
+                captcha.begin(browser = false, protocol = 2, advanced = prefs.browserCaptchaFlow.first()) else emptyMap()
             com.freeturn.app.domain.diagnostics.DiagnosticLogs.registerSecrets(captchaEnvironment.values)
             val proc = withContext(Dispatchers.IO + NonCancellable) {
                 // Легаси: сносим осиротевшие профили захвата (сам механизм захвата удалён).
@@ -285,7 +286,18 @@ class CoreProcessController(
                     }
                     if (line == null) break
                     val l = line
-                    if (cfg.rawVpnActive && captcha.acceptLine(l)) continue
+                    if (captcha.acceptLine(l)) {
+                        if (captcha.hasIntegrationError() && !startupFailed) {
+                            startupFailed = true
+                            startupEmitted = true
+                            val message = context.getString(R.string.auth_integration_error_title)
+                            ProxyServiceState.addLog("[AUTH] integration_error; connection stopped without retry")
+                            ProxyServiceState.setStartupResult(StartupResult.Failed(message))
+                            notifier.setStatus(message)
+                            proc.destroyCompat()
+                        }
+                        continue
+                    }
                     val events = CoreLogParser.parse(l)
                     if (events.any { it is CoreLogEvent.CaptchaUrl }) {
                         ProxyServiceState.addLog("[AUTH] event=legacy_manual_challenge")

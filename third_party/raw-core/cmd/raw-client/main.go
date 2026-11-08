@@ -170,6 +170,8 @@ Usage:
   -streams-per-cred n    Streams per VK credential cache (default 5)
   -dns-mode mode         auto (default), doh, or plain
   -dns-servers list      Custom DNS resolver addresses
+  -advanced-captcha      Opt in to browser PoW before automatic verification
+  -auto-captcha=false    Disable automatic verification (manual-only)
   -manual-captcha        Use manual CAPTCHA solver
   -platform name        VK device persona: desktop (default) or mobile
   -client-id id          VK fingerprint seed; generated/persisted if omitted

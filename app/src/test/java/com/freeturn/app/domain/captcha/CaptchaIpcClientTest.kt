@@ -92,4 +92,21 @@ class CaptchaIpcClientTest {
         try { client.resume(server.address.port); fail("Closed process accepted a request") }
         catch (e: CaptchaIpcClient.IpcException) { assertEquals(CaptchaIpcClient.Failure.STALE, e.failure) }
     }
+    @Test fun v2DescriptorMustMatchTheNegotiatedCapturePurpose() = fixture { server, client ->
+        val expiry = System.currentTimeMillis() + 10_000
+        var purpose = "solve"
+        server.createContext("/v1/captcha/") { exchange ->
+            val bytes = JSONObject().put("generation", generation).put("request_id", requestId)
+                .put("mode", "browser").put("purpose", purpose).put("expires_at_ms", expiry)
+                .put("url", "http://localhost:8765/private-fixture").toString().toByteArray()
+            exchange.sendResponseHeaders(200, bytes.size.toLong())
+            exchange.responseBody.use { it.write(bytes) }; exchange.close()
+        }
+        val capture = event(server.address.port, expiry).copy(purpose = CaptchaProtocol.Purpose.POW_CAPTURE, version = 2)
+        try { client.fetch(capture); fail("Mismatched purpose accepted") }
+        catch (e: CaptchaIpcClient.IpcException) { assertEquals(CaptchaIpcClient.Failure.INVALID_RESPONSE, e.failure) }
+        purpose = "pow_capture"
+        assertEquals(capture, client.fetch(capture).event)
+    }
+
 }

@@ -14,6 +14,7 @@ if ($LASTEXITCODE) { throw 'libbox compatibility patch failed' }
 $env:GOPATH = Join-Path $nativeRoot 'go'
 $env:GOCACHE = Join-Path $nativeRoot 'go-cache'
 $env:GOTELEMETRY = 'off'
+$env:GOTOOLCHAIN = 'go1.24.5'
 $env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $env:ANDROID_NDK_HOME = Join-Path $env:ANDROID_HOME 'ndk\28.2.13676358'
 # gomobile 0.1.7 cannot discover SDK platform names with minor versions (android-37.0).

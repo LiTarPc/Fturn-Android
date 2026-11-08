@@ -48,3 +48,66 @@ After an explicit resume, fresh credential success emits auth/authorized even
 when no new captcha is required. This clears the RESUMING presentation, not the
 ready-worker count. Cached credential hits never emit it. An existing pending
 challenge or a new WAITING_USER pause cannot be cleared by this notification.
+
+
+# Verification IPC v2 — advanced browser PoW (RAW proposal, 2026-11-07)
+
+The v1 contract above remains byte-compatible by default. Opt in to v2 with
+FREETURN_RAW_CAPTCHA_PROTOCOL=2 plus the same per-process TOKEN/GENERATION.
+FREETURN_RAW_ADVANCED_CAPTCHA=1 (or -advanced-captcha / vk.advancedCaptcha=true)
+selects advanced authorization; default is false. Advanced + authenticated IPC
+requires protocol=2; fail startup for unsupported combinations instead of silently
+loading a capture page into a v1 manual host. Manual-only overrides advanced and
+auto settings. -auto-captcha=false / vk.autoCaptcha=false selects manual-only.
+FREETURN_RAW_BROWSER_CAPTCHA=1 alone retains the old v1/v2 token-wait behavior;
+when advanced is explicitly enabled, it no longer bypasses the automatic solver.
+No IPC environment preserves ordinary CLI/manual presentation.
+
+In v2 ALL events have v=2, and captcha events and GET descriptors additionally
+have purpose="pow_capture" or "solve". Mode remains browser|manual.
+Authenticated HTTP routes, headers, TTL, generation/request_id checks and fixed
+verification origin remain /v1/... for both envelope versions. The HTTP route
+version names the transport resource; v names the negotiated event semantics.
+
+purpose=pow_capture:
+- browser/pending: load the private page in the service-owned background WebView.
+- captured: terminal for THIS capture page; destroy/close that page only. This
+  means the core received an envelope, NOT that it validated it, solved CAPTCHA,
+  submitted a success token, obtained credentials or has any ready channels.
+- unavailable|expired|cancelled: terminal; close the capture host. Never expose
+  the same capture page as a manual solver and never convert it after 45s.
+- capture deadline is 12 seconds, bounded by the caller; no automatic TTL extension.
+- POST host unavailable/manual_requested ends capture and cancels its local
+  server; automatic policy decides legacy/manual fallback. GET/late host replies
+  for a terminal request receive 410. No PoW travels through metadata IPC.
+
+purpose=solve retains existing browser/manual token behavior and 45s browser to
+manual transition if browser mode was selected. Advanced automatic fallback uses
+manual/solve as a SEPARATE request ID/page, with a fresh challenge when prior
+verification may have consumed it. Manual-only never creates pow_capture.
+
+captcha/solve/resolved only means a page returned a success token; the core still
+must submit it and finish its credential chain. In v2 auth/authorized is emitted
+only after fresh credential success (including initial authorization), never on
+capture/token receipt or cached hits. It cannot clear a newer waiting_user or
+pending challenge. The ready-worker count remains a separate transport state.
+
+Android must parse v2 BEFORE ordinary logging and reject unknown purpose/phase
+pairs. Do not mark the VPN connected from captured/resolved alone. Continue the
+connecting/authorizing state until actual credentials/ready counters arrive.
+Keep one active host, apply STOP/TTL/generation cleanup and stale-ID rejection.
+Treat unsupported v2 as a visible integration error, never auto-resume or restart
+VPN. Feature setting is applied on the next connection, not a live mutation.
+
+A capture error can fall back to one legacy automatic attempt if no refusal,
+rate limit or cancellation occurred. Invalid/mismatched browser proof is never
+submitted. BOT disables automatic checks for the process; limited responses keep
+Retry-After/cooldown. Any automatic solver failure that may have consumed the
+challenge requests at most one fresh manual challenge, preserving identity and
+client_id; manual failure/repeated challenge pauses for explicit user action.
+Cookies and private results must stay in memory; no raw payload/telemetry or
+secret-bearing URL in events, errors, diagnostics or test reports.
+
+Integration status: contract proposal owned by RAW, to be shared with TURN and
+Android before either updates pinned clients. Native/fixture tests cannot prove
+acceptance by VK; real Android WebView E2E is a separate acceptance step.

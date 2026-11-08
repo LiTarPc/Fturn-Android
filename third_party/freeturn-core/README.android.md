@@ -1,3 +1,4 @@
-Reviewed FTcore 4.2.4-test.1 client snapshot including local stability changes and regression tests. Wire-compatible with server 4.2.3; this version remains a test core.
+FTcore 4.2.4-test.3 client snapshot: browser PoW, shared IPC v2 and retained client stability fixes. Test core; server wire protocol unchanged.
 
-SOURCE.json pins all sources and Go 1.26.10. Android/arm64, API 24+.
+SOURCE.json pins every input and Go 1.26.10. Android/arm64, API 24+.
+Upstream browser PoW notice: third_party/licenses/free-turn-proxy-HBL.txt.

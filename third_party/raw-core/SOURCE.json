@@ -1,9 +1,9 @@
 {
-  "coreVersion": "1.0.1-beta.android.5",
+  "coreVersion": "1.0.1-beta.android.6",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "e9e2ef9300d9ffd3a840d409e29a120da64e9d171a81e66e2d3ee309a29dd740",
-  "description": "Android 4.3.7 candidate: authenticated verification IPC, bounded browser/manual lifecycle and explicit resume, provider refusal safety, private diagnostics, RAW/TURN health counters, shared tcp-flow queue budget, IPv6 unspecified UDP source hint compatibility. Based on verified 4.3.6 SOURCE 7f347d5fef2a3fbccdd2a475646b07f15e33c7ade862cf4249df721df182fd9f.",
+  "sourceSnapshotSha256": "ca2faaea7acc3b42cda0e2b315892694c51b7d6872b9b33b65b23acace9f5dbb",
+  "description": "Advanced browser PoW candidate. Based on verified android.5 SOURCE e9e2ef9300d9ffd3a840d409e29a120da64e9d171a81e66e2d3ee309a29dd740; upstream hackdiaz-dev/free-turn-proxy v4.1.0 commit 465486ba96c4c2ff93443682ec900510b2e0ff9e. Explicit opt-in config, authenticated IPC v2 capture purpose, bounded fresh manual fallback, privacy and existing transport fixes preserved. Candidate pending real WebView E2E and race acceptance.",
   "files": [
     {
       "path": "LICENSE",
@@ -11,7 +11,7 @@
     },
     {
       "path": "cmd/raw-client/main.go",
-      "sha256": "1070b43c29cd97fda635d2a0cc9028e531d8f561721a2057c460fb4d6d3c9db6"
+      "sha256": "b134af01b24fd5fda8f37e6992485d333e2710e57d3839e0b8c64f6de619ee74"
     },
     {
       "path": "cmd/raw-server/main.go",
@@ -31,7 +31,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "76c0a5c25f00ba697bcea948f6409e0320c2eae727e1c5e566c0593249c29037"
+      "sha256": "7cefd4ca1c3634541187abae4b6792e7e7aa488567785a77a17c925afad311b6"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -95,11 +95,15 @@
     },
     {
       "path": "internal/captchaipc/PROTOCOL.md",
-      "sha256": "7698634c2ad5e9adedb91ea89a54f879ce4470eb6489d4f834817eeb3eb50459"
+      "sha256": "8d9c63c095eb8aa823f8b1df58bfb702bb82f0b91c3dcd20d7d8b137d37c921c"
+    },
+    {
+      "path": "internal/captchaipc/advanced_test.go",
+      "sha256": "dd67cb29eb33e067f3b095fbdcfc234cc71e39aa28db205711e2bd0ed804976b"
     },
     {
       "path": "internal/captchaipc/server.go",
-      "sha256": "bb9aa1a9a23f21b8ce2a9bcee34897fc23257745440c6b02ed25d5c4c8b12652"
+      "sha256": "54cfbec26bf18d849e67d9614cc0f4543e22baa70603db7b24574408c0656991"
     },
     {
       "path": "internal/captchaipc/server_test.go",
@@ -142,6 +146,10 @@
       "sha256": "0474bc06c21c0b990d4441deb211e0a12c9bbd70c67d7d5acc9abe83640e425a"
     },
     {
+      "path": "internal/config/advanced_test.go",
+      "sha256": "61cb2f93185e5922a96d1b87bea20999d7d4234c51cf57ba6b85b23ece882b67"
+    },
+    {
       "path": "internal/config/args.go",
       "sha256": "1935ed7ba11c5b97b5173cb8c7b975bb47cf88f29a64144a54c8dd6470308b2c"
     },
@@ -151,11 +159,11 @@
     },
     {
       "path": "internal/config/cliflags.go",
-      "sha256": "30827cb37bb580c8630b2ab6225f91d80d17f9e990b03b2af3dd31016d888905"
+      "sha256": "dba84d35e4e5a45429a64bb6dc89bf95bb2d89e01a634221c6bd93da3446f9f9"
     },
     {
       "path": "internal/config/config.go",
-      "sha256": "a6505c33ad6060d7e5a11d7c9b1277d1d2722dd7f98fd0bf77ad0512e6bac83a"
+      "sha256": "515511dcd0e4d28d4b4415a6b3cd394be2d1793fff4ca5a9223861daa4791743"
     },
     {
       "path": "internal/config/config_test.go",
@@ -163,7 +171,7 @@
     },
     {
       "path": "internal/config/defaults.go",
-      "sha256": "bc9a65e8ec12255c8895236da502d835524240c493951254fffc734c86fde8b0"
+      "sha256": "8351ce4105ed08c1bc37985fce96cd0bc65c7e32258c7ee45ea8fdb6e2ee06c2"
     },
     {
       "path": "internal/config/defaults_test.go",
@@ -171,7 +179,7 @@
     },
     {
       "path": "internal/config/json.go",
-      "sha256": "18b88ea9c58887930bebe61afd5458fbce115fcb3e96e324f16879d0253ccbc7"
+      "sha256": "951ef0c8d3f0895eeca03a5b17b62d9510be67e0f16f4b0f5a9951f038a91217"
     },
     {
       "path": "internal/config/json_test.go",
@@ -183,7 +191,7 @@
     },
     {
       "path": "internal/config/raw.go",
-      "sha256": "e2d07ac4c9a606713a7b6e8b3196800490a60b6c2b3d2cbda8a099308b4cce95"
+      "sha256": "94e4c1bb4be2366c000d5c7da308578151afe9368d358435031696030d1b7bac"
     },
     {
       "path": "internal/config/raw_test.go",
@@ -262,6 +270,10 @@
       "sha256": "91e9087a3f7d4be72c70646a65a53c8695e839557949d838518f1808e7eb66ec"
     },
     {
+      "path": "internal/provider/vk/internal/captcha/BROWSER-POW-PROVENANCE.md",
+      "sha256": "f3b30f188830eaad032658e0a4b5d9dfba0d226effe78ce630e9f5ea34623fbe"
+    },
+    {
       "path": "internal/provider/vk/internal/captcha/assets.go",
       "sha256": "e080bd1e7b22cd22575207f26d8f74da56fcb17b394b420da044ee0a3b501acf"
     },
@@ -270,8 +282,12 @@
       "sha256": "feed0e15619310e494b187033eedca9cac585395035209e463dae6c66012ae8c"
     },
     {
+      "path": "internal/provider/vk/internal/captcha/browser_pow_test.go",
+      "sha256": "35a73042abf073f4df553e2c2f3111324ece79d9ef4568f0dff804ec9057e8a3"
+    },
+    {
       "path": "internal/provider/vk/internal/captcha/captcha.go",
-      "sha256": "019cea68eba8bf7a0d602726de17eb03777b00dad30d10db78b38f8a6af51d32"
+      "sha256": "7d1c2713bbf5e995ce4c1eae3b10a8812409798b85fbbe16eb5b7683764f582a"
     },
     {
       "path": "internal/provider/vk/internal/captcha/captcha_test.go",
@@ -279,7 +295,7 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/diagnostics.go",
-      "sha256": "3a7bfc8396ffeebea05e41d23116aed9c883539b19c5f92c9bf82780e7c55536"
+      "sha256": "0ab4ee9d4bfb2d2a7532b3883c64823c0d2716b96fbb48e8a2e83ea17727f01a"
     },
     {
       "path": "internal/provider/vk/internal/captcha/diagnostics_test.go",
@@ -287,7 +303,7 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/errors.go",
-      "sha256": "b413bd3f3f1175f0d5eeb38d0f9c7944e66cdf636ced41494250dbf671fc0770"
+      "sha256": "126ad7008250d7ae68c008e63c04e615bdbc4e8ee17e2f5f958eff67829c973c"
     },
     {
       "path": "internal/provider/vk/internal/captcha/errors_test.go",
@@ -302,8 +318,20 @@
       "sha256": "81f9057c322ee3790ee532824f03e24a4d45fa5276e6259a34559259dceb8257"
     },
     {
+      "path": "internal/provider/vk/internal/captcha/manual/browser_pow.go",
+      "sha256": "7a836047bd99fdfd0dc752b9ee7e7804fa65970ec02f197e1bb1dcd6af734457"
+    },
+    {
+      "path": "internal/provider/vk/internal/captcha/manual/browser_pow_test.go",
+      "sha256": "c9a22cc01fb2ac4c2612d406b6751c321a6fc1d0782540ed37d9c0b8317afa66"
+    },
+    {
       "path": "internal/provider/vk/internal/captcha/manual/inject.js",
-      "sha256": "9d3a2206f91cb9a845c002ebafbbaef13ee7821eba2c0873c8259c47d1398a30"
+      "sha256": "fa85ea57da2b7663ba5388e5c6192adad175b22df22fdd60afd383f512340f78"
+    },
+    {
+      "path": "internal/provider/vk/internal/captcha/manual/inject_fixture_test.cjs",
+      "sha256": "5ce43dd16ce510e84a9ccc3a3edeecb88b75f685a81fc0830c2165af1795497f"
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/limits.go",
@@ -315,7 +343,7 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/manual.go",
-      "sha256": "c7e3f34c00312065bc294cfce4819781c75a902f4e732b16fd8263e8fc178a2b"
+      "sha256": "d1cb54e646847700a31c47cb617d1afd7448c7009701c081e439cdd6a5251d3e"
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/manual_test.go",
@@ -326,8 +354,12 @@
       "sha256": "62897f70edce7695613de9bc05cd31cbd48f9568b403a4e1bc2f96e55385c244"
     },
     {
+      "path": "internal/provider/vk/internal/captcha/manual/webview_fixture_test.go",
+      "sha256": "35477344104e71c327c01bbc9d9b3fb31ddf5757d16ff6242a4aff64772e4b6f"
+    },
+    {
       "path": "internal/provider/vk/internal/captcha/pow.go",
-      "sha256": "7287f93d2ec2d2ee38b65b6653d922e3063a8b251a49c98af1a555f0c7c2e068"
+      "sha256": "fbe6e56325e8672efdbbd7ddc8dc08f15e6313ef8ec623cbabf1a02423f55d6c"
     },
     {
       "path": "internal/provider/vk/internal/captcha/pow_test.go",
@@ -386,8 +418,16 @@
       "sha256": "9794d80305613486437b3d2b53225dbf9159babe75a9b94a46bd87b571532aa4"
     },
     {
+      "path": "internal/provider/vk/internal/vkauth/advanced.go",
+      "sha256": "5616c79b22267fe1273a5694403ee48adfc668325b687aed44c1411e72c24ffe"
+    },
+    {
+      "path": "internal/provider/vk/internal/vkauth/advanced_test.go",
+      "sha256": "7208ac1e43afae0e9b1ee7485540ae593cb2fe86c5fc869e73fbeb47d09a79d1"
+    },
+    {
       "path": "internal/provider/vk/internal/vkauth/auto_solver.go",
-      "sha256": "8dac703540ef9b12d63fb57a799e89c69f1d7d497ebc5e1744172ab02727de94"
+      "sha256": "3590e79a3701b5faca67adb4fe7d2d197151c74f9bb41b899ec9056c2df94ec3"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/bot_guard_test.go",
@@ -403,7 +443,7 @@
     },
     {
       "path": "internal/provider/vk/internal/vkauth/client.go",
-      "sha256": "adf2aa77d21871a1e3ac607793086bf8218e22114574a81f0e2b48c97b328229"
+      "sha256": "1a636fd3cda962f25a825e88834772e41ae6099daffbb610241ebdbac040c6e5"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/client_test.go",
@@ -451,7 +491,7 @@
     },
     {
       "path": "internal/provider/vk/internal/vkauth/solver.go",
-      "sha256": "2020d1b36597d15f07cdd902d7c38212cd901efaf05497ca4646ab33e47c2ecf"
+      "sha256": "1c59356d35c28dd0a38d8923ba8dedc73baee28b5a5bd619b31db6086a872d9b"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/solver_test.go",
@@ -467,7 +507,7 @@
     },
     {
       "path": "internal/provider/vk/internal/vkauth/token_call.go",
-      "sha256": "9c3633154e3e0051eb37150ecc2b09339baa7495bbe81874715aac9ee5d41c97"
+      "sha256": "77a895e79dba53c12228822b191a9ca07f534f04e9a44671919bca3b85b78dfb"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/token_creds.go",
@@ -487,7 +527,7 @@
     },
     {
       "path": "internal/provider/vk/ipcsolver.go",
-      "sha256": "f8758fe85cf974bf3312c40162d42de02982cf89b343b59513cebe8728865f90"
+      "sha256": "6492466c15f35796ea202d2331b3001f76c4e96c88634df4b1a8113994613374"
     },
     {
       "path": "internal/provider/vk/manualsolver.go",
@@ -495,7 +535,7 @@
     },
     {
       "path": "internal/provider/vk/vk.go",
-      "sha256": "d2d7aece6ed19f145b5cbba56dced23338aac70e4b2afcbdb60c053b718fa32f"
+      "sha256": "a0d5ecc7686ea8e8074dae11b2b993728ee229d3e24a93784162b435739d8513"
     },
     {
       "path": "internal/proxy/allocpace/allocpace.go",
@@ -811,11 +851,11 @@
     },
     {
       "path": "internal/session/provider.go",
-      "sha256": "3961757ae62d3bba6b5570ff8adc3baa536a4a985d9724d3c5beb4a024ea0c21"
+      "sha256": "b871e5b5a0f087117fb9018574edc7dec3d97894e128405d06d2223cdc72afe6"
     },
     {
       "path": "internal/session/raw.go",
-      "sha256": "ed5d4ab45ac41cf6e63dc97a7f7c883637af68d4e1a784e11ab526b60f37ce0a"
+      "sha256": "b1101f6b596c7733db0fe710a04d28b58233f2d98e6a633b7c96486041e90636"
     },
     {
       "path": "internal/session/raw_dns_test.go",

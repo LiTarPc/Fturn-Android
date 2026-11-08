@@ -9,7 +9,7 @@ if [ ! -d "$native_root/sing-box-1.12.0" ]; then
   unzip -q "$native_root/sing-box.zip" -d "$native_root"
 fi
 python3 "$project_root/scripts/patch-libbox.py" "$native_root/sing-box-1.12.0"
-export GOPATH="$native_root/go" GOCACHE="$native_root/go-cache" GOTELEMETRY=off
+export GOPATH="$native_root/go" GOCACHE="$native_root/go-cache" GOTELEMETRY=off GOTOOLCHAIN=go1.24.5
 export PATH="$GOPATH/bin:$PATH"
 export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
 # gomobile 0.1.7 only recognizes integer SDK folder names. Keep API 24 native

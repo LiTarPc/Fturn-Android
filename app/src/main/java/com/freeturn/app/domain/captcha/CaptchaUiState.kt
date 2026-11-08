@@ -9,6 +9,6 @@ data class CaptchaUiState(
     val retryFailed: Boolean = false,
     val hostVersion: Int = 0,
 ) {
-    enum class Phase { IDLE, BROWSER, MANUAL, WAITING_USER, RESUMING }
+    enum class Phase { IDLE, BROWSER, MANUAL, WAITING_USER, RESUMING, INTEGRATION_ERROR }
     val isWaiting: Boolean get() = phase != Phase.IDLE
 }

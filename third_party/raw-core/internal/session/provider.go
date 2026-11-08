@@ -31,12 +31,18 @@ func buildProvider(
 		if len(interactive) > 0 {
 			hooks = interactive[0]
 		}
+		var autoRejected *atomic.Bool
+		if cfg.VK.AdvancedCaptcha {
+			autoRejected = &atomic.Bool{}
+		}
 		newVK := func(link string) (provider.Provider, error) {
 			return vk.New(vk.Config{
 				Link:            link,
 				Interactive:     hooks,
 				Dialer:          dialer,
 				ManualOnly:      cfg.VK.ManualCaptcha,
+				AdvancedCaptcha: cfg.VK.AdvancedCaptcha,
+				AutoRejected:    autoRejected,
 				Platform:        string(cfg.VK.Platform),
 				StreamsPerCache: cfg.VK.StreamsPerCred,
 				StreamsAlive:    connected.Load,

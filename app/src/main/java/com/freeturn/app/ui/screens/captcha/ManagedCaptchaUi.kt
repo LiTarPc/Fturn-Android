@@ -28,6 +28,7 @@ fun CaptchaStatusBanner(state: CaptchaUiState) {
         CaptchaUiState.Phase.BROWSER -> R.string.auth_browser_title
         CaptchaUiState.Phase.MANUAL -> R.string.auth_manual_title
         CaptchaUiState.Phase.WAITING_USER -> R.string.auth_waiting_title
+        CaptchaUiState.Phase.INTEGRATION_ERROR -> R.string.auth_integration_error_title
         else -> R.string.auth_resuming_title
     }
     Surface(color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.fillMaxWidth().statusBarsPadding()) {
@@ -35,6 +36,7 @@ fun CaptchaStatusBanner(state: CaptchaUiState) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(title), style = MaterialTheme.typography.bodyMedium)
                 if (stats.total > 0) Text(stringResource(R.string.auth_channels, stats.active, stats.total), style = MaterialTheme.typography.bodySmall)
+                if (state.phase == CaptchaUiState.Phase.INTEGRATION_ERROR) Text(stringResource(R.string.auth_integration_error_desc), style = MaterialTheme.typography.bodySmall)
                 if (state.retryFailed) Text(stringResource(R.string.auth_page_unavailable), style = MaterialTheme.typography.bodySmall)
             }
             when (state.phase) {
@@ -47,6 +49,7 @@ fun CaptchaStatusBanner(state: CaptchaUiState) {
                 CaptchaUiState.Phase.WAITING_USER -> TextButton(onClick = { CaptchaPresentation.resume(state.generation) }) {
                     Text(stringResource(R.string.auth_retry))
                 }
+                CaptchaUiState.Phase.INTEGRATION_ERROR -> Unit
                 else -> CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             }
         }

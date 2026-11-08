@@ -1,1 +1,1 @@
-1.0.1-beta.android.5
+1.0.1-beta.android.6

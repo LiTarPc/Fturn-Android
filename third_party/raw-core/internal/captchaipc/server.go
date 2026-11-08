@@ -31,6 +31,7 @@ type Event struct {
 	Generation  string `json:"generation"`
 	RequestID   string `json:"request_id,omitempty"`
 	Mode        string `json:"mode,omitempty"`
+	Purpose     string `json:"purpose,omitempty"`
 	Phase       string `json:"phase"`
 	ExpiresAtMS int64  `json:"expires_at_ms,omitempty"`
 	IPCPort     int    `json:"ipc_port"`
@@ -39,17 +40,20 @@ type Challenge struct {
 	Generation  string `json:"generation"`
 	RequestID   string `json:"request_id"`
 	Mode        string `json:"mode"`
+	Purpose     string `json:"purpose,omitempty"`
 	ExpiresAtMS int64  `json:"expires_at_ms"`
 	URL         string `json:"url"`
 }
 type task struct {
 	Challenge
 	finished chan struct{}
+	abort    context.CancelFunc
 }
 type Config struct {
 	Token, Generation string
 	Output            io.Writer
 	BrowserTimeout    time.Duration
+	Protocol          int
 }
 type Server struct {
 	cfg      Config
@@ -72,9 +76,24 @@ func FromEnvironment(ctx context.Context) (*Server, error) {
 	if token == "" && generation == "" {
 		return nil, nil
 	}
-	return New(ctx, Config{Token: token, Generation: generation, Output: os.Stdout})
+	protocol := 1
+	if value := os.Getenv("FREETURN_RAW_CAPTCHA_PROTOCOL"); value != "" {
+		if value != "1" && value != "2" {
+			return nil, errors.New("unsupported captcha IPC protocol")
+		}
+		if value == "2" {
+			protocol = 2
+		}
+	}
+	return New(ctx, Config{Token: token, Generation: generation, Output: os.Stdout, Protocol: protocol})
 }
 func New(ctx context.Context, cfg Config) (*Server, error) {
+	if cfg.Protocol == 0 {
+		cfg.Protocol = 1
+	}
+	if cfg.Protocol != 1 && cfg.Protocol != 2 {
+		return nil, errors.New("unsupported captcha IPC protocol")
+	}
 	token, e := hex.DecodeString(cfg.Token)
 	if e != nil || len(token) != 32 || !validGeneration.MatchString(cfg.Generation) {
 		return nil, errors.New("invalid captcha IPC credentials")
@@ -96,10 +115,11 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	go func() { <-ownedCtx.Done(); _ = s.http.Close() }()
 	return s, nil
 }
-func (s *Server) Port() int    { return s.listener.Addr().(*net.TCPAddr).Port }
-func (s *Server) Close() error { s.cancel(); return s.http.Close() }
+func (s *Server) Protocol() int { return s.cfg.Protocol }
+func (s *Server) Port() int     { return s.listener.Addr().(*net.TCPAddr).Port }
+func (s *Server) Close() error  { s.cancel(); return s.http.Close() }
 func (s *Server) emit(e Event) {
-	e.V = 1
+	e.V = s.cfg.Protocol
 	e.Generation = s.cfg.Generation
 	e.IPCPort = s.Port()
 	b, _ := json.Marshal(e)
@@ -108,7 +128,7 @@ func (s *Server) emit(e Event) {
 	_, _ = fmt.Fprintf(s.cfg.Output, "%s%s\n", Prefix, b)
 }
 func (s *Server) event(t *task, phase string) {
-	s.emit(Event{Type: "captcha", RequestID: t.RequestID, Mode: t.Mode, Phase: phase, ExpiresAtMS: t.ExpiresAtMS})
+	s.emit(Event{Type: "captcha", RequestID: t.RequestID, Mode: t.Mode, Purpose: t.Purpose, Phase: phase, ExpiresAtMS: t.ExpiresAtMS})
 }
 
 // Acquire is context-aware and checks the gate again after waiting for another
@@ -179,7 +199,7 @@ func (s *Server) Resume() {
 func (s *Server) Authorized() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !s.resuming || s.paused || s.current != nil {
+	if (s.cfg.Protocol == 1 && !s.resuming) || s.paused || s.current != nil {
 		return
 	}
 	s.resuming = false
@@ -189,6 +209,15 @@ func (s *Server) Authorized() {
 // Begin accepts only the local verification proxy, never a URL delivered by an
 // untrusted caller. The secret-bearing URL is returned only over authenticated IPC.
 func (s *Server) Begin(ctx context.Context, raw, mode string) (string, error) {
+	return s.begin(ctx, raw, mode, "solve", nil)
+}
+func (s *Server) BeginCapture(ctx context.Context, raw string, abort context.CancelFunc) (string, error) {
+	if s.cfg.Protocol != 2 {
+		return "", errors.New("browser PoW requires captcha IPC v2")
+	}
+	return s.begin(ctx, raw, "browser", "pow_capture", abort)
+}
+func (s *Server) begin(ctx context.Context, raw, mode, purpose string, abort context.CancelFunc) (string, error) {
 	if err := s.ctx.Err(); err != nil {
 		return "", err
 	}
@@ -209,11 +238,17 @@ func (s *Server) Begin(ctx context.Context, raw, mode string) (string, error) {
 	if !deadline.After(time.Now()) {
 		return "", context.DeadlineExceeded
 	}
+	if purpose == "pow_capture" {
+		deadline = minDeadline(deadline, time.Now().Add(12*time.Second))
+	}
 	id := make([]byte, 16)
 	if _, e = rand.Read(id); e != nil {
 		return "", e
 	}
-	t := &task{Challenge: Challenge{Generation: s.cfg.Generation, RequestID: hex.EncodeToString(id), Mode: mode, ExpiresAtMS: deadline.UnixMilli(), URL: raw}, finished: make(chan struct{})}
+	if s.cfg.Protocol == 1 {
+		purpose = ""
+	}
+	t := &task{Challenge: Challenge{Generation: s.cfg.Generation, RequestID: hex.EncodeToString(id), Mode: mode, Purpose: purpose, ExpiresAtMS: deadline.UnixMilli(), URL: raw}, finished: make(chan struct{}), abort: abort}
 	s.mu.Lock()
 	if s.current != nil {
 		s.mu.Unlock()
@@ -223,7 +258,11 @@ func (s *Server) Begin(ctx context.Context, raw, mode string) (string, error) {
 	s.event(t, "pending")
 	s.mu.Unlock()
 	go func() {
-		timer := time.NewTimer(s.cfg.BrowserTimeout)
+		timeout := s.cfg.BrowserTimeout
+		if purpose == "pow_capture" {
+			timeout = time.Until(deadline)
+		}
+		timer := time.NewTimer(timeout)
 		defer timer.Stop()
 		for {
 			select {
@@ -240,7 +279,11 @@ func (s *Server) Begin(ctx context.Context, raw, mode string) (string, error) {
 				s.End(t.RequestID, phase)
 				return
 			case <-timer.C:
-				s.manual(t.RequestID)
+				if purpose == "pow_capture" {
+					s.End(t.RequestID, "expired")
+				} else {
+					s.manual(t.RequestID)
+				}
 			}
 		}
 	}()
@@ -254,7 +297,13 @@ func (s *Server) End(id, phase string) {
 		return
 	}
 	s.current = nil
+	if t.Purpose == "pow_capture" && phase == "resolved" {
+		phase = "captured"
+	}
 	close(t.finished)
+	if t.abort != nil {
+		t.abort()
+	}
 	s.event(t, phase)
 }
 func (s *Server) manual(id string) {
@@ -362,10 +411,28 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "expired challenge", 410)
 		return
 	}
+	if body.Status != "available" && t.Purpose == "pow_capture" {
+		s.current = nil
+		close(t.finished)
+		s.event(t, "unavailable")
+		if t.abort != nil {
+			t.abort()
+		}
+		s.mu.Unlock()
+		w.WriteHeader(204)
+		return
+	}
 	if body.Status != "available" && t.Mode != "manual" {
 		t.Mode = "manual"
 		s.event(t, "pending")
 	}
 	s.mu.Unlock()
 	w.WriteHeader(204)
+}
+
+func minDeadline(a, b time.Time) time.Time {
+	if a.Before(b) {
+		return a
+	}
+	return b
 }

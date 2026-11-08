@@ -23,6 +23,8 @@ import (
 	"github.com/samosvalishe/free-turn-proxy/internal/randx"
 )
 
+var ErrBrowserPowInvalid = errors.New("browser pow invalid for current challenge")
+
 var Log logx.Logger = logx.Nop()
 
 func SetLogger(l logx.Logger) { Log = logx.OrNop(l) }
@@ -105,9 +107,10 @@ type captchaSession struct {
 	checked bool
 
 	// browserFP - visitorId FingerprintJS: у живого посетителя стабилен между сессиями.
-	browserFP string
-	debugInfo string
-	powHash   string
+	browserFP  string
+	debugInfo  string
+	powHash    string
+	browserPow string
 
 	// downlink - у живого клиента одно значение на всю captcha, не отдельное на тик.
 	downlink float64
@@ -135,6 +138,35 @@ func Solve(
 	profile browserprofile.Profile,
 	log logx.Logger,
 ) (string, error) {
+	return solve(ctx, captchaErr, streamID, client, profile, log, "")
+}
+
+// SolveWithBrowserPow uses the completed PoW envelope produced by the real
+// browser for this captcha flow.
+func SolveWithBrowserPow(
+	ctx context.Context,
+	captchaErr *Error,
+	streamID int,
+	client tlsclient.HttpClient,
+	profile browserprofile.Profile,
+	log logx.Logger,
+	browserPow string,
+) (string, error) {
+	if browserPow == "" {
+		return "", errors.New("browser pow envelope is empty")
+	}
+	return solve(ctx, captchaErr, streamID, client, profile, log, browserPow)
+}
+
+func solve(
+	ctx context.Context,
+	captchaErr *Error,
+	streamID int,
+	client tlsclient.HttpClient,
+	profile browserprofile.Profile,
+	log logx.Logger,
+	browserPow string,
+) (string, error) {
 	if captchaErr == nil || captchaErr.SessionToken == "" {
 		return "", fmt.Errorf("no session_token in redirect_uri")
 	}
@@ -142,16 +174,17 @@ func Solve(
 	l.Infof("[STREAM %d] [Captcha] Solving VK Smart Captcha automatically...", streamID)
 
 	s := &captchaSession{
-		ctx:       ctx,
-		client:    client,
-		profile:   profile,
-		domain:    captchaDomain,
-		apiHost:   captchaAPIHost,
-		log:       l,
-		browserFP: profile.VisitorID,
-		downlink:  sessionDownlink(),
-		sensors:   defaultSensorConfig(),
-		started:   time.Now(),
+		ctx:        ctx,
+		client:     client,
+		profile:    profile,
+		domain:     captchaDomain,
+		apiHost:    captchaAPIHost,
+		log:        l,
+		browserFP:  profile.VisitorID,
+		browserPow: browserPow,
+		downlink:   sessionDownlink(),
+		sensors:    defaultSensorConfig(),
+		started:    time.Now(),
 	}
 
 	var solveErr error
@@ -163,7 +196,7 @@ func Solve(
 		}
 		l.Debugf("[STREAM %d] [Captcha] solve attempt %d failed: %v", streamID, attempt, solveErr)
 		// Повторяем только то, что не дошло до check.
-		if s.checked || errors.Is(solveErr, errCaptchaRateLimit) || errors.Is(solveErr, errCaptchaBot) {
+		if s.browserPow != "" || s.checked || errors.Is(solveErr, errCaptchaRateLimit) || errors.Is(solveErr, errCaptchaBot) {
 			return "", solveErr
 		}
 
@@ -197,6 +230,14 @@ func (s *captchaSession) solveOnce(captchaErr *Error) (string, error) {
 	}
 
 	// Браузер тянет подресурсы параллельно с исполнением скрипта, не после него.
+	if s.browserPow != "" {
+		s.powHash, err = validateBrowserPow(s.browserPow, page.Pow)
+		if err != nil {
+			return "", fmt.Errorf("%w: %s", ErrBrowserPowInvalid, err)
+		}
+		s.profile = profileFromBrowserPow(s.profile, s.browserPow)
+	}
+
 	assets := parsePageAssets(html)
 	assetsDone := make(chan struct{})
 	go func() {
@@ -207,9 +248,11 @@ func (s *captchaSession) solveOnce(captchaErr *Error) (string, error) {
 	defer func() { <-assetsDone }()
 
 	s.logger().Debugf("[Captcha] solving pow difficulty=%d assets=%d", page.Pow.Difficulty, len(assets))
-	s.powHash, err = s.powEnvelope(page.Pow)
-	if err != nil {
-		return "", err
+	if s.browserPow == "" {
+		s.powHash, err = s.powEnvelope(page.Pow)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	s.debugInfo = page.DebugInfo
@@ -723,8 +766,8 @@ func (s *captchaSession) doRawStatus(
 	start := time.Now()
 	resp, err := s.client.Do(req)
 	if err != nil {
-		s.logger().Debugf("[Captcha] http %s %s failed t=%s after=%s %s form=%s err=%v", method, SafeURL(endpoint), s.elapsed(), time.Since(start).Truncate(time.Millisecond), navSummary(req), captchaFormSummary(form), err)
-		return nil, 0, fmt.Errorf("%w: %w", ErrUnavailable, err)
+		s.logger().Debugf("[Captcha] http %s %s failed t=%s after=%s %s form=%s err_type=%T", method, SafeURL(endpoint), s.elapsed(), time.Since(start).Truncate(time.Millisecond), navSummary(req), captchaFormSummary(form), err)
+		return nil, 0, fmt.Errorf("%w: %w", ErrUnavailable, privateRequestError{err})
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {

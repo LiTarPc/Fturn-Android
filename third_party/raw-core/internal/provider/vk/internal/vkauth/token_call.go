@@ -134,6 +134,9 @@ func (c *Client) solveCaptcha(
 	link, escapedName, token1 string,
 	captchaErr *captcha.Error,
 ) (retryData string, err error) {
+	if c.advancedCaptcha {
+		return c.solveAdvancedCaptcha(ctx, httpClient, profile, streamID, link, escapedName, token1, captchaErr)
+	}
 	if c.browserSolve != nil && !c.manualOnly {
 		return c.solveBrowserCaptcha(ctx, profile, streamID, link, escapedName, token1, captchaErr)
 	}

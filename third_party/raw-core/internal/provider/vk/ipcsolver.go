@@ -15,6 +15,7 @@ import (
 // Ordinary CLI/manual integrations retain their existing behavior.
 type InteractiveHooks struct {
 	BrowserSolver ManualSolverFunc
+	PowCapture    PowCaptureFunc
 	BeforeFetch   func(context.Context) error
 	OnAuthWait    func()
 	OnAuthSuccess func()
@@ -56,5 +57,41 @@ func IPCSolver(broker *captchaipc.Server, manual bool) ManualSolverFunc {
 			return "", presentErr
 		}
 		return token, err
+	}
+}
+
+// IPCPowCapture presents a capture-only page; captured is not authorization.
+func IPCPowCapture(broker *captchaipc.Server) PowCaptureFunc {
+	return func(ctx context.Context, redirect string, dialer net.Dialer, profile browserprofile.Profile) (string, error) {
+		if err := broker.Acquire(ctx); err != nil {
+			return "", err
+		}
+		defer broker.Release()
+		captureCtx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		var id string
+		var presentErr error
+		envelope, err := manualcaptcha.CapturePowViaProxyWithPresenter(captureCtx, redirect, dialer, profile, func(raw string) {
+			id, presentErr = broker.BeginCapture(captureCtx, raw, cancel)
+			if presentErr != nil {
+				cancel()
+			}
+		})
+		if id != "" {
+			phase := "captured"
+			if err != nil || envelope == "" {
+				phase = "unavailable"
+			}
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				phase = "expired"
+			} else if ctx.Err() != nil {
+				phase = "cancelled"
+			}
+			broker.End(id, phase)
+		}
+		if presentErr != nil {
+			return "", presentErr
+		}
+		return envelope, err
 	}
 }

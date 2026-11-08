@@ -181,12 +181,14 @@ class ProxyNotifier(private val service: Service) {
         com.freeturn.app.domain.captcha.CaptchaUiState.Phase.MANUAL -> service.getString(R.string.auth_manual_title)
         com.freeturn.app.domain.captcha.CaptchaUiState.Phase.WAITING_USER -> service.getString(R.string.auth_waiting_title)
         com.freeturn.app.domain.captcha.CaptchaUiState.Phase.RESUMING -> service.getString(R.string.auth_resuming_title)
+        com.freeturn.app.domain.captcha.CaptchaUiState.Phase.INTEGRATION_ERROR -> service.getString(R.string.auth_integration_error_title)
     }
 
     fun updateCaptchaState(value: com.freeturn.app.domain.captcha.CaptchaUiState) {
         authState = value
         val needsUser = value.phase in setOf(com.freeturn.app.domain.captcha.CaptchaUiState.Phase.MANUAL,
-            com.freeturn.app.domain.captcha.CaptchaUiState.Phase.WAITING_USER)
+            com.freeturn.app.domain.captcha.CaptchaUiState.Phase.WAITING_USER,
+            com.freeturn.app.domain.captcha.CaptchaUiState.Phase.INTEGRATION_ERROR)
         if (!needsUser) cancelCaptcha()
         else {
             val key = "${value.generation}:${value.requestId}:${value.phase}"

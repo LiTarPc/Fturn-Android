@@ -3,6 +3,7 @@ package com.freeturn.app.service
 import android.content.Context
 import android.os.Build
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -44,16 +45,20 @@ object CaptchaPresentation {
 class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState) -> Unit, private val pagePort: Int? = 8765) {
     private val context = context.applicationContext
     private val main = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private class Session(val generation: String, val token: String, val browser: Boolean, pagePort: Int?) {
+    private class Session(val generation: String, val token: String, val browser: Boolean, val protocol: Int, val advanced: Boolean, pagePort: Int?) {
         val client = CaptchaIpcClient(generation, token, pagePort)
         val revision = AtomicLong()
         @Volatile var structured = false
+        val finished = LinkedHashSet<String>() // Main dispatcher only; bounds stale-ID retention.
         fun environment() = mapOf("FREETURN_RAW_CAPTCHA_TOKEN" to token,
             "FREETURN_RAW_CAPTCHA_GENERATION" to generation,
+            "FREETURN_RAW_CAPTCHA_PROTOCOL" to protocol.toString(),
+            "FREETURN_RAW_ADVANCED_CAPTCHA" to if (advanced) "1" else "0",
             "FREETURN_RAW_BROWSER_CAPTCHA" to if (browser) "1" else "0")
         override fun toString() = "CaptchaProcessSession"
     }
     @Volatile private var session: Session? = null
+    @Volatile private var integrationFailure = false
     private var challenge: CaptchaProtocol.Challenge? = null
     private var descriptor: CaptchaIpcClient.Descriptor? = null
     private var view: WebView? = null
@@ -66,12 +71,14 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
 
     init { CaptchaPresentation.owner = this }
 
-    fun begin(browser: Boolean): Map<String, String> {
+    fun begin(browser: Boolean, protocol: Int = 1, advanced: Boolean = false): Map<String, String> {
+        require(protocol in 1..2 && (!advanced || protocol == 2))
         val random = SecureRandom()
         fun hex(size: Int) = ByteArray(size).also(random::nextBytes).joinToString("") { "%02x".format(it) }
-        val next = Session(hex(16), hex(32), browser, pagePort)
+        val next = Session(hex(16), hex(32), browser, protocol, advanced, pagePort)
         session?.client?.close()
         session = next
+        integrationFailure = false
         com.freeturn.app.domain.diagnostics.DiagnosticLogs.registerSecrets(listOf(next.token))
         main.launch {
             if (session !== next) return@launch
@@ -82,12 +89,14 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
     }
 
     fun isStructured(): Boolean = session?.structured == true
+    fun hasIntegrationError(): Boolean = integrationFailure
 
     /** Returns true even for malformed events, so control payloads cannot reach a log sink. */
     fun acceptLine(line: String): Boolean {
         if (!line.startsWith("FTURN_EVENT")) return false
         val current = session ?: return true
-        when (val parsed = CaptchaProtocol.parse(line, current.generation, System.currentTimeMillis())) {
+        if (integrationFailure) return true
+        when (val parsed = CaptchaProtocol.parse(line, current.generation, System.currentTimeMillis(), current.protocol)) {
             is CaptchaProtocol.Result.Accepted -> {
                 current.structured = true
                 // Authorization of another credential group must not invalidate an
@@ -98,12 +107,35 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
                     }
                     return true
                 }
-                val revision = current.revision.incrementAndGet()
                 main.launch {
-                    if (session === current && current.revision.get() == revision) apply(current, parsed.event, revision)
+                    if (session !== current) return@launch
+                    val event = parsed.event
+                    if (event is CaptchaProtocol.Challenge) {
+                        if (event.requestId in current.finished) return@launch
+                        if (event.phase != CaptchaProtocol.Phase.PENDING) {
+                            current.finished.add(event.requestId)
+                            if (current.finished.size > 256) current.finished.remove(current.finished.first())
+                            if (challenge?.requestId != event.requestId) return@launch
+                        }
+                    }
+                    val revision = current.revision.incrementAndGet()
+                    apply(current, event, revision)
                 }
             }
-            is CaptchaProtocol.Result.Rejected -> ProxyServiceState.addLog("[AUTH] event=metadata_rejected reason=${parsed.reason}")
+            is CaptchaProtocol.Result.Rejected -> {
+                ProxyServiceState.addLog("[AUTH] event=metadata_rejected reason=${parsed.reason}")
+                if (parsed.reason !in setOf("generation", "expiry")) {
+                    integrationFailure = true
+                    current.structured = true
+                    current.client.close()
+                    main.launch {
+                        if (session === current) {
+                            clearPage()
+                            publish(CaptchaUiState(CaptchaUiState.Phase.INTEGRATION_ERROR, current.generation))
+                        }
+                    }
+                }
+            }
             CaptchaProtocol.Result.NotEvent -> ProxyServiceState.addLog("[AUTH] event=metadata_rejected reason=prefix")
         }
         return true
@@ -134,11 +166,14 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
                 ProxyServiceState.addLog("[AUTH] event=authorization phase=${event.phase.name.lowercase()}")
             }
             is CaptchaProtocol.Challenge -> {
-                ProxyServiceState.addLog("[AUTH] event=challenge mode=${event.mode.name.lowercase()} phase=${event.phase.name.lowercase()}")
+                ProxyServiceState.addLog("[AUTH] event=challenge purpose=${event.purpose.name.lowercase()} mode=${event.mode.name.lowercase()} phase=${event.phase.name.lowercase()}")
                 if (event.phase != CaptchaProtocol.Phase.PENDING) {
                     if (challenge?.requestId == event.requestId) {
                         clearPage()
-                        publish(CaptchaUiState(generation = current.generation))
+                        // A page result is not authorization. The core decides fallback/user wait.
+                        publish(CaptchaUiState(
+                            phase = if (event.version == 2) CaptchaUiState.Phase.RESUMING else CaptchaUiState.Phase.IDLE,
+                            generation = current.generation))
                     }
                     return
                 }
@@ -154,7 +189,8 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
                     if (session === current && challenge?.requestId == event.requestId) {
                         report(current, event, "unavailable", "challenge_expired")
                         clearPage()
-                        publish(CaptchaUiState(CaptchaUiState.Phase.WAITING_USER, current.generation))
+                        publish(CaptchaUiState(if (event.purpose == CaptchaProtocol.Purpose.POW_CAPTURE)
+                            CaptchaUiState.Phase.RESUMING else CaptchaUiState.Phase.WAITING_USER, current.generation))
                     }
                 }
                 if (previous?.requestId == event.requestId && view != null) return
@@ -171,8 +207,12 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
             result.fold(onSuccess = { page ->
                 com.freeturn.app.domain.diagnostics.DiagnosticLogs.registerSecrets(listOf(page.url))
                 descriptor = page
-                if (!current.browser && event.mode == CaptchaProtocol.Mode.BROWSER) report(current, event, "manual_requested", "user_requested")
-                else createPage(current, page)
+                if (!current.browser && event.mode == CaptchaProtocol.Mode.BROWSER && event.purpose == CaptchaProtocol.Purpose.SOLVE) report(current, event, "manual_requested", "user_requested")
+                else CookieManager.getInstance().removeAllCookies {
+                    if (session === current && current.revision.get() == revision && challenge?.requestId == event.requestId) {
+                        createPage(current, page)
+                    }
+                }
             }, onFailure = { hostFailed(current, event, "host_unavailable") })
         }
     }
@@ -185,6 +225,8 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
             view = web
             web.settings.apply {
                 javaScriptEnabled = true; domStorageEnabled = true
+                // Match the upstream host while the core derives HTTP headers from this browser's proof.
+                userAgentString = userAgentString.replace("; wv)", ")")
                 allowFileAccess = false; allowContentAccess = false
                 javaScriptCanOpenWindowsAutomatically = false
                 setSupportMultipleWindows(false)
@@ -290,10 +332,14 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
     private fun clearPage() {
         fetch?.cancel(); fetch = null; expiry?.cancel(); expiry = null
         challenge = null; descriptor = null; destroyView()
+        CookieManager.getInstance().removeAllCookies { CookieManager.getInstance().flush() }
     }
     fun end() {
         val old = session; session = null; old?.client?.close()
-        main.launch { if (session == null) { clearPage(); publish(CaptchaUiState()) } }
+        main.launch { if (session == null) {
+            clearPage()
+            publish(if (integrationFailure) CaptchaUiState(CaptchaUiState.Phase.INTEGRATION_ERROR) else CaptchaUiState())
+        } }
     }
     fun close() {
         end()

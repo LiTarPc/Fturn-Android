@@ -51,7 +51,16 @@ jobs:
         env:
           GOTOOLCHAIN: go1.26.10
           GOTELEMETRY: 'off'
-        run: go test -mod=readonly ./internal/bypass ./internal/captchaipc ./internal/provider/vk/internal/vkauth ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
+        run: go test -mod=readonly ./internal/bypass ./internal/captchaipc ./internal/provider/vk/... ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
+
+      - name: Browser proof and authorization race regressions
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: |
+          go -C third_party/raw-core test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... -count=1 -timeout=10m
+          go -C third_party/freeturn-core test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... -count=1 -timeout=10m
+          node third_party/raw-core/internal/provider/vk/internal/captcha/manual/inject_fixture_test.cjs
 
       - uses: gradle/actions/setup-gradle@v6
 

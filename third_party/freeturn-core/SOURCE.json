@@ -1,13 +1,17 @@
 {
-  "coreVersion": "4.2.4-test.1",
+  "coreVersion": "4.2.4-test.3",
   "goToolchain": "go1.26.10",
-  "sourceBaseCommit": "fc2a5cda4a3918e91cc7ff435c05de6534206b6e",
-  "sourceSnapshotSha256": "dfe302775334b7e5eaf10e9235e6c2a6be8f6b5d5c2ae42311727fa28ed1fce5",
-  "description": "Reviewed FTcore 4.2.4-test.1 client snapshot including local stability changes and regression tests. Wire-compatible with server 4.2.3; this version remains a test core.",
+  "sourceBaseCommit": "91ee6cda0ef9175c5eb5c286068fb4197a7daaff",
+  "sourceSnapshotSha256": "2a1bbb9f4334a61a7b4ae5aede78eb58614e89dbfc109f8445a52f7dcd06bd58",
+  "description": "FTcore 4.2.4-test.3 client snapshot: browser PoW, shared IPC v2 and retained client stability fixes. Test core; server wire protocol unchanged.",
   "files": [
     {
+      "path": "LICENSE",
+      "sha256": "7d4cada12bead930dc24522b92293089ce240441db6c7d7bb44f5a78d7b24fdc"
+    },
+    {
       "path": "cmd/client/main.go",
-      "sha256": "3d145c36b0987cf29dccdeb4188cbc871af1177e523ee5a528e6ae4a79008a4e"
+      "sha256": "cdb37827e3440bb7f0aad6242bda99f8f8e8fce6b23fa4bfabcb5d6ed42df98c"
     },
     {
       "path": "cmd/server/main.go",
@@ -32,6 +36,22 @@
     {
       "path": "go.sum",
       "sha256": "5166e2e36863c1b7c7cac2ee78db37edba8c2bc42e262b459b24d671cfbf4dd1"
+    },
+    {
+      "path": "internal/captchaipc/PROTOCOL.md",
+      "sha256": "8d9c63c095eb8aa823f8b1df58bfb702bb82f0b91c3dcd20d7d8b137d37c921c"
+    },
+    {
+      "path": "internal/captchaipc/server.go",
+      "sha256": "126863684e7318375a2d9fe576b3c3019e0a02e88f08540af230229da49fc3a8"
+    },
+    {
+      "path": "internal/captchaipc/server_test.go",
+      "sha256": "aa6a1343a2b2c8c3cd21d11ad746e8e737d46523230b62f89373d932f721674e"
+    },
+    {
+      "path": "internal/captchaipc/v2_test.go",
+      "sha256": "c8dba57eacb9f8eaa22f152303a84eca80aa40423a7065e2df0c38e092a62930"
     },
     {
       "path": "internal/client/dnsdial/cli.go",
@@ -74,8 +94,12 @@
       "sha256": "395ace37e0d6cc22c234d0d7ce33953508f149708b83124ce4b7329b641adc82"
     },
     {
+      "path": "internal/config/advanced_captcha_test.go",
+      "sha256": "9b509694eedbbca922bb0b5a827aa87ea568506f3b7dd67b8bf13187020e746f"
+    },
+    {
       "path": "internal/config/args.go",
-      "sha256": "1935ed7ba11c5b97b5173cb8c7b975bb47cf88f29a64144a54c8dd6470308b2c"
+      "sha256": "f38d418bc21bd4d7a5c330ac62d45f73f6800ab0ecccb2436cf36dff0e2bdef3"
     },
     {
       "path": "internal/config/args_test.go",
@@ -83,11 +107,11 @@
     },
     {
       "path": "internal/config/cliflags.go",
-      "sha256": "db79d63d7abbbd4de5236ac4919284880e1a161a760757142ac4e9fd6582b8f2"
+      "sha256": "11159331f3296486c3006df153e0c25aeacbeaccbcadb29f3f8505f5a509e395"
     },
     {
       "path": "internal/config/config.go",
-      "sha256": "1380e55bf184b107943de40bf7cdb5ee70f56b8edcdf0d6f942d0e236dd3e7bd"
+      "sha256": "66c34d1822f90690ae7b86690cac61b4f0e36254e15a474d4523f69a02703c14"
     },
     {
       "path": "internal/config/config_test.go",
@@ -95,7 +119,7 @@
     },
     {
       "path": "internal/config/defaults.go",
-      "sha256": "7f1734a020a723bbbcc3ebff1f99789f61254b6fafbdb3bc1a34f39b1eee1af0"
+      "sha256": "9189fffe9cb5e167ee8e02f80604ca93ab3b91e2d9db55f7444dda51749f458a"
     },
     {
       "path": "internal/config/defaults_test.go",
@@ -103,7 +127,7 @@
     },
     {
       "path": "internal/config/json.go",
-      "sha256": "fdec67005f835eb20420bc14ea823039b2d2f7e7f672684fcecf5454030085a6"
+      "sha256": "df65aea40cdc948760ed79c29d7ddd1fc11b415aebbce75f45714147a459840c"
     },
     {
       "path": "internal/config/json_test.go",
@@ -115,7 +139,7 @@
     },
     {
       "path": "internal/config/raw.go",
-      "sha256": "aa3f32d0cfcb0d08bdd6013c6ca4e76cf4f59761d02baee1998aa0cbcb45f7f9"
+      "sha256": "617b5e0bd744395ac3aeffb7c9f5d40c3c700a7434cd170f288ad551602e52c2"
     },
     {
       "path": "internal/config/raw_test.go",
@@ -194,6 +218,14 @@
       "sha256": "58ddcc7ca5c6c745b03e4d3382337ee641aac35daf2e02c4c542acd95c82db20"
     },
     {
+      "path": "internal/provider/vk/authgate.go",
+      "sha256": "5944f8aa1ae8d1a92e9e855e42c0b9ab856a503170dd0e072ce3815476056837"
+    },
+    {
+      "path": "internal/provider/vk/authgate_test.go",
+      "sha256": "85e56cc41919fae287df5f2659ea2cf4d8cd0f1ea317be7ca72ebca413c1ecd6"
+    },
+    {
       "path": "internal/provider/vk/internal/browserprofile/profile.go",
       "sha256": "c3df0e21d24fadf17a4423371d32c2d06557b915c79b90802aa4d67d1ca2df46"
     },
@@ -210,8 +242,16 @@
       "sha256": "feed0e15619310e494b187033eedca9cac585395035209e463dae6c66012ae8c"
     },
     {
+      "path": "internal/provider/vk/internal/captcha/browser_pow.go",
+      "sha256": "132b872c23ef14a1ee42e22f75c10f11fdba185305bf658cd3bf0a4fe34abc43"
+    },
+    {
+      "path": "internal/provider/vk/internal/captcha/browser_pow_test.go",
+      "sha256": "96daed8f07dbd39f603f2c395c55b0d60189379ab79913d429d743e32fd005e5"
+    },
+    {
       "path": "internal/provider/vk/internal/captcha/captcha.go",
-      "sha256": "456079ee0e102e054681115f53dde4b2ad0fdc6fca8117b9031095dfea7048bd"
+      "sha256": "711db5e96d90167a3e75c4d8113e560752d14880747096dbdd4ae9615ccad81a"
     },
     {
       "path": "internal/provider/vk/internal/captcha/captcha_test.go",
@@ -219,7 +259,7 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/diagnostics.go",
-      "sha256": "8dc0f3378e7cda064deda143e5cc302144fde30204a5f228fb13fe4e2233198f"
+      "sha256": "dbbde8cf9315201e300bf446751c5e31d3081882490a32c07104ef736dd3d442"
     },
     {
       "path": "internal/provider/vk/internal/captcha/diagnostics_test.go",
@@ -227,7 +267,7 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/errors.go",
-      "sha256": "ad5c1d46826e6129c0eda862ce87b6dd892fa67af29218c0690985c736bbfc13"
+      "sha256": "9c9e395e0a86f1688799fbdb64952d3a97a82165b10073193754f46b599cc88a"
     },
     {
       "path": "internal/provider/vk/internal/captcha/errors_test.go",
@@ -242,8 +282,12 @@
       "sha256": "52efa29e0885d9ab49109016439556ea197ec5e9f5b46a0c9fa3c912fdabd71f"
     },
     {
+      "path": "internal/provider/vk/internal/captcha/manual/browser_pow_test.go",
+      "sha256": "70cd202ee3f131090228a05283674c552b92344e8cc9204ef88f953f48288d80"
+    },
+    {
       "path": "internal/provider/vk/internal/captcha/manual/inject.js",
-      "sha256": "80680fde768449f804f12cc387e1eaaea86ffdd21d7d9323b51edc5586198d01"
+      "sha256": "6a232fd3cf61b2a0fd048f482db6df3b98663236b83e6e5a933cd5fcee9b8741"
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/limits.go",
@@ -255,7 +299,7 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/manual.go",
-      "sha256": "f19f417edffe32494440b49404cc34fd33697dac870a9b5f223095d7af7de322"
+      "sha256": "73b4d6a0cd7040ac5b8a8a2d29de2e56d23d4ce189989c2243b5f78442e996b4"
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/manual_test.go",
@@ -263,7 +307,7 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/pow.go",
-      "sha256": "fdb74335ef83805eac7d71679c98ba3202d45f44d1e8bcb4a11ff10e614652e6"
+      "sha256": "f47f0718f78866172efa99c914426acf3d3644ac7333f6e95f06bc1e96f8fd77"
     },
     {
       "path": "internal/provider/vk/internal/captcha/pow_test.go",
@@ -298,6 +342,10 @@
       "sha256": "83725353fd3e5b89a6797ed59bddf9e96ca4e0a6bf475d963261f95bf5d3ecdb"
     },
     {
+      "path": "internal/provider/vk/internal/captcha/transport_error_test.go",
+      "sha256": "df022bcfbc3411eb57800de9c22efe52cdb5716d8ae805fd1b5e74399bbab7ee"
+    },
+    {
       "path": "internal/provider/vk/internal/namegen/data/first_names_female.txt",
       "sha256": "6e2bfa5611dcc4b6e35e4ba662e05d575bc19dac73a3e1584d512e53eb2fb7fd"
     },
@@ -326,8 +374,16 @@
       "sha256": "f439ce0dd60587e48a73cf039f15d96f48d4b2079be8460a95f8e06d9570823a"
     },
     {
+      "path": "internal/provider/vk/internal/vkauth/advanced_chain_test.go",
+      "sha256": "f3a6286a4ff938ceebf9755f50a9435db2d44d2e3c21f95906688705f4d259db"
+    },
+    {
+      "path": "internal/provider/vk/internal/vkauth/advanced_test.go",
+      "sha256": "a67d2f732787da7b1dc012b3e086d4af766120cfa0842256f88bbe6fa1b8f541"
+    },
+    {
       "path": "internal/provider/vk/internal/vkauth/auto_solver.go",
-      "sha256": "5d4fb5215fd3e197c510d42cc75c39551c37b51e5f586131b38c8cbd7a252af6"
+      "sha256": "33fe048ad8ded3fc08d98ae6f53d89028fe891beea2fc5c4fe94676bbea4bca2"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/cache.go",
@@ -335,11 +391,11 @@
     },
     {
       "path": "internal/provider/vk/internal/vkauth/client.go",
-      "sha256": "cc5e086b036d0337ad28069b644cdaea996d3e67e71fa66a81b64fd67842ef81"
+      "sha256": "6706de9fc2822cea705e1cc0ac7ec93f8485b68b7f691581ebcc80c1d30671f5"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/client_test.go",
-      "sha256": "57131963f39ebdead6a45e39626274142bf0d58b27fb5cf2890d2ce3c95d0fc1"
+      "sha256": "0dfcefbafe6f1423148e0fa7d21e5a9869c0475e10b827c972e5344ad53ec26a"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/cooldown.go",
@@ -379,7 +435,7 @@
     },
     {
       "path": "internal/provider/vk/internal/vkauth/solver.go",
-      "sha256": "43de32dc923e208af6cc32b120220ff8a6a246fada1a5c2a2524ee70f1ea9e59"
+      "sha256": "b9290af22bc73886b395482cf86cdc40bd6c99cb5c0c65c7f80a1e8db06e215f"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/solver_test.go",
@@ -395,7 +451,7 @@
     },
     {
       "path": "internal/provider/vk/internal/vkauth/token_call.go",
-      "sha256": "ec8bd7139579ad379fcc1fbd71c1ff8fdb708a58058d39139596a13be5de76f7"
+      "sha256": "088f2461749fcb16798e6ddf2a2b60ec8a20037fa0de39f0efe081deb3466ac0"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/token_creds.go",
@@ -407,19 +463,23 @@
     },
     {
       "path": "internal/provider/vk/internal/vkauth/token_request.go",
-      "sha256": "9208d861b1dfb8209b3f572482c3f2ceee7af22cb005516efc919a11afb63ec4"
+      "sha256": "801de20ec931dee1683ea1de58b41b2e4212b228119e7ac9db1610c65d037c88"
     },
     {
       "path": "internal/provider/vk/internal/vkauth/types.go",
       "sha256": "98852846e357e167e63abd3fa3d3f59138ad6e4d5939edb04f013834d830aeca"
     },
     {
+      "path": "internal/provider/vk/ipc.go",
+      "sha256": "7659280d475dde85816cb9ee42c6e40cac3645556527c70348e4abd1bf499b3b"
+    },
+    {
       "path": "internal/provider/vk/manualsolver.go",
-      "sha256": "01807d2bdb7a9a7c31870820e146a787ff5b501a376c2718b036d4bf5b84b1a5"
+      "sha256": "b4d8496db93ca4415a968f2303bc33f62bcd33bb0991b2b4505048df86cd9b82"
     },
     {
       "path": "internal/provider/vk/vk.go",
-      "sha256": "4bcac719852b6dc87a84df72aeab00a1967cf8bd9f2c06ee9a529db15429a20e"
+      "sha256": "ead70fc994bcf4eda7a053f5ee7428baa53910a7036cfe7d563c6847f9be09e6"
     },
     {
       "path": "internal/proxy/allocpace/allocpace.go",
@@ -551,11 +611,11 @@
     },
     {
       "path": "internal/session/provider.go",
-      "sha256": "f08292272326d0a98acfb9e2dfe4e02ab834d452401a7ad89210ad93e461ee62"
+      "sha256": "fde0e77b0c8749088eca47342681bfe547b6c85c5c411c896c7635db0b26cf97"
     },
     {
       "path": "internal/session/session.go",
-      "sha256": "550c43552de18f755af4b427f65eee42bc6268a1646117ab89756957927596a1"
+      "sha256": "930ed26dcc2b878a6573e7a9ffa799fa733ee78e3e02c7562ed9f101bfddbc81"
     },
     {
       "path": "internal/session/session_test.go",
@@ -786,12 +846,12 @@
       "sha256": "b997cffdfac42429d28995274bc1b8089e410c46d562ba0060224b1c240c3250"
     },
     {
-      "path": "LICENSE",
-      "sha256": "7d4cada12bead930dc24522b92293089ce240441db6c7d7bb44f5a78d7b24fdc"
+      "path": "mobile/README.md",
+      "sha256": "7b9dbd5dce3a5bba5f27dcff480d983dd097d148f5b4cdca5995ce536e2fe424"
     },
     {
       "path": "mobile/api.go",
-      "sha256": "1fd1c9344683efd5f6bb17e1c590bce5434355d231d0093b6018f19e7ae8cddd"
+      "sha256": "1c50da4e3f472ff09a51e058f94ad5944dd294fd7da9510b84298618109c3e2b"
     },
     {
       "path": "mobile/api_test.go",
@@ -799,7 +859,7 @@
     },
     {
       "path": "mobile/events.go",
-      "sha256": "cf5b875fb3b5eeaec42b5eac639ff0e10cb5814703dfa5fc97502ab51e70a7c7"
+      "sha256": "59545dad801901a8ebca8f63bf24903a73067b3b48c3c0018bf89f5d2a271a1a"
     },
     {
       "path": "mobile/logbuf.go",
@@ -808,10 +868,6 @@
     {
       "path": "mobile/protect.go",
       "sha256": "df71c43752fcbe48825eb989e3f123f3d01743751ef40c4dc6d05186865e75d7"
-    },
-    {
-      "path": "mobile/README.md",
-      "sha256": "7b9dbd5dce3a5bba5f27dcff480d983dd097d148f5b4cdca5995ce536e2fe424"
     },
     {
       "path": "mobile/shutdown_test.go",
@@ -824,6 +880,14 @@
     {
       "path": "mobile/tunnel_test.go",
       "sha256": "f262c60fc634415facb016f1cba8c730eb7e91dd61c92dc6f6a67c02dc1c13d7"
+    },
+    {
+      "path": "third_party/licenses/free-turn-proxy-HBL.txt",
+      "sha256": "df093b08de5f29f8bef8ada96765d606be442f4e677f377bfa7444b2803527fc"
+    },
+    {
+      "path": "third_party/smux/LICENSE",
+      "sha256": "4d853d6e64790ccada70727c25334c50529b25ce57048129aaf6f8b0f2208516"
     },
     {
       "path": "third_party/smux/alloc.go",
@@ -846,10 +910,6 @@
       "sha256": "6a380ed0b1af2429ae73e40561f577fc773f8d7f380e2dc5e10b7b4512da356b"
     },
     {
-      "path": "third_party/smux/LICENSE",
-      "sha256": "4d853d6e64790ccada70727c25334c50529b25ce57048129aaf6f8b0f2208516"
-    },
-    {
       "path": "third_party/smux/mux.go",
       "sha256": "7ee97437b6414da39cb74c57d0784c91b64780afddda5a1e89c6aeeb251470ad"
     },
@@ -870,6 +930,26 @@
       "sha256": "dfe4c1651ae80031541dc2b7cebe537c494ed746537a4c55ea99f07b30d0ccb6"
     },
     {
+      "path": "third_party/turn/FTURN_PATCHES.md",
+      "sha256": "4ba405785b68cce39562f95e728ff3fdd21276a979ab32006f9e6ec71f59c06f"
+    },
+    {
+      "path": "third_party/turn/LICENSE",
+      "sha256": "6483daf6c8aa2c8192528e60be098aa82dd18f6d7b96dc8246f4f7c3333fbf3f"
+    },
+    {
+      "path": "third_party/turn/LICENSES/CC0-1.0.txt",
+      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
+    },
+    {
+      "path": "third_party/turn/LICENSES/MIT.txt",
+      "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
+    },
+    {
+      "path": "third_party/turn/README.md",
+      "sha256": "1764e1db1ff90f7d573e0e0f797e8ddf5eed202dbf77c5b3f0cd16a0dd8f9428"
+    },
+    {
       "path": "third_party/turn/addr_family.go",
       "sha256": "6457f6f5afbd6c22e19073a969d983a62300d66118a4465346a6606dd42f386b"
     },
@@ -884,10 +964,6 @@
     {
       "path": "third_party/turn/errors.go",
       "sha256": "a76483c991764edbf94fa523f2b780c32edb86eea18b621a8bfccbd97dbd94e4"
-    },
-    {
-      "path": "third_party/turn/FTURN_PATCHES.md",
-      "sha256": "4ba405785b68cce39562f95e728ff3fdd21276a979ab32006f9e6ec71f59c06f"
     },
     {
       "path": "third_party/turn/go.mod",
@@ -1238,18 +1314,6 @@
       "sha256": "a9490bc0fb55855a7d1724cdb81b4632ab853ad97a734aed709c50e3b209b55d"
     },
     {
-      "path": "third_party/turn/LICENSE",
-      "sha256": "6483daf6c8aa2c8192528e60be098aa82dd18f6d7b96dc8246f4f7c3333fbf3f"
-    },
-    {
-      "path": "third_party/turn/LICENSES/CC0-1.0.txt",
-      "sha256": "a2010f343487d3f7618affe54f789f5487602331c0a8d03f49e9a7c547cf0499"
-    },
-    {
-      "path": "third_party/turn/LICENSES/MIT.txt",
-      "sha256": "b85dcd3e453d05982552c52b5fc9e0bdd6d23c6f8e844b984a88af32570b0cc0"
-    },
-    {
       "path": "third_party/turn/listener_failure_test.go",
       "sha256": "cd5dadb64dbc313d223b854a1fa97dbcd6a3a79a4a44853f169fa9f64c39ade1"
     },
@@ -1260,10 +1324,6 @@
     {
       "path": "third_party/turn/lt_cred_test.go",
       "sha256": "5c69635937f0cd7a0e685ca90b3c2548ba341c1617a5256e83327621ddf07525"
-    },
-    {
-      "path": "third_party/turn/README.md",
-      "sha256": "1764e1db1ff90f7d573e0e0f797e8ddf5eed202dbf77c5b3f0cd16a0dd8f9428"
     },
     {
       "path": "third_party/turn/relay_address_generator_none.go",
