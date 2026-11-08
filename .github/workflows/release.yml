@@ -93,6 +93,12 @@ jobs:
           go -C third_party/freeturn-core test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... -count=1 -timeout=10m
           node third_party/raw-core/internal/provider/vk/internal/captcha/manual/inject_fixture_test.cjs
 
+      - name: Delayed authorization and DTLS integration race regressions
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: go -C third_party/freeturn-core test -race -mod=readonly -tags integration ./internal/proxy/tcprelay ./internal/proxy/udprelay ./internal/transport/dtlsdial -count=1 -timeout=10m
+
       - uses: gradle/actions/setup-gradle@v6
 
       - name: Setup release signing

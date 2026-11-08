@@ -1,9 +1,9 @@
 {
-  "coreVersion": "4.2.4-test.3",
+  "coreVersion": "4.2.4-test.4",
   "goToolchain": "go1.26.10",
-  "sourceBaseCommit": "91ee6cda0ef9175c5eb5c286068fb4197a7daaff",
-  "sourceSnapshotSha256": "2a1bbb9f4334a61a7b4ae5aede78eb58614e89dbfc109f8445a52f7dcd06bd58",
-  "description": "FTcore 4.2.4-test.3 client snapshot: browser PoW, shared IPC v2 and retained client stability fixes. Test core; server wire protocol unchanged.",
+  "sourceBaseCommit": "a239427a201efb6725f2288ecf1c0986cfee6a0e",
+  "sourceSnapshotSha256": "7a51d18ce90a538529f2c718bd5aeb95fb4abc8deab4ca057b4d51dd35faf233",
+  "description": "FTcore 4.2.4-test.4: browser PoW and IPC v2; DTLS handshake budget starts after credentials/TURN setup, retaining typed failure causes. Server protocol and CLI unchanged.",
   "files": [
     {
       "path": "LICENSE",
@@ -495,7 +495,7 @@
     },
     {
       "path": "internal/proxy/tcprelay/client_udp_integration_test.go",
-      "sha256": "0969eefeecb309ce49b81ca613b2709991a49e45e7636851311e10cdbf0975c3"
+      "sha256": "922844f20ac05d5e5e6af6fedc833a0d10c701dd1a11c8e15214992dbcfecfeb"
     },
     {
       "path": "internal/proxy/tcprelay/pair_test.go",
@@ -555,11 +555,11 @@
     },
     {
       "path": "internal/proxy/udprelay/loop.go",
-      "sha256": "cc89b41257fa78e4a062aedc892177386dc85410521a34d5e2e3111167068262"
+      "sha256": "e165b645eb48d59b47b21e2036bcb74f1316d3bffe26846c166ccd7cc15fbd20"
     },
     {
       "path": "internal/proxy/udprelay/pair_test.go",
-      "sha256": "1a0ef990aefc631b986d31aa560fd15a31b1a2a4febc4d513d5995f175e00f8b"
+      "sha256": "648e64241d9e73f161e737d99c19f818f571bde765287cacf1740bed8a5a1ec0"
     },
     {
       "path": "internal/proxy/udprelay/run.go",
