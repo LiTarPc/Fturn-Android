@@ -1,6 +1,6 @@
 # 4.3.8 candidate verification
 
-This is a test candidate. No stable tag or release is authorized before a full real-device connection test.
+This document records the 4.3.8 verification history. Stable publication was authorized by the user on 2026-11-09 after the functional checks below; mandatory CI and release gates must pass before publication.
 
 - Both vendored source snapshots match their committed core handoffs: TURN 4.2.4-test.4 (a239427a), RAW 1.0.1-beta.android.6 (8eda3177).
 - Local Gradle testDebugUnitTest, lintDebug, lintVitalRelease, assembleDebug, assembleDebugAndroidTest and assembleRelease passed. JVM: 211 tests, zero failures/errors.
@@ -64,3 +64,10 @@ Commit ccc1027 moves the existing advanced CAPTCHA switch from Diagnostics to Se
 Local JVM 211/211, lintDebug, lintVitalRelease, assembleDebug and assembleRelease passed. Real-phone debug UI checks confirmed nerd mode disabled, default enabled, public access and persistence of both off/on states across force-stop/relaunch. Signed workflow 42483556791 at ccc1027d6767bac7b9d0c2b759fb6059461ce56a passed every gate. APK SHA-256 a0e1516f045f131cf948619404d30718d25e62c53da064ebb061cafb8d17fe64, original certificate verified, installed in place in the main package. Main installed public switch observed enabled. Both native VPN cores match the prior live-tested hashes. libbox SHA-256 bd71ef10f40324a3c5da49ec8a49e142b643d271e5a25c5c90de5322670d49b8; comparison of embedded Go build info shows only checkout module pseudo-version and Git revision/time changes, with pinned source/patches/dependencies/build flags unchanged. Both incoming/outgoing SOCKS markers and fresh CI race gate verified.
 
 Local evidence: E:/fturn-android-438-20261108/captcha-user-mode/ (REPORT.md, verification.json, debug-ui-results.json), verified-captcha-user-mode/ and phone/captcha-user-*. VPN remains stopped with original RAW profile and disabled sharing. No stable release/tag created; no new timed soak or separate soft-AP test claimed.
+
+
+## Stable release preparation authorized on 2026-11-09
+
+The user authorized publishing 4.3.8 after the completed functional acceptance. The previously requested timed soak had been superseded by SOCKS sharing tests. The release notes explicitly retain the observed DNS/transport limitations and state that separate Android soft-AP and long-load acceptance were not performed; no overnight stability claim is made.
+
+Remote main a6fde6e and the tested candidate branch were reconciled with a merge that introduced no file changes. Main's physical-network DNS work was already present in the candidate history; only the merge ancestry was missing. After signed candidate ccc1027, application/native code is unchanged. Release-preparation changes affect release notes, changelog and this audit only. The release path is PR CI, merge to main, then tag v4.3.8 and the existing Release workflow, which repeats tests, verifies signing/packaging and publishes the assets.
