@@ -1,11 +1,11 @@
 <resources>
-    <string name="wine_theme_title">Винно-бордовая тема</string>
-    <string name="wine_theme_desc">Молочная светлая и сливовая тёмная палитры с бордовыми акцентами.</string>
+    <string name="wine_theme_title">Тема оформления</string>
+    <string name="wine_theme_desc">Светлая, тёмная или системная тема</string>
     <string name="theme_light">Светлая</string>
     <string name="theme_dark">Тёмная</string>
     <string name="theme_system">Системная</string>
-    <string name="site_bypass_title">Обход сайтов</string>
-    <string name="site_bypass_desc">Сайты и IP-подсети, которые открываются напрямую</string>
+    <string name="site_bypass_title">Сайты и подсети напрямую</string>
+    <string name="site_bypass_desc">Адреса, которые открываются без VPN</string>
     <string name="site_bypass_empty">Сначала добавьте и выберите сервер для настройки обхода.</string>
     <string name="site_bypass_vpn">Обход сайтов работает в VPN-режимах WireGuard, VLESS и RAW. Для локального прокси маршруты выбирает использующее его приложение.</string>
     <string name="bypass_rules_saved">Список сохранён. Новые правила применятся при следующем подключении.</string>

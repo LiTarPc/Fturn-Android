@@ -19,9 +19,21 @@ val keystoreProps = Properties().apply {
 val freeturnCoreProps = Properties().apply {
     rootProject.file("freeturn-core.properties").inputStream().use { load(it) }
 }
-val freeturnCoreVersion = providers.gradleProperty("freeturnCore")
-    .orElse(providers.environmentVariable("FREETURN_CORE_VERSION"))
-    .orElse(freeturnCoreProps.getProperty("version")).get()
+val freeturnCoreVersion = freeturnCoreProps.getProperty("version")
+
+val buildFreeturnCore = tasks.register<Exec>("buildFreeturnCore") {
+    group = "build"
+    description = "Verify and build the pinned TURN Android core"
+    inputs.dir(rootProject.file(freeturnCoreProps.getProperty("source"))).withPathSensitivity(PathSensitivity.RELATIVE)
+    inputs.files(rootProject.file("freeturn-core.properties"), rootProject.file("scripts/build-freeturn-core.py"))
+    outputs.file(layout.projectDirectory.file("src/main/jniLibs/arm64-v8a/libfreeturn.so"))
+    outputs.file(layout.projectDirectory.file("src/main/jniLibs/.core-version"))
+    outputs.file(layout.buildDirectory.file("generated/freeturnCoreAssets/freeturn-core.json"))
+    workingDir(rootProject.projectDir)
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+        rootProject.file("scripts/build-freeturn-core.py").absolutePath)
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(buildFreeturnCore) }
 
 // The RAW version is independent of the Android app and the legacy TURN core.
 val rawCoreProps = Properties().apply {
@@ -41,8 +53,37 @@ val buildRawCore = tasks.register<Exec>("buildRawCore") {
 }
 tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(buildRawCore) }
 
+val verifyLibbox = tasks.register<Exec>("verifyLibbox") {
+    group = "verification"
+    description = "Reject stale libbox binaries without the verified SOCKS UDP lifecycle patch"
+    inputs.files(rootProject.file("app/libs/libbox.aar"), rootProject.file("scripts/verify-libbox.py"))
+    workingDir(rootProject.projectDir)
+    commandLine(if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3",
+        rootProject.file("scripts/verify-libbox.py").absolutePath,
+        "--report", layout.buildDirectory.file("reports/libbox-provenance.json").get().asFile.absolutePath)
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(verifyLibbox) }
+
 // RAW debug installs have their own Android data and VPN permission.
-val rawBuild = providers.gradleProperty("rawBuild").map { it.toBooleanStrict() }.orElse(true).get()
+val rawBuild = providers.gradleProperty("rawBuild").map { it.toBooleanStrict() }.orElse(false).get()
+
+val preparePowObserverAssets by tasks.registering(Copy::class) {
+    from(rootProject.file("third_party/freeturn-core/internal/provider/vk/internal/captcha/manual/inject.js")) { rename { "turn-inject.js" } }
+    from(rootProject.file("third_party/raw-core/internal/provider/vk/internal/captcha/manual/inject.js")) { rename { "raw-inject.js" } }
+    into(layout.buildDirectory.dir("generated/powObserverAssets"))
+}
+tasks.matching { it.name == "preDebugBuild" }.configureEach { dependsOn(preparePowObserverAssets) }
+
+// Optional local fixture is packaged in debug only; release never contains a test executable.
+val powFixtureBinary = providers.gradleProperty("powFixtureBinary")
+if (powFixtureBinary.isPresent) {
+    val preparePowFixture by tasks.registering(Copy::class) {
+        from(powFixtureBinary.get())
+        rename { "libpowfixture.so" }
+        into(layout.buildDirectory.dir("generated/powFixtureJni/arm64-v8a"))
+    }
+    tasks.matching { it.name == "preDebugBuild" }.configureEach { dependsOn(preparePowFixture) }
+}
 
 android {
     namespace = "com.freeturn.app"
@@ -54,16 +95,20 @@ android {
         resValue("string", "raw_core_version", rawCoreVersion)
         resValue("string", "freeturn_core_version", freeturnCoreVersion.removePrefix("v"))
         // Native VPN integration targets Android API 24 or newer.
+        testInstrumentationRunner = "com.freeturn.app.testing.CaptchaFixtureInstrumentation"
         minSdk = 24
         targetSdk = 37
-        versionName = "4.2.5" // x-release-please-version
+        versionName = "4.3.8" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()
         }
     }
 
+    sourceSets["debug"].assets.srcDir(layout.buildDirectory.dir("generated/powObserverAssets").get().asFile)
+    if (powFixtureBinary.isPresent) sourceSets["debug"].jniLibs.srcDir(layout.buildDirectory.dir("generated/powFixtureJni").get().asFile)
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/rawCoreAssets").get().asFile)
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/freeturnCoreAssets").get().asFile)
 
     splits {
         abi {
@@ -78,7 +123,7 @@ android {
         resources.excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         jniLibs.useLegacyPackaging = true
         // RAW is a Go PIE executable, preserve the tested binary byte-for-byte.
-        jniLibs.keepDebugSymbols += setOf("**/libfturnraw.so", "**/libfreeturn.so")
+        jniLibs.keepDebugSymbols += setOf("**/libfturnraw.so", "**/libfreeturn.so", "**/libpowfixture.so")
         // WireGuard dependency is used only for its wg-quick parser.
         jniLibs.excludes += setOf("**/libwg-go.so", "**/libwg-quick.so", "**/libwg.so")
     }
@@ -103,10 +148,11 @@ android {
         debug {
             applicationIdSuffix = if (rawBuild) ".raw" else ".debug"
             versionNameSuffix = if (rawBuild) "-raw-debug" else "-debug"
-            resValue("string", "app_name", if (rawBuild) "Fturn RAW" else "Fturn")
+            resValue("string", "app_name", if (rawBuild) "Fturn RAW" else "Fturn Тест")
             resValue("string", "shortcut_target_package", if (rawBuild) "com.litar.freeturn.raw" else "com.litar.freeturn.debug")
         }
         release {
+            if (providers.gradleProperty("previewBuild").orNull == "true") versionNameSuffix = "-debug"
             resValue("string", "app_name", "Fturn")
             signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
@@ -337,7 +383,7 @@ val fetchFreeturnCore = tasks.register<FetchFreeturnCore>("fetchFreeturnCore") {
 
 // В debug ядро подкладывается руками, поэтому по умолчанию качаем только на release.
 // matching, а не named - таски вариантов AGP создаёт позже конфигурации скрипта.
-val coreFetchHook = when (providers.gradleProperty("coreFetch").orNull ?: "release") {
+val coreFetchHook = when (providers.gradleProperty("coreFetch").orNull ?: "none") {
     "none" -> null
     "all" -> "preBuild"
     else -> "preReleaseBuild"

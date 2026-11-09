@@ -7,27 +7,34 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class HotspotRoutingTest {
-    @Test fun `RAW shares rule routing and uses authenticated private SOCKS backend`() {
-        val cfg = ClientConfig(tunnelTransport = TunnelTransport.RAW)
-        val rules = JSONArray().put(JSONObject().put("tag", "bypass-0").put("type", "inline"))
-        val json = JSONObject(SingBoxConfig.fromClient(cfg, rules, RuleDownloadTunnel.Endpoint(23456, "private-secret")))
-        val proxy = json.getJSONArray("outbounds").getJSONObject(0)
-        assertEquals("socks", proxy.getString("type"))
-        assertEquals("127.0.0.1", proxy.getString("server"))
-        assertEquals(23456, proxy.getInt("server_port"))
-        assertEquals("private-secret", proxy.getString("password"))
-        assertEquals("proxy", json.getJSONObject("route").getString("final"))
-        assertEquals("hijack-dns", json.getJSONObject("route").getJSONArray("rules").getJSONObject(0).getString("action"))
-        val bypass = json.getJSONObject("route").getJSONArray("rules").getJSONObject(3)
-        assertEquals("direct", bypass.getString("outbound"))
-        assertEquals("bypass-0", bypass.getJSONArray("rule_set").getString(0))
-        assertEquals(cfg.rawMtu, json.getJSONArray("inbounds").getJSONObject(0).getInt("mtu"))
-    }
     @Test fun `RAW cannot fall back to an absent backend`() {
         assertThrows(IllegalArgumentException::class.java) { SingBoxConfig.fromClient(ClientConfig(tunnelTransport = TunnelTransport.RAW)) }
     }
+    @Test fun `RAW restores the authenticated bridge and TCP DNS for TUN and hotspot`() {
+        val cfg = ClientConfig(tunnelTransport = TunnelTransport.RAW, rawMtu = 1350)
+        val backend = RuleDownloadTunnel.Endpoint(42699, "private-bridge-password")
+        val base = JSONObject(SingBoxConfig.fromClient(cfg, JSONArray(), backend))
+        val tun = base.getJSONArray("inbounds").getJSONObject(0)
+        assertEquals("tun", tun.getString("type"))
+        assertEquals("gvisor", tun.getString("stack"))
+        assertEquals(1350, tun.getInt("mtu"))
+        val outbound = base.getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("socks", outbound.getString("type"))
+        assertEquals("127.0.0.1", outbound.getString("server"))
+        assertEquals(backend.port, outbound.getInt("server_port"))
+        assertEquals("fturn-raw", outbound.getString("username"))
+        assertEquals(backend.password, outbound.getString("password"))
+        val config = JSONObject(HotspotConfig(true, 1080, "hotspot-password").configure(base.toString()))
+        val dns = config.getJSONObject("dns")
+        assertEquals("tcp", dns.getJSONArray("servers").getJSONObject(0).getString("type"))
+        assertEquals("proxy", dns.getJSONArray("servers").getJSONObject(0).getString("detour"))
+        val rules = config.getJSONObject("route").getJSONArray("rules")
+        assertEquals("resolve", rules.getJSONObject(0).getString("action"))
+        assertEquals("hijack-dns", rules.getJSONObject(1).getString("action"))
+        assertEquals(53, rules.getJSONObject(1).getInt("port"))
+    }
     @Test fun `hotspot adds an authenticated listener without overriding VPN or bypass routes`() {
-        val base = SingBoxConfig.fromClient(ClientConfig(tunnelTransport = TunnelTransport.RAW), rawBackend = RuleDownloadTunnel.Endpoint(23456, "private"))
+        val base = SingBoxConfig.build(JSONObject().put("type", "direct").put("tag", "proxy"), JSONArray())
         val hotspot = HotspotConfig(true, 1080, "public-password")
         val result = JSONObject(hotspot.configure(base))
         val inbound = result.getJSONArray("inbounds").getJSONObject(1)

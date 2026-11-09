@@ -23,10 +23,17 @@ type Config struct {
 	Credentials     []VKCredentials
 	Dialer          net.Dialer
 	ManualOnly      bool
+	AdvancedCaptcha bool
+	AutoRejected    *atomic.Bool
+	PowCapture      PowCaptureFunc
 	StreamsPerCache int
 	StreamsAlive    func() int32
 	AutoSolver      AutoSolveFunc
 	ManualSolver    ManualSolveFunc
+	BrowserSolver   ManualSolveFunc
+	BeforeFetch     func(context.Context) error
+	OnAuthWait      func()
+	OnAuthSuccess   func()
 	Platform        browserprofile.Platform
 	FingerprintSeed string
 	StatePaths      []string
@@ -34,14 +41,20 @@ type Config struct {
 }
 
 type Client struct {
-	credentials []VKCredentials
-	dialer      net.Dialer
-	manualOnly  bool
-	platform    browserprofile.Platform
-	streamsFn   func() int32
-	autoSolver  AutoSolveFunc
-	manualSolve ManualSolveFunc
-	log         logx.Logger
+	credentials     []VKCredentials
+	dialer          net.Dialer
+	manualOnly      bool
+	platform        browserprofile.Platform
+	streamsFn       func() int32
+	autoSolver      AutoSolveFunc
+	manualSolve     ManualSolveFunc
+	browserSolve    ManualSolveFunc
+	advancedCaptcha bool
+	powCapture      PowCaptureFunc
+	beforeFetch     func(context.Context) error
+	onAuthWait      func()
+	onAuthSuccess   func()
+	log             logx.Logger
 
 	store *Store
 
@@ -50,6 +63,8 @@ type Client struct {
 	rateLimitStreak   atomic.Uint32
 	cooldown          cooldownStore
 	networkPauseUntil atomic.Int64
+	servicePauseUntil atomic.Int64
+	autoRejected      *atomic.Bool
 
 	personaMu sync.RWMutex
 	identity  browserprofile.Identity
@@ -59,6 +74,7 @@ type Client struct {
 	fetchMu            sync.Mutex
 	lastFetchTime      time.Time
 	captchaAttempt     int
+	advancedManualUsed bool
 	tokenChain         tokenChainFn
 	minFetchIntervalFn func() time.Duration
 }
@@ -67,15 +83,25 @@ type tokenChainFn func(ctx context.Context, link string, streamID int, creds VKC
 
 func New(cfg Config) *Client {
 	c := &Client{
-		credentials: cfg.Credentials,
-		dialer:      cfg.Dialer,
-		manualOnly:  cfg.ManualOnly,
-		platform:    cfg.Platform,
-		streamsFn:   cfg.StreamsAlive,
-		autoSolver:  cfg.AutoSolver,
-		manualSolve: cfg.ManualSolver,
-		log:         cfg.Log,
-		store:       NewStore(cfg.StreamsPerCache),
+		credentials:     cfg.Credentials,
+		dialer:          cfg.Dialer,
+		manualOnly:      cfg.ManualOnly,
+		platform:        cfg.Platform,
+		streamsFn:       cfg.StreamsAlive,
+		autoSolver:      cfg.AutoSolver,
+		manualSolve:     cfg.ManualSolver,
+		browserSolve:    cfg.BrowserSolver,
+		advancedCaptcha: cfg.AdvancedCaptcha,
+		autoRejected:    cfg.AutoRejected,
+		powCapture:      cfg.PowCapture,
+		beforeFetch:     cfg.BeforeFetch,
+		onAuthWait:      cfg.OnAuthWait,
+		onAuthSuccess:   cfg.OnAuthSuccess,
+		log:             cfg.Log,
+		store:           NewStore(cfg.StreamsPerCache),
+	}
+	if c.autoRejected == nil {
+		c.autoRejected = &atomic.Bool{}
 	}
 	if len(c.credentials) == 0 {
 		c.credentials = DefaultCredentials
@@ -162,6 +188,9 @@ func (c *Client) GetCredentials(ctx context.Context, link string, streamID int) 
 		ExpiresAt:   time.Now().Add(CredentialLifetime - CacheSafetyMargin).Round(0),
 		Link:        link,
 	}
+	if c.onAuthSuccess != nil {
+		c.onAuthSuccess()
+	}
 	return user, pass, orderAddrs(addrs, streamID), nil
 }
 
@@ -217,7 +246,7 @@ func (c *Client) LockoutUntilUnix() int64 {
 
 // BackoffUntilUnix возвращает ближайший общий запрет запросов к VK.
 func (c *Client) BackoffUntilUnix() int64 {
-	return max(c.LockoutUntilUnix(), c.networkPauseUntil.Load())
+	return max(c.LockoutUntilUnix(), c.networkPauseUntil.Load(), c.servicePauseUntil.Load())
 }
 
 func (*Client) Name() string { return "vk" }
@@ -233,6 +262,11 @@ func (c *Client) engageLockout(d time.Duration) {
 func (c *Client) fetchSerialized(ctx context.Context, link string, streamID int) (string, string, []string, error) {
 	c.fetchMu.Lock()
 	defer c.fetchMu.Unlock()
+	if c.beforeFetch != nil {
+		if err := c.beforeFetch(ctx); err != nil {
+			return "", "", nil, err
+		}
+	}
 
 	minInterval := c.minFetchIntervalFn()
 	elapsed := time.Since(c.lastFetchTime)
@@ -256,7 +290,13 @@ func (c *Client) fetch(ctx context.Context, link string, streamID int) (string, 
 	if until := max(c.captchaPause.Load(), c.cooldown.load()); time.Now().Unix() < until {
 		c.captchaPause.Store(until)
 		c.lockout.Store(max(until, c.lockout.Load()))
+		if c.onAuthWait != nil {
+			c.onAuthWait()
+		}
 		return "", "", nil, errors.Join(ErrCaptchaWaitRequired, captcha.ErrRateLimited)
+	}
+	if time.Now().Unix() < c.servicePauseUntil.Load() {
+		return "", "", nil, ErrVKServiceUnavailable
 	}
 	if time.Now().Unix() < c.networkPauseUntil.Load() {
 		return "", "", nil, fmt.Errorf("VK network temporarily unavailable")
@@ -265,7 +305,14 @@ func (c *Client) fetch(ctx context.Context, link string, streamID int) (string, 
 		return "", "", nil, fmt.Errorf("%w: %w", ErrCaptchaWaitRequired, ErrLockoutActive)
 	}
 
+	// A rejected automatic check must not trigger another API authorization if
+	// this integration has no way to ask the user to verify in a browser.
+	if c.autoRejected.Load() && c.manualSolve == nil {
+		c.engageLockout(time.Minute)
+		return "", "", nil, errors.Join(ErrCaptchaWaitRequired, captcha.ErrBotRejected)
+	}
 	c.captchaAttempt = 0
+	c.advancedManualUsed = false
 
 	var lastErr error
 	burns := 0
@@ -286,12 +333,21 @@ func (c *Client) fetch(ctx context.Context, link string, streamID int) (string, 
 			return "", "", nil, err
 		}
 		c.log.Warnf("[STREAM %d] [VK Auth] Failed with client_id=%s: %v", streamID, creds.ClientID, err)
+		if errors.Is(err, ErrVKServiceUnavailable) {
+			until := time.Now().Add(30 * time.Second).Unix()
+			c.servicePauseUntil.Store(until)
+			c.log.Warnf("[STREAM %d] [VK Auth] VK_SERVICE_UNAVAILABLE pause_until=%d; requests paused, credential fallback skipped", streamID, until)
+			return "", "", nil, err
+		}
 		if errors.Is(err, captcha.ErrRateLimited) {
 			// solveCaptcha may already have recorded this refusal.
 			if errors.Is(err, ErrCaptchaWaitRequired) || errors.Is(err, ErrFatalCaptchaNoStreams) {
 				return "", "", nil, err
 			}
 			return "", "", nil, c.rateLimited(streamID, err)
+		}
+		if errors.Is(err, ErrCaptchaWaitRequired) || errors.Is(err, ErrFatalCaptchaNoStreams) {
+			return "", "", nil, err
 		}
 		if isNetworkTimeout(err) {
 			c.networkPauseUntil.Store(time.Now().Add(30 * time.Second).Unix())

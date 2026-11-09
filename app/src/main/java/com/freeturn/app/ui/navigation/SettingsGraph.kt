@@ -5,11 +5,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.toRoute
-import com.freeturn.app.ui.screens.clientsetup.ClientSetupScreen
-import com.freeturn.app.ui.screens.connectionmode.ConnectionModeScreen
+import com.freeturn.app.ui.screens.settings.ConnectionSettingsScreen
 import com.freeturn.app.ui.screens.serverdetail.ServerDetailScreen
 import com.freeturn.app.ui.screens.settings.AboutScreen
 import com.freeturn.app.ui.screens.settings.AdvancedScreen
+import com.freeturn.app.ui.screens.settings.BackupScreen
 import com.freeturn.app.ui.screens.settings.AppScreen
 import com.freeturn.app.ui.screens.settings.NerdScreen
 import com.freeturn.app.ui.screens.settings.ServersListScreen
@@ -30,7 +30,6 @@ internal fun NavGraphBuilder.settingsGraph(
             SettingsScreen(
                 onOpenServers = { navController.navigate(ServersList) },
                 onOpenApp = { navController.navigate(AppSettings) },
-                onOpenAdvanced = { navController.navigate(Advanced) },
                 onOpenAbout = { navController.navigate(About) },
                 onOpenBypass = { navController.navigate(SiteBypass()) }
             )
@@ -39,12 +38,18 @@ internal fun NavGraphBuilder.settingsGraph(
         composable<AppSettings> {
             AppScreen(
                 settingsViewModel = settingsViewModel,
+                onOpenBackup = { navController.navigate(BackupSettings) },
+                onOpenDiagnostics = { navController.navigate(Advanced) },
                 onBack = { navController.popBackStack() }
             )
         }
 
+        composable<BackupSettings> {
+            BackupScreen(settingsViewModel = settingsViewModel, onBack = { navController.popBackStack() })
+        }
+
         composable<About> {
-            AboutScreen(onBack = { navController.popBackStack() })
+            AboutScreen(settingsViewModel = settingsViewModel, onBack = { navController.popBackStack() })
         }
 
         composable<Advanced> {
@@ -70,7 +75,6 @@ internal fun NavGraphBuilder.settingsGraph(
                 serverViewModel = serverViewModel,
                 onBack = { navController.popBackStack() },
                 onOpenConnection = { navController.navigate(ClientSetup(id)) },
-                onOpenConnectionMode = { navController.navigate(ConnectionMode(id)) },
                 onOpenBypass = { navController.navigate(SiteBypass(id)) },
                 onOpenNerdInfo = { navController.navigate(NerdInfo(id)) },
                 onCloned = { newId -> navController.navigate(ServerDetail(newId)) }
@@ -98,22 +102,16 @@ internal fun NavGraphBuilder.settingsGraph(
 
         composable<ConnectionMode> { entry ->
             val id = entry.toRoute<ConnectionMode>().serverId
-            ConnectionModeScreen(
-                settingsViewModel = settingsViewModel,
-                proxyViewModel = proxyViewModel,
-                serverId = id,
-                onBack = { navController.popBackStack() }
-            )
+            ConnectionSettingsScreen(id, settingsViewModel, serverViewModel,
+                initialTab = 1, onOpenVpn = { navController.navigate(SiteBypass(id)) },
+                onBack = { navController.popBackStack() })
         }
 
         composable<ClientSetup> { entry ->
             val id = entry.toRoute<ClientSetup>().serverId
-            ClientSetupScreen(
-                settingsViewModel = settingsViewModel,
-                serverViewModel = serverViewModel,
-                serverId = id,
-                onBack = { navController.popBackStack() }
-            )
+            ConnectionSettingsScreen(id, settingsViewModel, serverViewModel,
+                onOpenVpn = { navController.navigate(SiteBypass(id)) },
+                onBack = { navController.popBackStack() })
         }
     }
 }

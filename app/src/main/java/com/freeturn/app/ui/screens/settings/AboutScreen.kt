@@ -7,7 +7,6 @@ package com.freeturn.app.ui.screens.settings
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -21,7 +20,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Icon
 import androidx.compose.material3.LargeFlexibleTopAppBar
 import androidx.compose.ui.draw.clip
 import androidx.compose.material3.MaterialTheme
@@ -29,7 +27,10 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.toShape
+import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.freeturn.app.viewmodel.settings.SettingsViewModel
+import com.freeturn.app.ui.components.SettingsSwitchRow
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -53,7 +54,10 @@ import com.freeturn.app.ui.theme.Spacing
 
 /** "О проекте": hero с лого, версия, описание и ссылки. */
 @Composable
-fun AboutScreen(onBack: () -> Unit) {
+fun AboutScreen(settingsViewModel: SettingsViewModel, onBack: () -> Unit) {
+    val suppressUpdatePrompt by settingsViewModel.suppressUpdatePrompt.collectAsStateWithLifecycle()
+    val suppressTgPrompt by settingsViewModel.suppressTgPrompt.collectAsStateWithLifecycle()
+    val updateState by settingsViewModel.updateState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val uriHandler = LocalUriHandler.current
     val appVersion = rememberAppVersion()
@@ -90,6 +94,46 @@ fun AboutScreen(onBack: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 AboutHero(appVersion)
+
+                SectionLabel(stringResource(R.string.app_section_updates))
+                UpdateCard(
+                    state = updateState,
+                    appVersion = appVersion,
+                    onCheck = {
+                        HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
+                        settingsViewModel.checkForUpdate()
+                    },
+                    onDownload = {
+                        HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
+                        settingsViewModel.downloadUpdate()
+                    },
+                    onInstall = {
+                        HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
+                        settingsViewModel.installUpdate()
+                    }
+                )
+
+                SectionLabel(stringResource(R.string.app_section_prompts))
+                SettingsGroup {
+                    SettingsGroupItem(0, 2) {
+                        SettingsSwitchRow(
+                            title = stringResource(R.string.suppress_update_prompt_title),
+                            subtitle = stringResource(R.string.suppress_update_prompt_desc),
+                            iconRes = R.drawable.cloud_download_24px,
+                            checked = !suppressUpdatePrompt,
+                            onCheckedChange = { settingsViewModel.setSuppressUpdatePrompt(!it) }
+                        )
+                    }
+                    SettingsGroupItem(1, 2) {
+                        SettingsSwitchRow(
+                            title = stringResource(R.string.suppress_tg_prompt_title),
+                            subtitle = stringResource(R.string.suppress_tg_prompt_desc),
+                            iconRes = R.drawable.group_off_24px,
+                            checked = !suppressTgPrompt,
+                            onCheckedChange = { settingsViewModel.setSuppressTgPrompt(!it) }
+                        )
+                    }
+                }
 
                 SectionLabel(stringResource(R.string.about_links))
                 SettingsGroup {

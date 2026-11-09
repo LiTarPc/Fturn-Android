@@ -1,16 +1,43 @@
-# FturnRaw Android source snapshot
+RAW 1.0.1-beta.android.6 — advanced browser PoW integration candidate.
 
-This is the complete source dependency closure for `cmd/raw-client` targeting
-Android/arm64, taken from the sibling fturn-raw-experimental checkout. It includes
-the RAW 1.0.0 multi-device client and the authenticated IPv4 TCP/UDP SOCKS bridge
-used by Fturn Android. The RAW wire protocol is unchanged by the bridge.
+Baseline: verified android.5 SOURCE
+ e9e2ef9300d9ffd3a840d409e29a120da64e9d171a81e66e2d3ee309a29dd740.
+Upstream: hackdiaz-dev/free-turn-proxy v4.1.0,
+465486ba96c4c2ff93443682ec900510b2e0ff9e; GPL-3.0, see LICENSE and
+internal/provider/vk/internal/captcha/BROWSER-POW-PROVENANCE.md.
 
-`SOURCE.json` records the source base commit, every included source file and a
-snapshot SHA-256. Local changes were present in the source checkout; the base
-commit alone is not sufficient to reproduce this snapshot. This directory is an
-Android build snapshot, not a replacement for the full Windows/server checkout.
+Android uses sing-box for TUN, routing, bypass, DNS and the hotspot listener.
+This libfturnraw.so is an Android ARM64 PIE executable launched by ProcessBuilder,
+not a JNI library. No server/wire format changes are required.
 
-The root and locally replaced modules keep their original license files. The
-Android scripts pin Go 1.26.6 and stamp the client core version 1.0.0. Rebuild with
-`python scripts/build-raw-core.py` from the Android repository root. The normal
-Gradle preBuild task also builds and verifies the RAW binary automatically.
+Advanced mode is explicitly opt-in with -advanced-captcha (or vk.advancedCaptcha
+in JSON, or FREETURN_RAW_ADVANCED_CAPTCHA=1). -manual-captcha and
+-auto-captcha=false override automatic verification. Existing clients default
+to the legacy behavior. Authenticated Android hosts must additionally opt in to
+FREETURN_RAW_CAPTCHA_PROTOCOL=2 and implement the purpose-aware contract in
+internal/captchaipc/PROTOCOL.md before using advanced mode.
+
+The new path captures the real page's browser PoW, validates challenge input,
+difficulty and telemetry, aligns UA/client hints, performs automatic verification,
+submits the result and then fetches credentials. PoW capture and success-token
+receipt are never readiness signals. Manual fallback is separate and bounded;
+provider BOT/limits, explicit user wait and valid cached groups are preserved.
+
+Transport fixes from android.5 remain: RAW/TURN health counters, shared 256-packet
+uplink budget, 1024 SOCKS handler limit, bidirectional two-minute UDP idle cleanup,
+IPv6 unspecified UDP source hint, prior reconnect changes and maintenance timing.
+Debug/errors omit private URLs, tokens, cookies and proof/telemetry payloads.
+
+SOURCE.json pins source inputs with Go 1.26.10. Target android/arm64, API24+.
+A local fixture/native build is not proof that VK accepts automatic verification.
+Real Android service WebView E2E, race CI and controlled natural provider testing
+are separate acceptance gates. This snapshot is not a public stable release.
+
+Android.7 adds an Android-local lifecycle patch on SOURCE snapshot
+ca2faaea7acc3b42cda0e2b315892694c51b7d6872b9b33b65b23acace9f5dbb.
+An in-flight cancellation deadline callback is stopped/joined before the goodbye
+write reopens its deadline. Reader cancellation is checked after installing the
+read deadline, preventing teardown from waiting until TURN's forced abort.
+Five deterministic regressions cover both races, repeated stop/join, normal
+reads and immediate interruption of blocked writes. Goodbye remains best effort
+on a failed transport; the server protocol and lease expiry are unchanged.

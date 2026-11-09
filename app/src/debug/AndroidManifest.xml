@@ -1,0 +1,7 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <service android:name="com.freeturn.app.testing.CaptchaFixtureService" android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="Runs an isolated local browser lifecycle fixture during application verification." />
+        </service>
+    </application>
+</manifest>

@@ -20,6 +20,11 @@ class ProxyReceiver : BroadcastReceiver() {
                     context.startService(serviceIntent)
                 }
             }
+            ProxyActions.CAPTCHA_RESUME -> {
+                if (ProxyServiceState.isRunning.value) context.startService(Intent(context, ProxyService::class.java)
+                    .setAction(ProxyActions.CAPTCHA_RESUME)
+                    .putExtra(ProxyActions.CAPTCHA_GENERATION, intent.getStringExtra(ProxyActions.CAPTCHA_GENERATION)))
+            }
             ProxyActions.STOP -> {
                 val serviceIntent = Intent(context, ProxyService::class.java)
                 context.stopService(serviceIntent)

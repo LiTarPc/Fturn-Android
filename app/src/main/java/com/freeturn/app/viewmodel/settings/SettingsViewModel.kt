@@ -36,6 +36,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
+import com.freeturn.app.data.io.readBounded
+import com.freeturn.app.data.io.InputTooLargeException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -103,6 +105,9 @@ class SettingsViewModel(
     val suppressTgPrompt: StateFlow<Boolean> = prefs.suppressTgPromptFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val browserCaptcha: StateFlow<Boolean> = prefs.browserCaptchaFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     val privacyMode: StateFlow<Boolean> = prefs.privacyModeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
@@ -128,6 +133,8 @@ class SettingsViewModel(
             appUpdater.checkForUpdate(silent = true)
         }
     }
+
+    fun setBrowserCaptcha(enabled: Boolean) { viewModelScope.launch { prefs.setBrowserCaptcha(enabled) } }
 
     fun setPrivacyMode(enabled: Boolean) {
         viewModelScope.launch { prefs.setPrivacyMode(enabled) }
@@ -434,7 +441,7 @@ class SettingsViewModel(
         viewModelScope.launch {
             val event = try {
                 val bytes = withContext(Dispatchers.IO) {
-                    appContext.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    appContext.contentResolver.openInputStream(uri)?.use { it.readBounded(BackupCrypto.MAX_ENVELOPE_BYTES) }
                         ?: throw IOException("no input stream")
                 }
                 // Разбор до остановки рантайма: неверный пароль не должен гасить подключение.
@@ -449,6 +456,8 @@ class SettingsViewModel(
                 throw e
             } catch (_: BackupCrypto.BadPasswordException) {
                 BackupEvent.RestoreFailed(RestoreFailReason.BAD_PASSWORD)
+            } catch (_: InputTooLargeException) {
+                BackupEvent.RestoreFailed(RestoreFailReason.BAD_FILE)
             } catch (_: BackupCrypto.FormatException) {
                 BackupEvent.RestoreFailed(RestoreFailReason.BAD_FILE)
             } catch (_: Exception) {

@@ -81,10 +81,12 @@ func (c *Client) doRequest(ctx context.Context, httpClient tlsclient.HttpClient,
 	}()
 
 	if httpResp.StatusCode == 429 {
-		return nil, captcha.NewRateLimitError(captcha.SafeURL(url)+" HTTP 429", httpResp.Header.Get("Retry-After"))
+		body, _ := io.ReadAll(io.LimitReader(httpResp.Body, 64*1024))
+		return nil, captcha.WithResponseBody(captcha.NewRateLimitError(captcha.SafeURL(url)+" HTTP 429", httpResp.Header.Get("Retry-After")), body)
 	}
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
-		return nil, fmt.Errorf("%s HTTP %d", captcha.SafeURL(url), httpResp.StatusCode)
+		body, _ := io.ReadAll(io.LimitReader(httpResp.Body, 64*1024))
+		return nil, captcha.WithResponseBody(fmt.Errorf("%s HTTP %d", captcha.SafeURL(url), httpResp.StatusCode), body)
 	}
 	body, err := io.ReadAll(httpResp.Body)
 	if err != nil {
@@ -94,8 +96,12 @@ func (c *Client) doRequest(ctx context.Context, httpClient tlsclient.HttpClient,
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, err
 	}
+	c.log.Debugf("[VK Auth] response source=%s HTTP=%d response=%s", captcha.SafeURL(url), httpResp.StatusCode, captcha.SafeResponse(resp))
 	if captcha.LimitedResponse(resp) {
-		return nil, captcha.NewRateLimitError(captcha.SafeURL(url)+" API limit", httpResp.Header.Get("Retry-After"))
+		return nil, captcha.WithResponse(captcha.NewRateLimitError(captcha.SafeURL(url)+" API limit", httpResp.Header.Get("Retry-After")), resp)
+	}
+	if errData, ok := resp["error"].(map[string]any); ok && errData["error_code"] == float64(10) {
+		return nil, fmt.Errorf("%w: response=%s", ErrVKServiceUnavailable, captcha.SafeResponse(resp))
 	}
 	return resp, nil
 }

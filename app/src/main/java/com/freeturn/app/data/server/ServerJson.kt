@@ -20,14 +20,22 @@ internal object ServerJson {
         return arr.toString()
     }
 
+    /** Strict parser used before replacing data from an external backup. */
+    fun decodeListStrict(raw: String?): List<Server> {
+        if (raw == null) return emptyList()
+        val arr = JSONArray(raw)
+        return (0 until arr.length()).map { decode(arr.getJSONObject(it)) }.also { servers ->
+            require(servers.map { it.id }.distinct().size == servers.size) { "Duplicate profile id" }
+        }
+    }
+
+    /** Recover readable profiles individually; callers preserve the original before rewriting. */
     fun decodeList(raw: String?): List<Server> {
         if (raw.isNullOrBlank()) return emptyList()
-        return try {
-            val arr = JSONArray(raw)
-            (0 until arr.length()).map { decode(arr.getJSONObject(it)) }
-        } catch (_: Throwable) {
-            emptyList()
-        }
+        val arr = try { JSONArray(raw) } catch (_: Exception) { return emptyList() }
+        return (0 until arr.length()).mapNotNull { index ->
+            try { decode(arr.getJSONObject(index)) } catch (_: Exception) { null }
+        }.distinctBy { it.id }
     }
 
     private fun encode(p: Server): JSONObject = JSONObject().apply {

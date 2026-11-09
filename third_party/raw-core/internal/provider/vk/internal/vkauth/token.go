@@ -53,7 +53,7 @@ func (c *Client) getTokenChainWithClient(ctx context.Context, link string, strea
 	previewData := fmt.Sprintf("vk_join_link=https://vk.ru/call/join/%s&fields=photo_200&access_token=%s", link, token1)
 	if _, prevErr := c.doRequest(ctx, httpClient, profile, previewData,
 		"https://api.vk.ru/method/calls.getCallPreview?v="+APIVersion+"&client_id="+creds.ClientID); prevErr != nil {
-		if errors.Is(prevErr, captcha.ErrRateLimited) {
+		if errors.Is(prevErr, captcha.ErrRateLimited) || errors.Is(prevErr, ErrVKServiceUnavailable) {
 			return "", "", nil, prevErr
 		}
 		c.log.Warnf("[STREAM %d] [VK Auth] getCallPreview failed: %v", streamID, prevErr)

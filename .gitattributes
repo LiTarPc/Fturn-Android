@@ -2,3 +2,5 @@
 
 # Preserve the verified RAW source snapshot across Windows and Linux.
 third_party/raw-core/** text eol=lf
+
+third_party/freeturn-core/** text eol=lf

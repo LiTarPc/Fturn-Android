@@ -11,6 +11,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -40,6 +42,9 @@ object ProxyServiceState {
     private val _captchaSession = MutableStateFlow<CaptchaSession?>(null)
     val captchaSession: StateFlow<CaptchaSession?> = _captchaSession.asStateFlow()
 
+    private val _captchaUi = MutableStateFlow(com.freeturn.app.domain.captcha.CaptchaUiState())
+    val captchaUi: StateFlow<com.freeturn.app.domain.captcha.CaptchaUiState> = _captchaUi.asStateFlow()
+
     private val _connectionStats = MutableStateFlow(ConnectionStats.IDLE)
     val connectionStats: StateFlow<ConnectionStats> = _connectionStats.asStateFlow()
 
@@ -63,6 +68,7 @@ object ProxyServiceState {
      * строки WG попадут в уже очищенный лог, а отложенный рестарт поднимет ядро с конфигом,
      * который к тому моменту успели подменить (restore бэкапа).
      */
+    private var teardownsInFlight = 0
     private val _teardownComplete = MutableStateFlow(true)
     val teardownComplete: StateFlow<Boolean> = _teardownComplete.asStateFlow()
 
@@ -70,12 +76,20 @@ object ProxyServiceState {
         _isRunning.value = value
     }
 
+    @Synchronized
     fun markTeardownStarted() {
+        teardownsInFlight++
         _teardownComplete.value = false
     }
 
+    /** A new session must not race the previous service's asynchronous cleanup. */
+    suspend fun awaitTeardown(timeoutMillis: Long = 15_000): Boolean =
+        withTimeoutOrNull(timeoutMillis) { teardownComplete.first { it } } != null
+
+    @Synchronized
     fun markTeardownComplete() {
-        _teardownComplete.value = true
+        if (teardownsInFlight > 0) teardownsInFlight--
+        _teardownComplete.value = teardownsInFlight == 0
     }
 
     fun setStartupResult(result: StartupResult?) {
@@ -92,7 +106,9 @@ object ProxyServiceState {
 
     fun addLog(msg: String) {
         if (!_logsEnabled.value) return
-        val entry = LogEntry(logSeq.getAndIncrement(), msg, classifyLogLine(msg))
+        val safe = com.freeturn.app.domain.diagnostics.DiagnosticLogs.sanitize(msg)
+        com.freeturn.app.domain.diagnostics.DiagnosticLogs.append(safe)
+        val entry = LogEntry(logSeq.getAndIncrement(), safe, classifyLogLine(safe))
         _logs.update { current ->
             val next = current + entry
             if (next.size > MAX_LOG_LINES) next.drop(next.size - MAX_LOG_LINES) else next
@@ -102,6 +118,8 @@ object ProxyServiceState {
     fun setCaptchaSession(session: CaptchaSession?) {
         _captchaSession.value = session
     }
+
+    fun setCaptchaUi(value: com.freeturn.app.domain.captcha.CaptchaUiState) { _captchaUi.value = value }
 
     fun setConnectionStats(stats: ConnectionStats) {
         _connectionStats.value = stats

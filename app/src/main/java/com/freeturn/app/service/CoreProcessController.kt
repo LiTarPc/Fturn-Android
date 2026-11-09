@@ -29,6 +29,10 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
@@ -50,6 +54,7 @@ class CoreProcessController(
     }
 
     private val singBox = SingBoxTunnelManager(context)
+    private val captcha = CaptchaCoordinator(context, notifier::updateCaptchaState)
     private val handler = Handler(Looper.getMainLooper())
 
     private val process = AtomicReference<Process?>(null)
@@ -57,15 +62,16 @@ class CoreProcessController(
     private val restartCount = AtomicInteger(0)
     // Single-flight: двойной старт (tile+UI/watchdog) затёр бы первый процесс -> зомби.
     private val startInFlight = AtomicBoolean(false)
+    @Volatile private var sessionJob: Job? = null
 
-    val isRunning: Boolean get() = process.get() != null
+    val isRunning: Boolean get() = startInFlight.get() || process.get() != null
     val isUserStopped: Boolean get() = userStopped.get()
 
     fun start() {
         notifier.resetDnsAlerts()
         userStopped.set(false)
         restartCount.set(0)
-        scope.launch { startBinaryProcess() }
+        launchProcessSession()
     }
 
     fun onNetworkHandover() {
@@ -77,8 +83,11 @@ class CoreProcessController(
         process.get()?.destroyCompat()
     }
 
+    fun resumeCaptcha(generation: String) { captcha.resume(generation) }
+
     fun beginShutdown() {
         userStopped.set(true)
+        captcha.close()
         handler.removeCallbacksAndMessages(null)
     }
 
@@ -86,21 +95,35 @@ class CoreProcessController(
         process.get()?.destroyCompat()
         Thread {
             try {
-                runBlocking { singBox.stop() }
+                runBlocking {
+                    // Joining also waits for a ProcessBuilder start that was already in flight.
+                    try { sessionJob?.cancelAndJoin() } finally { singBox.stop() }
+                }
             } finally {
                 ProxyServiceState.markTeardownComplete()
             }
         }.start()
     }
 
-    private suspend fun startBinaryProcess() {
-        if (userStopped.get()) return
-        if (!startInFlight.compareAndSet(false, true)) return
-        try {
-            runProcessSession()
-        } finally {
-            startInFlight.set(false)
+    private fun launchProcessSession() {
+        if (userStopped.get() || !startInFlight.compareAndSet(false, true)) return
+        // Publish the job before it can run or shutdown can miss it.
+        val job = scope.launch(start = CoroutineStart.LAZY) {
+            try {
+                if (!ProxyServiceState.awaitTeardown()) {
+                    val message = "Предыдущее VPN-подключение ещё останавливается"
+                    ProxyServiceState.addLog(message)
+                    ProxyServiceState.setStartupResult(StartupResult.Failed(message))
+                    onStopRequested()
+                    return@launch
+                }
+                runProcessSession()
+            } finally {
+                startInFlight.set(false)
+            }
         }
+        sessionJob = job
+        job.start()
     }
 
     private suspend fun runProcessSession() {
@@ -123,6 +146,24 @@ class CoreProcessController(
         }
         ProxyServiceState.setLogsEnabled(cfg.logsEnabled)
         val srv = prefs.serverOptsFlow.first()
+        com.freeturn.app.domain.diagnostics.DiagnosticLogs.registerSecrets(buildList {
+            add(srv.obfKey)
+            add(prefs.hotspotConfigFlow.first().password)
+            add(cfg.clientId)
+            add(prefs.ownClientId())
+            addAll(cfg.vkLink.split(','))
+            add(cfg.vlessUri)
+            runCatching { com.freeturn.app.data.config.VlessProfile.parse(cfg.vlessUri).uuid }
+                .getOrNull()?.let(::add)
+            Regex("(?im)^\\s*(?:PrivateKey|PresharedKey|PublicKey)\\s*=\\s*(\\S+)")
+                .findAll(cfg.wireGuardConfig).forEach { add(it.groupValues[1]) }
+        })
+        if (cfg.logsEnabled) com.freeturn.app.domain.diagnostics.DiagnosticLogs.append(
+            "[PROFILE] transport=${cfg.tunnelTransport} server=${cfg.serverAddress} " +
+                "streams=${cfg.threads} per_credential=${cfg.streamsPerCred} " +
+                "turn_transport=${if (cfg.useUdp) "udp" else "tcp"} " +
+                "raw_uplink=${cfg.rawUplink} raw_mtu=${cfg.rawMtu} bypass=${cfg.bypassRulesEnabled}"
+        )
         val privacy = prefs.privacyModeFlow.first()
 
         val libDir = File(context.applicationInfo.nativeLibraryDir)
@@ -187,25 +228,32 @@ class CoreProcessController(
         try {
             ProxyServiceState.addLog("Команда: ${CoreArgs.redactForLog(cmdArgs, privacy)}")
 
-            if (cfg.rawVpnActive) {
-                singBox.startAfterProxyReady(cfg)
-                vpnStarted = true
-                if (userStopped.get()) return
-            }
-            val proc = withContext(Dispatchers.IO) {
+            // Reserve the bridge credentials without creating a TUN. The RAW core opens
+            // its SOCKS listener first; Android traffic is admitted only after a stream is ready.
+            val rawBackend = if (cfg.rawVpnActive) {
+                com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(prefs.hotspotConfig().port))
+            } else null
+            val captchaEnvironment = if (!cfg.isRawMode && cfg.provider == com.freeturn.app.data.config.Provider.VK)
+                captcha.begin(browser = false, protocol = 2, advanced = prefs.browserCaptchaFlow.first()) else emptyMap()
+            com.freeturn.app.domain.diagnostics.DiagnosticLogs.registerSecrets(captchaEnvironment.values)
+            val proc = withContext(Dispatchers.IO + NonCancellable) {
                 // Легаси: сносим осиротевшие профили захвата (сам механизм захвата удалён).
                 context.filesDir.listFiles { f -> f.name.startsWith("vk_profile") }?.forEach { it.delete() }
                 val pb = ProcessBuilder(cmdArgs).redirectErrorStream(true)
+                pb.environment().putAll(captchaEnvironment)
                 // CWD подменяем на writeable dir для логов кэша tls-client и т.п.
                 pb.directory(context.filesDir)
                 if (cfg.rawVpnActive) {
-                    val backend = checkNotNull(singBox.rawBackend)
+                    val backend = checkNotNull(rawBackend)
                     pb.environment()["FREETURN_RAW_SOCKS_PORT"] = backend.port.toString()
                     pb.environment()["FREETURN_RAW_SOCKS_PASSWORD"] = backend.password
                 }
-                pb.start()
+                pb.start().also {
+                    // Register before returning across a cancellable dispatcher boundary.
+                    process.set(it)
+                    if (userStopped.get()) it.destroyCompat()
+                }
             }
-            process.set(proc)
             if (carrierSelected && !userStopped.get()) {
                 if (selectedCarrierDns == null) {
                     ProxyServiceState.addLog(context.getString(R.string.notif_dns_carrier_missing))
@@ -238,12 +286,26 @@ class CoreProcessController(
                     }
                     if (line == null) break
                     val l = line
-                    ProxyServiceState.addLog(l)
-
+                    if (captcha.acceptLine(l)) {
+                        if (captcha.hasIntegrationError() && !startupFailed) {
+                            startupFailed = true
+                            startupEmitted = true
+                            val message = context.getString(R.string.auth_integration_error_title)
+                            ProxyServiceState.addLog("[AUTH] integration_error; connection stopped without retry")
+                            ProxyServiceState.setStartupResult(StartupResult.Failed(message))
+                            notifier.setStatus(message)
+                            proc.destroyCompat()
+                        }
+                        continue
+                    }
                     val events = CoreLogParser.parse(l)
+                    if (events.any { it is CoreLogEvent.CaptchaUrl }) {
+                        ProxyServiceState.addLog("[AUTH] event=legacy_manual_challenge")
+                    } else ProxyServiceState.addLog(l)
                     var statsChanged = false
                     for (event in events) when (event) {
                         is CoreLogEvent.CaptchaUrl -> {
+                            if (captcha.isStructured()) continue
                             captchaSessionCounter += 1
                             ProxyServiceState.setCaptchaSession(
                                 CaptchaSession(event.url, captchaSessionCounter)
@@ -254,6 +316,7 @@ class CoreProcessController(
                             if (!userStopped.get()) notifier.showDnsFallback(DnsFallback.DOH, carrierSelected)
                         }
                         CoreLogEvent.CaptchaResolved -> {
+                            if (captcha.isStructured()) continue
                             if (ProxyServiceState.captchaSession.value != null) {
                                 ProxyServiceState.setCaptchaSession(null)
                                 notifier.cancelCaptcha()
@@ -287,7 +350,7 @@ class CoreProcessController(
                                             break
                                         }
                                     }
-                                    if (!cfg.rawVpnActive) singBox.startAfterProxyReady(cfg)
+                                    singBox.startAfterProxyReady(cfg, rawBackend)
                                     vpnStarted = cfg.vpnActive
                                     if (userStopped.get() || process.get() !== proc) break
                                     ProxyServiceState.setStartupResult(StartupResult.Success)
@@ -336,32 +399,41 @@ class CoreProcessController(
                 ProxyServiceState.addLog("Ошибка: ${e.message}")
             }
         } finally {
-            ProxyServiceState.setCaptchaSession(null)
-            notifier.cancelCaptcha()
-            if (vpnStarted) { singBox.stop() }
-            ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
-            process.getAndSet(null)?.destroyCompat()
-            when {
-                userStopped.get() -> {
-                    ProxyServiceState.setRunning(false)
-                    onStopRequested()
-                }
-                startupFailed -> {
-                    ProxyServiceState.addLog("Ошибка при запуске, watchdog не активирован")
-                    ProxyServiceState.setRunning(false)
-                    onStopRequested()
-                }
-                exitCode == 0 -> {
-                    val uptime = System.currentTimeMillis() - startedAt
-                    if (uptime < 5_000L) {
-                        ProxyServiceState.addLog("Быстрый выход (${uptime} мс) - проверьте ссылку и настройки")
-                    } else {
-                        ProxyServiceState.addLog("Сессия завершена")
+            withContext(NonCancellable) {
+                captcha.end()
+                ProxyServiceState.setCaptchaSession(null)
+                notifier.cancelCaptcha()
+                try {
+                    if (vpnStarted) singBox.stop()
+                } finally {
+                    ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
+                    process.getAndSet(null)?.let { previous ->
+                        previous.destroyCompat()
+                        withContext(Dispatchers.IO) { previous.waitForCompat(5, TimeUnit.SECONDS) }
                     }
-                    ProxyServiceState.setRunning(false)
-                    onStopRequested()
                 }
-                else -> scheduleWatchdogRestart()
+                when {
+                    userStopped.get() -> {
+                        ProxyServiceState.setRunning(false)
+                        onStopRequested()
+                    }
+                    startupFailed -> {
+                        ProxyServiceState.addLog("Ошибка при запуске, watchdog не активирован")
+                        ProxyServiceState.setRunning(false)
+                        onStopRequested()
+                    }
+                    exitCode == 0 -> {
+                        val uptime = System.currentTimeMillis() - startedAt
+                        if (uptime < 5_000L) {
+                            ProxyServiceState.addLog("Быстрый выход (${uptime} мс) - проверьте ссылку и настройки")
+                        } else {
+                            ProxyServiceState.addLog("Сессия завершена")
+                        }
+                        ProxyServiceState.setRunning(false)
+                        onStopRequested()
+                    }
+                    else -> scheduleWatchdogRestart()
+                }
             }
         }
     }
@@ -381,7 +453,7 @@ class CoreProcessController(
         ProxyServiceState.addLog("Watchdog: перезапуск через ${delayMs} мс (попытка $count/$MAX_PROXY_RESTARTS)")
         notifier.setStatus(context.getString(R.string.notif_proxy_reconnecting, count, MAX_PROXY_RESTARTS))
         handler.postDelayed({
-            if (!userStopped.get()) scope.launch { startBinaryProcess() }
+            if (!userStopped.get()) launchProcessSession()
         }, delayMs)
     }
 

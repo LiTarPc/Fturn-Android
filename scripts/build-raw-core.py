@@ -20,8 +20,8 @@ def main():
     args = parser.parse_args()
     config = properties(ROOT / "raw-core.properties")
     version, toolchain = config["version"], config["toolchain"]
-    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version):
-        raise SystemExit("RAW core version must be major.minor.patch")
+    if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?", version):
+        raise SystemExit("RAW core version must be a semantic version")
     source = (args.source or ROOT / config["source"]).resolve()
     manifest = json.loads((source / "SOURCE.json").read_text(encoding="utf-8"))
     if manifest["coreVersion"] != version or manifest["goToolchain"] != toolchain:

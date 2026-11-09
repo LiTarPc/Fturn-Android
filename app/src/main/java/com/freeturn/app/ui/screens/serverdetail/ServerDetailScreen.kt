@@ -67,7 +67,6 @@ fun ServerDetailScreen(
     serverViewModel: ServerViewModel,
     onBack: () -> Unit,
     onOpenConnection: (String) -> Unit,
-    onOpenConnectionMode: (String) -> Unit,
     onOpenNerdInfo: (String) -> Unit,
     onOpenBypass: (String) -> Unit,
     onCloned: (String) -> Unit
@@ -153,32 +152,24 @@ fun ServerDetailScreen(
                     SettingsCard {
                         SettingsEntryRow(
                             iconRes = R.drawable.public_24px,
-                            title = stringResource(R.string.site_bypass_title),
-                            subtitle = stringResource(R.string.site_bypass_desc),
+                            title = stringResource(R.string.settings_vpn),
+                            subtitle = stringResource(R.string.settings_vpn_desc),
                             onClick = { onOpenBypass(serverId) }
                         )
                     }
                 }
 
                 if (nerdMode) {
-                    SectionLabel(stringResource(R.string.provider_vk_calls))
                     SettingsGroup {
-                        SettingsGroupItem(0, 2) {
+                        SettingsGroupItem(0, 1) {
                             SettingsEntryRow(
                                 iconRes = R.drawable.mobile_24px,
-                                title = stringResource(R.string.provider_connection_settings),
-                                subtitle = stringResource(R.string.provider_connection_settings_desc),
+                                title = stringResource(R.string.connection_parameters),
+                                subtitle = stringResource(R.string.connection_parameters_desc),
                                 onClick = { onOpenConnection(serverId) }
                             )
                         }
-                        SettingsGroupItem(1, 2) {
-                            SettingsEntryRow(
-                                iconRes = R.drawable.wifi_24px,
-                                title = stringResource(R.string.connection_mode_title),
-                                subtitle = stringResource(R.string.provider_connection_mode_desc),
-                                onClick = { onOpenConnectionMode(serverId) }
-                            )
-                        }
+
                     }
 
                     if (server != null) {

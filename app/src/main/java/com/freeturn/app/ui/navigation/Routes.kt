@@ -18,6 +18,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object QrScanner
 
 @Serializable data object Settings
+@Serializable data object BackupSettings
 @Serializable data object AppSettings
 @Serializable data object About
 @Serializable data object Advanced

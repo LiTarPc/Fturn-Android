@@ -1,0 +1,68 @@
+package vkauth
+
+import (
+	"context"
+	"net"
+
+	"github.com/LiTarPc/fturn-core/internal/provider/vk/internal/browserprofile"
+	"github.com/LiTarPc/fturn-core/internal/provider/vk/internal/captcha"
+
+	tlsclient "github.com/bogdanfinn/tls-client"
+)
+
+type CaptchaSolveMode int
+
+const (
+	CaptchaSolveModeAuto CaptchaSolveMode = iota
+	CaptchaSolveModeManual
+)
+
+func CaptchaSolveModeForAttempt(attempt int, manualOnly bool) (CaptchaSolveMode, bool) {
+	if manualOnly {
+		return CaptchaSolveModeManual, attempt == 0
+	}
+	switch attempt {
+	case 0:
+		return CaptchaSolveModeAuto, true
+	case 1:
+		return CaptchaSolveModeManual, true
+	}
+	return 0, false
+}
+
+func CaptchaSolveModeLabel(mode CaptchaSolveMode) string {
+	switch mode {
+	case CaptchaSolveModeAuto:
+		return "auto captcha"
+	case CaptchaSolveModeManual:
+		return "manual captcha"
+	default:
+		return "captcha"
+	}
+}
+
+type AutoSolveFunc func(
+	ctx context.Context,
+	captchaErr *captcha.Error,
+	streamID int,
+	http tlsclient.HttpClient,
+	profile browserprofile.Profile,
+) (token string, err error)
+
+// PowCaptureFunc returns a browser-computed envelope, never a success token.
+type PowCaptureFunc func(context.Context, string, net.Dialer, browserprofile.Profile) (string, error)
+
+type ManualSolveFunc func(
+	ctx context.Context,
+	captchaErr *captcha.Error,
+	dialer net.Dialer,
+	profile browserprofile.Profile,
+) (token string, err error)
+
+// AuthControl gates fresh authorization across credential groups.
+type AuthControl interface {
+	Acquire(context.Context) error
+	Release()
+	Pause()
+	Authorized()
+}

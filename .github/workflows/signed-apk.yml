@@ -1,0 +1,156 @@
+name: Signed APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/restore-raw-stability', 'codex/android-4.3.7', 'codex/android-4.3.8-advanced-captcha']
+    paths:
+      - '.github/workflows/signed-apk.yml'
+      - 'app/**'
+      - 'scripts/**'
+      - 'third_party/**'
+      - '*-core.properties'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: signed-apk-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  JAVA_VERSION: '17'
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  RELEASE_TAG: v4.3.8
+  RELEASE_CERT_SHA256: 95a28637777d471e901c59cd4c1fb5ebbe6433d7128a79855106d626e3e2a85f
+
+jobs:
+  build:
+    name: Test and sign Fturn APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-37.0 build-tools;36.0.0'
+          log-accepted-android-sdk-licenses: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.5'
+          cache: false
+
+      - name: Build sing-box Android library
+        run: |
+          sdkmanager 'ndk;28.2.13676358'
+          bash scripts/build-libbox.sh
+
+      - name: SOCKS UDP control lifecycle regression under race detector
+        run: bash scripts/test-socks-control.sh
+
+      - name: RAW bridge tests
+        working-directory: third_party/raw-core
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: go test -mod=readonly ./internal/bypass ./internal/captchaipc ./internal/provider/vk/... ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
+
+      - name: RAW bridge concurrency regression under race detector
+        working-directory: third_party/raw-core
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: go test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... ./internal/rawsocks ./internal/rawvpn -count=1 -timeout=6m
+
+      - name: TURN client regression tests
+        working-directory: third_party/freeturn-core
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: go test -mod=readonly ./internal/netconn ./internal/transport/turndial ./internal/proxy/tcprelay ./internal/proxy/udprelay ./internal/session ./internal/config ./internal/captchaipc ./internal/provider/vk/...
+
+      - name: RAW cancellation and immediate reconnect race regression
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: go -C third_party/raw-core test -race -mod=readonly ./internal/rawvpn ./internal/transport/turndial -run '^Test(CancellationDeadline|StoppingCancellationDeadline|ReadClientPacket|OrderlyClientCancellation|WriteDeadline|ChangingPending)' -count=100 -timeout=5m
+
+      - name: Browser proof and authorization race regressions
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: |
+          go -C third_party/raw-core test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... -count=1 -timeout=10m
+          go -C third_party/freeturn-core test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... -count=1 -timeout=10m
+          node third_party/raw-core/internal/provider/vk/internal/captcha/manual/inject_fixture_test.cjs
+
+      - name: Delayed authorization and DTLS integration race regressions
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: go -C third_party/freeturn-core test -race -mod=readonly -tags integration ./internal/proxy/tcprelay ./internal/proxy/udprelay ./internal/transport/dtlsdial -count=1 -timeout=10m
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Setup release signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          python3 - <<'PY'
+          import base64, os
+          from pathlib import Path
+          for name in ['KEYSTORE_BASE64', 'KEYSTORE_PASSWORD', 'KEY_ALIAS', 'KEY_PASSWORD']:
+              if not os.environ.get(name):
+                  raise SystemExit(f'{name} is required for a signed release')
+          key = Path(os.environ['RUNNER_TEMP']) / 'release.jks'
+          key.write_bytes(base64.b64decode(''.join(os.environ['KEYSTORE_BASE64'].split()), validate=True))
+          def escaped(value):
+              return ''.join('\\u%04x' % ord(c) if ord(c) > 126 or c in '\\ \r\n\t' else c for c in value)
+          props = {'storeFile': str(key), 'storePassword': os.environ['KEYSTORE_PASSWORD'],
+                   'keyAlias': os.environ['KEY_ALIAS'], 'keyPassword': os.environ['KEY_PASSWORD']}
+          Path('keystore.properties').write_text(''.join(f'{k}={escaped(v)}\n' for k, v in props.items()))
+          PY
+
+      - name: Test and assemble release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleRelease -PrawBuild=false
+
+      - name: Verify release and collect artifacts
+        run: |
+          python3 scripts/collect-release.py
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "dist/fturn-${RELEASE_TAG#v}-arm64-v8a.apk" | tee "$RUNNER_TEMP/signature.txt"
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          marker = 'certificate SHA-256 digest:'
+          output = (Path(os.environ['RUNNER_TEMP']) / 'signature.txt').read_text()
+          certificates = {line.split(marker, 1)[1].strip().lower()
+                          for line in output.splitlines() if marker in line}
+          assert certificates == {os.environ['RELEASE_CERT_SHA256'].lower()}, 'Unexpected release signing certificate'
+          PY
+          (cd dist && sha256sum *.apk *.tar.gz *.json *NOTICES.txt *LICENSE.txt > SHA256SUMS.txt)
+
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: fturn-signed-4.3.8
+          path: dist/*
+          retention-days: 7
+
+      - name: Remove signing files
+        if: always()
+        run: rm -f keystore.properties "$RUNNER_TEMP/release.jks"

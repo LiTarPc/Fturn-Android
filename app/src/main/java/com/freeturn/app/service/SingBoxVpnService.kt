@@ -30,8 +30,6 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     private var ruleDownloadEndpoint: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null
     private var tun: ParcelFileDescriptor? = null
     private val prefs: com.freeturn.app.data.AppPreferences by inject()
-    @Volatile var rawBackend: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null
-        private set
     private var config: ClientConfig? = null
     private var logRedactor: VpnLogRedactor? = null
     private var callback: ConnectivityManager.NetworkCallback? = null
@@ -48,7 +46,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     override fun onBind(intent: Intent): android.os.IBinder? = if (intent.action == SERVICE_INTERFACE) super.onBind(intent) else binder
 
     @Synchronized
-    fun startTunnel(cfg: ClientConfig) {
+    fun startTunnel(cfg: ClientConfig, rawBackend: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null) {
         check(prepare(this) == null) { "Требуется разрешение Android VPN" }
         stopTunnel()
         config = cfg
@@ -57,7 +55,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
             val hotspot = kotlinx.coroutines.runBlocking { prefs.hotspotConfig() }
             if (cfg.rawVpnActive) {
                 com.freeturn.app.data.config.RawVpnConfig.validate(cfg)
-                rawBackend = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port))
+                requireNotNull(rawBackend) { "RAW backend is not prepared" }
             }
             Libbox.setup(SetupOptions().apply {
                 basePath = filesDir.absolutePath
@@ -87,16 +85,16 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     fun stopTunnel() {
         com.freeturn.app.data.RuleDownloadTunnel.clear(ruleDownloadEndpoint)
         ruleDownloadEndpoint = null
-        rawBackend = null
         val previous = box
         box = null
         try { previous?.close() } finally {
-            tun?.close()
-            tun = null
-            callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
-            callback = null
-            config = null
-            ProxyServiceState.setTunnelActive(false)
+            try { tun?.close() } finally {
+                tun = null
+                callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
+                callback = null
+                config = null
+                ProxyServiceState.setTunnelActive(false)
+            }
         }
     }
 

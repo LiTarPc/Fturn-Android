@@ -4,12 +4,12 @@ project_root="$(cd "$(dirname "$0")/.." && pwd)"
 native_root="$project_root/.native"
 mkdir -p "$native_root"
 if [ ! -d "$native_root/sing-box-1.12.0" ]; then
-  curl -fL --retry 3 https://github.com/SagerNet/sing-box/archive/refs/tags/v1.12.0.zip -o "$native_root/sing-box.zip"
+  curl -fL --retry 3 https://codeload.github.com/SagerNet/sing-box/zip/refs/tags/v1.12.0 -o "$native_root/sing-box.zip"
   echo "5f0728f8c7054b4b03abd50c28cc8a0f8b02d9eb18936a33c86a5dd16855227c  $native_root/sing-box.zip" | sha256sum -c -
   unzip -q "$native_root/sing-box.zip" -d "$native_root"
 fi
 python3 "$project_root/scripts/patch-libbox.py" "$native_root/sing-box-1.12.0"
-export GOPATH="$native_root/go" GOCACHE="$native_root/go-cache" GOTELEMETRY=off
+export GOPATH="$native_root/go" GOCACHE="$native_root/go-cache" GOTELEMETRY=off GOTOOLCHAIN=go1.24.5
 export PATH="$GOPATH/bin:$PATH"
 export ANDROID_NDK_HOME="$ANDROID_HOME/ndk/28.2.13676358"
 # gomobile 0.1.7 only recognizes integer SDK folder names. Keep API 24 native
@@ -25,6 +25,7 @@ if ! find "$ANDROID_HOME/platforms" -mindepth 1 -maxdepth 1 -type d | grep -Eq '
   export ANDROID_HOME="$overlay_root"
 fi
 cd "$native_root/sing-box-1.12.0"
+python3 "$project_root/scripts/patch-sing-socks.py" "$PWD"
 go mod edit -require=github.com/klauspost/compress@v1.18.3
 go mod download github.com/klauspost/compress
 go install github.com/sagernet/gomobile/cmd/gomobile

@@ -5,6 +5,7 @@
 
 package com.freeturn.app.ui.screens.settings
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -77,7 +78,8 @@ fun ServersListScreen(
                 modifier = Modifier
                     .widthIn(max = SettingsContentMaxWidth)
                     .fillMaxWidth()
-                    .padding(horizontal = Spacing.lg, vertical = Spacing.md)
+                    .padding(horizontal = Spacing.lg, vertical = Spacing.md),
+                verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 // Активный сервер закрепляем сверху - быстрый доступ к нему.
                 val ordered = remember(snapshot.list, snapshot.activeId) {

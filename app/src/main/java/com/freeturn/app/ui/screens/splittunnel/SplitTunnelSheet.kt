@@ -20,8 +20,6 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
@@ -90,16 +88,12 @@ fun SplitTunnelSheetContent(
     val context = LocalContext.current
     val splitOn = mode != SplitTunnelMode.ALL
     val controlsEnabled = splitOn && !locked
-    // Последний выбранный "рабочий" режим, чтобы свитч вкл возвращал его, а не дефолт.
-    var modeChoice by remember {
-        mutableStateOf(if (mode != SplitTunnelMode.ALL) mode else SplitTunnelMode.EXCLUDE)
-    }
     var query by remember { mutableStateOf("") }
     val installed by produceState<List<AppChoice>?>(initialValue = null, splitOn) {
         value = if (splitOn) context.installedInternetApps() else null
     }
-    val selected = remember(apps, modeChoice, useDefaults, installed) {
-        splitTunnelSelection(modeChoice, apps, installed.orEmpty().map { it.packageName }, useDefaults)
+    val selected = remember(apps, mode, useDefaults, installed) {
+        splitTunnelSelection(mode, apps, installed.orEmpty().map { it.packageName }, useDefaults)
     }
 
     // Высота контента стабильна (список фиксированной высоты), поэтому sheet
@@ -125,20 +119,7 @@ fun SplitTunnelSheetContent(
                     style = MaterialTheme.typography.titleLarge
                 )
             }
-            Switch(
-                colors = SwitchDefaults.colors(
-                    checkedTrackColor = com.freeturn.app.ui.theme.WinePalette.Primary,
-                    checkedThumbColor = com.freeturn.app.ui.theme.WinePalette.Cream,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    uncheckedBorderColor = MaterialTheme.colorScheme.outlineVariant
-                ),
-                checked = splitOn,
-                enabled = !locked,
-                onCheckedChange = { on ->
-                    HapticUtil.perform(context, HapticUtil.Pattern.SELECTION)
-                    onModeChange(if (on) modeChoice else SplitTunnelMode.ALL)
-                }
-            )
+
         }
 
         if (locked) {
@@ -150,13 +131,12 @@ fun SplitTunnelSheetContent(
         }
 
         ModeDropdown(
-            mode = modeChoice,
-            enabled = controlsEnabled,
+            mode = mode,
+            enabled = !locked,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = HorizontalPadding),
             onSelect = { value ->
-                modeChoice = value
                 onModeChange(value)
             }
         )

@@ -10,6 +10,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.AlertDialog
@@ -80,6 +82,7 @@ fun AppNavigation(
     if (!isInitialized) return
 
     val proxyState by proxyViewModel.proxyState.collectAsStateWithLifecycle()
+    val captchaUi by com.freeturn.app.service.CaptchaPresentation.state.collectAsStateWithLifecycle()
     val updateState by settingsViewModel.updateState.collectAsStateWithLifecycle()
     val suppressUpdatePrompt by settingsViewModel.suppressUpdatePrompt.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -159,12 +162,18 @@ fun AppNavigation(
             }
         }
     ) {
-        AppNavHost(
-            navController = navController,
-            settingsViewModel = settingsViewModel,
-            proxyViewModel = proxyViewModel,
-            serverViewModel = serverViewModel
-        )
+        Column(Modifier.fillMaxSize()) {
+            com.freeturn.app.ui.screens.captcha.CaptchaStatusBanner(captchaUi)
+            Box(Modifier.weight(1f)) {
+                AppNavHost(
+                    navController = navController,
+                    settingsViewModel = settingsViewModel,
+                    proxyViewModel = proxyViewModel,
+                    serverViewModel = serverViewModel,
+                    statusBarsAlreadyHandled = captchaUi.isWaiting
+                )
+            }
+        }
     }
 
     ImportSheet(
@@ -183,6 +192,7 @@ fun AppNavigation(
     // Диалог капчи поверх любого экрана. Оборачиваем в key(sessionId), чтобы для
     // каждой новой капча-сессии Compose пересоздавал диалог и WebView грузил URL заново
     // (бинарник цикличит креды и для каждой выдаёт новую капчу с тем же localhost-URL).
+    com.freeturn.app.ui.screens.captcha.ManagedCaptchaDialog(captchaUi)
     val captchaState = proxyState as? ProxyState.CaptchaRequired
     if (captchaState != null) {
         androidx.compose.runtime.key(captchaState.sessionId) {
@@ -214,7 +224,8 @@ private fun AppNavHost(
     navController: NavHostController,
     settingsViewModel: SettingsViewModel,
     proxyViewModel: ProxyViewModel,
-    serverViewModel: ServerViewModel
+    serverViewModel: ServerViewModel,
+    statusBarsAlreadyHandled: Boolean = false
 ) {
     // Системная настройка reduced motion отключает shared-axis переходы.
     val reducedMotion = LocalReducedMotion.current
@@ -223,7 +234,7 @@ private fun AppNavHost(
         startDestination = HomeGraph,
         modifier = Modifier
             .fillMaxSize()
-            .statusBarsPadding(),
+            .then(if (statusBarsAlreadyHandled) Modifier else Modifier.statusBarsPadding()),
         enterTransition = {
             if (reducedMotion) EnterTransition.None
             else {

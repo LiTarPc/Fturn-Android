@@ -5,7 +5,7 @@ $sourceRoot = Join-Path $nativeRoot 'sing-box-1.12.0'
 New-Item -ItemType Directory -Force $nativeRoot | Out-Null
 if (!(Test-Path $sourceRoot)) {
     $archive = Join-Path $nativeRoot 'sing-box.zip'
-    Invoke-WebRequest 'https://github.com/SagerNet/sing-box/archive/refs/tags/v1.12.0.zip' -OutFile $archive
+    Invoke-WebRequest 'https://codeload.github.com/SagerNet/sing-box/zip/refs/tags/v1.12.0' -OutFile $archive
     if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '5F0728F8C7054B4B03ABD50C28CC8A0F8B02D9EB18936A33C86A5DD16855227C') { throw 'sing-box source checksum mismatch' }
     Expand-Archive -LiteralPath $archive -DestinationPath $nativeRoot -Force
 }
@@ -14,6 +14,7 @@ if ($LASTEXITCODE) { throw 'libbox compatibility patch failed' }
 $env:GOPATH = Join-Path $nativeRoot 'go'
 $env:GOCACHE = Join-Path $nativeRoot 'go-cache'
 $env:GOTELEMETRY = 'off'
+$env:GOTOOLCHAIN = 'go1.24.5'
 $env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $env:ANDROID_NDK_HOME = Join-Path $env:ANDROID_HOME 'ndk\28.2.13676358'
 # gomobile 0.1.7 cannot discover SDK platform names with minor versions (android-37.0).
@@ -30,6 +31,8 @@ if (!(Get-ChildItem (Join-Path $env:ANDROID_HOME 'platforms') -Directory | Where
 }
 Push-Location $sourceRoot
 try {
+    & python (Join-Path $PSScriptRoot 'patch-sing-socks.py') $sourceRoot
+    if ($LASTEXITCODE) { throw 'SOCKS UDP control lifecycle patch failed' }
     & go mod edit '-require=github.com/klauspost/compress@v1.18.3'
     & go mod download github.com/klauspost/compress
     if ($LASTEXITCODE) { throw 'compress dependency verification failed' }

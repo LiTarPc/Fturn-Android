@@ -24,6 +24,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import android.widget.Toast
+import com.freeturn.app.ui.components.SectionLabel
+import com.freeturn.app.ui.util.rememberJournalExport
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.freeturn.app.R
 import com.freeturn.app.ui.components.SettingsBackButton
@@ -47,15 +52,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 
-/** Корневой экран настроек (нижнее меню): серверы, приложение, продвинутые, о проекте. */
+/** Корневой экран настроек (нижнее меню): серверы, VPN, приложение, о приложении. */
 @Composable
 fun SettingsScreen(
     onOpenServers: () -> Unit,
     onOpenApp: () -> Unit,
-    onOpenAdvanced: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenBypass: () -> Unit
 ) {
+    val export = rememberJournalExport()
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -83,7 +90,7 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(Spacing.lg)
             ) {
                 SettingsGroup {
-                    SettingsGroupItem(0, 5) {
+                    SettingsGroupItem(0, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.database_24px,
                             title = stringResource(R.string.settings_servers),
@@ -91,15 +98,15 @@ fun SettingsScreen(
                             onClick = onOpenServers
                         )
                     }
-                    SettingsGroupItem(1, 5) {
+                    SettingsGroupItem(1, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.public_24px,
-                            title = stringResource(R.string.site_bypass_title),
-                            subtitle = stringResource(R.string.site_bypass_desc),
+                            title = stringResource(R.string.settings_vpn),
+                            subtitle = stringResource(R.string.settings_vpn_desc),
                             onClick = onOpenBypass
                         )
                     }
-                    SettingsGroupItem(2, 5) {
+                    SettingsGroupItem(2, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.mobile_24px,
                             title = stringResource(R.string.settings_app),
@@ -107,15 +114,7 @@ fun SettingsScreen(
                             onClick = onOpenApp
                         )
                     }
-                    SettingsGroupItem(3, 5) {
-                        SettingsEntryRow(
-                            iconRes = R.drawable.tune_24px,
-                            title = stringResource(R.string.settings_advanced),
-                            subtitle = stringResource(R.string.settings_advanced_desc),
-                            onClick = onOpenAdvanced
-                        )
-                    }
-                    SettingsGroupItem(4, 5) {
+                    SettingsGroupItem(3, 4) {
                         SettingsEntryRow(
                             iconRes = R.drawable.info_24px,
                             title = stringResource(R.string.settings_about),
@@ -124,12 +123,37 @@ fun SettingsScreen(
                         )
                     }
                 }
+                SectionLabel(stringResource(R.string.support_title))
+                SettingsGroup {
+                    SettingsGroupItem(0, 2) {
+                        SettingsEntryRow(
+                            iconRes = R.drawable.description_24px,
+                            title = stringResource(if (export.busy) R.string.logs_export_busy else R.string.logs_save_journal),
+                            subtitle = stringResource(R.string.logs_save_journal_desc),
+                            onClick = export.save
+                        )
+                    }
+                    SettingsGroupItem(1, 2) {
+                        SettingsEntryRow(
+                            iconRes = R.drawable.share_24px,
+                            title = stringResource(R.string.support_send_logs),
+                            subtitle = stringResource(R.string.support_send_logs_desc),
+                            trailingRes = R.drawable.open_in_new_24px,
+                            onClick = {
+                                try { uriHandler.openUri("https://t.me/FturnSupport") }
+                                catch (_: Exception) {
+                                    Toast.makeText(context, R.string.support_open_failed, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        )
+                    }
+                }
             }
         }
     }
 }
 
-/** "Продвинутые": переключатель "Режим отладки" ([SettingsViewModel.nerdMode]). */
+/** "Диагностика": переключатель "Режим отладки" ([SettingsViewModel.nerdMode]). */
 @Composable
 fun AdvancedScreen(
     settingsViewModel: SettingsViewModel,
@@ -185,17 +209,16 @@ fun AdvancedScreen(
                         }
                     )
                 }
-
-                HotspotOptionsCard(settingsViewModel)
-
-                SettingsCard {
-                    SettingsSwitchRow(
-                        title = stringResource(R.string.restart_server_on_switch),
-                        subtitle = stringResource(R.string.restart_server_on_switch_desc),
-                        iconRes = R.drawable.restart_alt_24px,
-                        checked = restartServerOnSwitch,
-                        onCheckedChange = { settingsViewModel.setRestartServerOnSwitch(it) }
-                    )
+                if (nerdMode) {
+                    SettingsCard {
+                        SettingsSwitchRow(
+                            title = stringResource(R.string.restart_server_on_switch),
+                            subtitle = stringResource(R.string.restart_server_on_switch_desc),
+                            iconRes = R.drawable.restart_alt_24px,
+                            checked = restartServerOnSwitch,
+                            onCheckedChange = { settingsViewModel.setRestartServerOnSwitch(it) }
+                        )
+                    }
                 }
             }
         }

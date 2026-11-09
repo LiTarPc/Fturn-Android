@@ -131,7 +131,8 @@ func run() error {
 		if e != nil {
 			return fmt.Errorf("bypass configuration: %w", e)
 		}
-		if rules.Enabled && (runtime.GOOS != "windows" || opts.ControlInterface <= 0) {
+		androidDirect := runtime.GOOS == "android" && os.Getenv("FREETURN_RAW_PROTECT_SOCKET") != "" && os.Getenv("FREETURN_RAW_TUN_SOCKET") != ""
+		if rules.Enabled && !androidDirect && (runtime.GOOS != "windows" || opts.ControlInterface <= 0) {
 			return errors.New("bypass requires a selected Windows control interface")
 		}
 		wrapped, e := bypass.Wrap(ctx, dev, rules, prefix.Addr(), opts.MTU, rawvpn.BypassResolver())
@@ -148,7 +149,7 @@ func run() error {
 }
 
 func printHelp() {
-	fmt.Fprint(os.Stderr, `Experimental fturn Raw IP client (Windows / Linux)
+	fmt.Fprint(os.Stderr, `Experimental fturn Raw IP client (Windows / Linux / Android)
 
 Usage:
   raw-client -peer VPS_IP:56010 -links VK_CALL_URL -obf-key-file raw.key [options]
@@ -169,6 +170,8 @@ Usage:
   -streams-per-cred n    Streams per VK credential cache (default 5)
   -dns-mode mode         auto (default), doh, or plain
   -dns-servers list      Custom DNS resolver addresses
+  -advanced-captcha      Opt in to browser PoW before automatic verification
+  -auto-captcha=false    Disable automatic verification (manual-only)
   -manual-captcha        Use manual CAPTCHA solver
   -platform name        VK device persona: desktop (default) or mobile
   -client-id id          VK fingerprint seed; generated/persisted if omitted
@@ -178,8 +181,9 @@ Usage:
   -debug                 Debug logs
   -gen-obf-key           Print a new key and exit
 
-Run with administrator/root privileges. This client creates/configures its
-TUN interface and preserves the existing default route. Start with ping
+Windows/Linux and rooted Termux require administrator/root privileges.
+The Android application uses a VpnService TUN descriptor instead of root.
+Direct TUN builds preserve the existing default route. Start with ping
 10.77.0.1. See docs/raw-experiment.md for NAT and speed measurements.
 Legacy DTLS servers, WG/AWG configuration and subscriptions are not supported.
 `)

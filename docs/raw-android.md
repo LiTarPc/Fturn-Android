@@ -9,11 +9,15 @@ From the Android repository in PowerShell:
 ./gradlew.bat :app:testDebugUnitTest :app:assembleDebug -PcoreFetch=none -PrawBuild=true
 ```
 
-RAW core 1.0.0 is pinned in `raw-core.properties` and `third_party/raw-core`.
+RAW core 1.0.1-beta.android.4 is pinned in `raw-core.properties` and `third_party/raw-core`.
 Gradle preBuild verifies SOURCE.json and compiles that source automatically with
-Go 1.26.6. It does not depend on a sibling checkout or an unversioned binary.
-The APK includes assets/raw-core.json with the source snapshot and binary hashes. The Android routing bridge lives in `internal/rawsocks`; the older direct TUN
-adapter remains in `internal/rawvpn/device_android.go` for standalone use. The Go linker flag `-checklinkname=0` is
+Go 1.26.10. It does not depend on a sibling checkout or an unversioned binary.
+The APK includes assets/raw-core.json with the source snapshot and binary hashes.
+From app 4.3.2, Android again uses sing-box TUN/routing and the authenticated
+loopback SOCKS adapter in `internal/rawsocks`, matching the stable 4.1.0 RAW debug
+build. The bridge admits 1024 concurrent TCP/control handlers. The direct TUN
+adapter and native bypass remain available to standalone core users.
+The Go linker flag `-checklinkname=0` is
 required by the existing `github.com/wlynxg/anet v0.0.5` Android dependency.
 
 APK: `app/build/outputs/apk/debug/app-arm64-v8a-debug.apk`.
@@ -34,7 +38,7 @@ when building both: Gradle's debug output filename is shared.
    QR, or opening the link). Versions 1–4 are supported, including TCP/UDP TURN,
    RTP profile, MTU, stream count, streams per credential and `tcp-flow` uplink.
 3. Tap Connect and accept Android's VPN prompt. No root is required.
-4. Check logs: `FturnRaw core 1.0.0`, `RAW VPN`, followed by
+4. Check logs: `FturnRaw core 1.0.1-beta.android.1`, `RAW VPN`, followed by
    `RAW stream ... ready`. Only a successful RAW server handshake marks it connected.
 5. Check a website/download; disconnect/reconnect, then change Wi-Fi/mobile data.
 
@@ -43,30 +47,37 @@ profiles cannot be used as RAW profiles. The default client address is
 `10.77.0.2/24`; change it in Connection mode → RAW when another active client uses
 that address. Server-side network/routing must support the chosen address.
 
-Android always creates an IPv4 default VPN route, regardless of the Windows
-link's `mode` (`full` or `tunnel`). Per-application include/exclude selection is
-supported. CIDR and supported SRS lists now route matching IPv4 TCP/UDP traffic
-directly. DNS remains inside RAW, including list updates through the private
-download channel. IPv6 is rejected by the routing engine. The SOCKS bridge
-transports TCP/UDP; ICMP/ping is not supported by this Android routing path.
-VK/TURN control traffic stays outside the VPN because the application's UID
-(and its child process) is excluded.
+Android creates an IPv4 default VPN route, regardless of the Windows link's
+`mode` (`full` or `tunnel`). sing-box applies per-application selection, CIDR/SRS
+bypass and authenticated hotspot routing. IPv6 is rejected. Ordinary DNS on port
+53 is intercepted and sent over TCP through RAW; encrypted external DNS uses its
+own transport. The app and child core UID are excluded from Android VPN routing,
+so control sockets and replies to hotspot peers use the underlying network.
+Payload connections enter the authenticated loopback RAW bridge explicitly.
 
 ## Integration
 
 The original core remains `libfreeturn.so`; RAW is selected explicitly as
-`libfturnraw.so`. `VpnService` owns interface addresses, MTU, routes and lifecycle.
-Sing-box owns the Android TUN and rule engine. Its RAW outbound connects to an
-authenticated loopback SOCKS5 bridge in the RAW core. The bridge uses a gVisor
-IPv4 TCP/UDP stack with the profile's RAW address and feeds packets to the same
-RAW transport and encryption as before. No WireGuard tunnel is added. Backend
-port/password are created for each session and passed in process environment,
-never command logs. Client DNS resolves through RAW, without host DNS fallback.
-Stop, process exit, network handover and VPN revocation close the routing engine,
-backend and VPN. Legacy descriptor-transfer tests below cover the standalone
-TUN adapter, which the updated Android application no longer uses.
+`libfturnraw.so`. The RAW SOCKS listener starts before sing-box creates TUN; the
+first authenticated RAW server stream gates TUN activation. sing-box owns the
+Android interface, DNS, rule engine, hotspot and authenticated update proxy.
+Its RAW outbound authenticates to a private loopback listener, whose gVisor
+sockets emit IPv4 packets into the RAW transport instead of the host network.
+The RAW wire protocol and server configuration remain compatible.
 
-Native Android adapter tests can run on a connected phone:
+The bridge budget is 1024 simultaneous handlers, including UDP associations.
+Inactive TCP relays close after ten minutes, or one minute after a half-close
+with no further activity. Both directions share an activity clock, preserving
+responses sent after upload EOF. Cancellation closes both directions and frees
+the admission slot. A selector-based Java proxy was evaluated during diagnosis;
+it is not part of the restored sing-box app path.
+
+Version 4.3.1 used direct Android TUN/native bypass and Java explicit proxies.
+That historical implementation had a 128-client explicit proxy budget and a
+blocking-read cleanup defect. The 4.3.2 candidate restores the older routing
+architecture rather than retaining that explicit-proxy implementation.
+
+The standalone direct Android adapter tests remain available:
 
 ```powershell
 # In the RAW core checkout (restore environment variables afterwards):
@@ -121,12 +132,13 @@ option and reconnecting, or stopping the VPN, removes the listener. This is
 explicit proxy configuration, not transparent VPN sharing for every tethered app.
 
 Reference reviewed: hackdiaz-dev/turn-proxy-android at commit
-35288db2da7c77aad510a0fbc524d8cd2bc8c244. That implementation retains the app in
-its VPN and protects native control sockets. This app instead uses sing-box's
-SOCKS inbound, which routes through the selected outbound while the app/core UID
-stays excluded. The RAW wire protocol and server remain unchanged.
+35288db2da7c77aad510a0fbc524d8cd2bc8c244. For RAW 4.3.1, this app also includes
+its UID in the VPN and protects native control sockets; its authenticated
+SOCKS5 helper uses ordinary Android sockets. WG/VLESS use sing-box's SOCKS
+inbound with the app/core UID excluded. The RAW wire protocol and server remain
+unchanged.
 
-## Routing bridge validation (2026-10-20)
+## Historical routing bridge validation (2026-10-20, before app 4.3.1)
 
 - 131 Android JVM tests pass, including RAW backend configuration, shared bypass
   routing, hotspot authentication/port validation and backup migration.
@@ -159,9 +171,9 @@ The release certificate must match the existing Fturn certificate.
 ## App updater through the active VPN
 
 Update API checks and streamed APK downloads use the authenticated loopback
-CONNECT inbound owned by the active WG/VLESS/RAW service. That inbound routes
-before IP bypass and partial WireGuard rules, so GitHub API and release asset
-redirects stay in the tunnel. Without an active VPN, HTTPS downloads use the
+CONNECT channel owned by the active VPN service. WG/VLESS route this inbound
+before IP bypass and partial WireGuard rules. In RAW 4.3.1, native Android proxy
+sockets enter the RAW TUN and honor its native bypass rules. Without an active VPN, HTTPS downloads use the
 ordinary connection. If the VPN is active but its download channel is missing,
 the updater reports an error instead of silently retrying directly.
 
@@ -178,3 +190,13 @@ streamed in 72.8 seconds; SHA-256 matched the GitHub asset digest exactly:
 The diagnostic receiver was temporary, shell-protected and removed afterward;
 it is absent from the release source and APK. All 138 Android JVM tests and
 local debug/release builds passed.
+
+## SOCKS timeout regression (4.3.3 candidate)
+
+The former bridge used one 15-second client deadline for the handshake and
+outbound connection. A destination timing out could exhaust that deadline before
+the SOCKS failure reply was written, so sing-box reported EOF at about 15 seconds.
+After the complete request, the bridge now reserves a bounded five-second reply
+window beyond the outbound deadline. A timed-out dial returns host unreachable;
+a refused connection still returns connection refused. This changes failure
+reporting, not the reachability of an unresponsive destination.

@@ -5,6 +5,12 @@
 
 package com.freeturn.app.ui.screens.logs
 
+import android.widget.Toast
+import com.freeturn.app.domain.diagnostics.DiagnosticLogs
+import com.freeturn.app.domain.diagnostics.DiagnosticRedactor
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,6 +65,7 @@ import com.freeturn.app.domain.proxy.LogEntry
 import com.freeturn.app.domain.proxy.LogLevel
 import com.freeturn.app.ui.theme.Spacing
 import com.freeturn.app.ui.theme.extendedColorScheme
+import com.freeturn.app.ui.util.rememberJournalExport
 import com.freeturn.app.ui.util.copyToClipboard
 import com.freeturn.app.viewmodel.proxy.ProxyViewModel
 
@@ -68,6 +75,11 @@ fun LogsScreen(proxyViewModel: ProxyViewModel) {
     val context = LocalContext.current
     val logs by proxyViewModel.logs.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
+    val journal by DiagnosticLogs.status.collectAsStateWithLifecycle()
+    val scope = rememberCoroutineScope()
+    val export = rememberJournalExport()
+    var clearing by remember { mutableStateOf(false) }
+    val journalBusy = export.busy || clearing
 
     var autoScroll by remember { mutableStateOf(true) }
 
@@ -88,20 +100,47 @@ fun LogsScreen(proxyViewModel: ProxyViewModel) {
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             LargeFlexibleTopAppBar(
-                title = { Text(stringResource(R.string.logs_title)) },
+                title = {
+                    Column {
+                        Text(stringResource(R.string.logs_title))
+                        Text(
+                            if (journal.writeError) stringResource(R.string.logs_journal_error)
+                            else stringResource(R.string.logs_journal_size, journal.bytes / (1024.0 * 1024)),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (journal.dropped > 0) Text(
+                            stringResource(R.string.logs_journal_dropped, journal.dropped),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                },
                 scrollBehavior = scrollBehavior
             )
         },
         floatingActionButton = {
             LogsActionsFab(
                 hasLogs = logs.isNotEmpty(),
+                journalBusy = journalBusy,
+                onExport = { if (journal.ready) export.save() },
                 onCopy = {
-                    context.copyToClipboard("proxy_logs", logs.joinToString("\n") { it.text })
+                    context.copyToClipboard("proxy_logs", logs.joinToString("\n") { DiagnosticRedactor.redact(it.text) })
                     HapticUtil.perform(context, HapticUtil.Pattern.SUCCESS)
                 },
                 onClear = {
                     HapticUtil.perform(context, HapticUtil.Pattern.CLICK)
-                    proxyViewModel.clearLogs()
+                    if (!journalBusy) {
+                        clearing = true
+                        scope.launch {
+                            try {
+                                DiagnosticLogs.clear()
+                                proxyViewModel.clearLogs()
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (_: Exception) {
+                                Toast.makeText(context, R.string.logs_clear_failed, Toast.LENGTH_LONG).show()
+                            } finally { clearing = false }
+                        }
+                    }
                 }
             )
         },
@@ -157,6 +196,8 @@ private fun LazyListState.isAtBottom(): Boolean {
 @Composable
 private fun LogsActionsFab(
     hasLogs: Boolean,
+    journalBusy: Boolean,
+    onExport: () -> Unit,
     onCopy: () -> Unit,
     onClear: () -> Unit
 ) {
@@ -181,14 +222,19 @@ private fun LogsActionsFab(
         }
     ) {
         FloatingActionButtonMenuItem(
-            onClick = { expanded = false; if (hasLogs) onCopy() },
-            icon = { Icon(painterResource(R.drawable.content_copy_24px), contentDescription = null) },
-            text = { Text(stringResource(R.string.copy)) }
+            onClick = { expanded = false; if (!journalBusy) onExport() },
+            icon = { Icon(painterResource(R.drawable.share_24px), contentDescription = null) },
+            text = { Text(stringResource(if (journalBusy) R.string.logs_export_busy else R.string.logs_export)) }
         )
         FloatingActionButtonMenuItem(
-            onClick = { expanded = false; if (hasLogs) onClear() },
+            onClick = { expanded = false; if (hasLogs) onCopy() },
+            icon = { Icon(painterResource(R.drawable.content_copy_24px), contentDescription = null) },
+            text = { Text(stringResource(R.string.logs_copy_screen)) }
+        )
+        FloatingActionButtonMenuItem(
+            onClick = { expanded = false; if (!journalBusy) onClear() },
             icon = { Icon(painterResource(R.drawable.delete_24px), contentDescription = null) },
-            text = { Text(stringResource(R.string.clear)) }
+            text = { Text(stringResource(R.string.logs_clear_journal)) }
         )
     }
 }

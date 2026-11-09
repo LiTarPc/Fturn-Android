@@ -70,7 +70,9 @@ func (c *Client) rateLimited(streamID int, cause error) error {
 		c.log.Warnf("[VK Auth] Could not persist captcha pause")
 	}
 	c.log.Warnf("[STREAM %d] [VK Auth] CAPTCHA_RATE_LIMIT pause_until=%d streak=%d; requests paused, manual fallback skipped; cause=%v", streamID, until, streak, cause)
-	if c.streamsFn() == 0 {
+	if c.onAuthWait != nil {
+		c.onAuthWait()
+	} else if c.streamsFn() == 0 {
 		return errors.Join(ErrFatalCaptchaNoStreams, captcha.ErrRateLimited, cause)
 	}
 	return errors.Join(ErrCaptchaWaitRequired, captcha.ErrRateLimited, cause)
