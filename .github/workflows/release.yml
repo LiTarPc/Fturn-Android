@@ -84,6 +84,12 @@ jobs:
           GOTELEMETRY: 'off'
         run: go test -mod=readonly ./internal/netconn ./internal/transport/turndial ./internal/proxy/tcprelay ./internal/proxy/udprelay ./internal/session ./internal/config ./internal/captchaipc ./internal/provider/vk/...
 
+      - name: RAW cancellation and immediate reconnect race regression
+        env:
+          GOTOOLCHAIN: go1.26.10
+          GOTELEMETRY: 'off'
+        run: go -C third_party/raw-core test -race -mod=readonly ./internal/rawvpn ./internal/transport/turndial -run '^Test(CancellationDeadline|StoppingCancellationDeadline|ReadClientPacket|OrderlyClientCancellation|WriteDeadline|ChangingPending)' -count=100 -timeout=5m
+
       - name: Browser proof and authorization race regressions
         env:
           GOTOOLCHAIN: go1.26.10

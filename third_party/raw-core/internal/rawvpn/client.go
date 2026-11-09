@@ -217,8 +217,8 @@ func clientStream(ctx context.Context, dev Device, cfg ClientConfig, id int, pac
 	streamCtx, cancel := context.WithCancel(ctx)
 	var maintenanceFailed atomic.Bool
 	defer cancel()
-	stop := context.AfterFunc(streamCtx, func() { _ = relay.SetDeadline(time.Now()) })
-	defer stop()
+	stopRelayDeadline := stopRelayOnCancel(streamCtx, relay)
+	defer stopRelayDeadline()
 	go func() {
 		select {
 		case <-streamCtx.Done():
@@ -259,6 +259,9 @@ func clientStream(ctx context.Context, dev Device, cfg ClientConfig, id int, pac
 	defer cfg.Log.Infof("RAW stream %d closed", id)
 	// Best effort shutdown frees the old worker immediately on quick reconnect.
 	defer func() {
+		// A started cancellation callback must finish before the goodbye write
+		// reopens its deadline. Keep cancellation active until teardown reaches here.
+		stopRelayDeadline()
 		var out [maxWire]byte
 		n, err := negotiated.encode(out[:], []byte{frameClose})
 		if err == nil {
@@ -271,8 +274,7 @@ func clientStream(ctx context.Context, dev Device, cfg ClientConfig, id int, pac
 		wireBuf, plainBuf := make([]byte, maxWire+1), make([]byte, maxFrame)
 		lastValid := time.Now()
 		for {
-			_ = relay.SetReadDeadline(lastValid.Add(35 * time.Second))
-			n, addr, err := relay.ReadFrom(wireBuf)
+			n, addr, err := readClientPacket(streamCtx, relay, wireBuf, lastValid.Add(35*time.Second))
 			if err != nil {
 				readDone <- err
 				return

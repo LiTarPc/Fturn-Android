@@ -71,3 +71,12 @@ Local evidence: E:/fturn-android-438-20261108/captcha-user-mode/ (REPORT.md, ver
 The user authorized publishing 4.3.8 after the completed functional acceptance. The previously requested timed soak had been superseded by SOCKS sharing tests. The release notes explicitly retain the observed DNS/transport limitations and state that separate Android soft-AP and long-load acceptance were not performed; no overnight stability claim is made.
 
 Remote main a6fde6e and the tested candidate branch were reconciled with a merge that introduced no file changes. Main's physical-network DNS work was already present in the candidate history; only the merge ancestry was missing. After signed candidate ccc1027, application/native code is unchanged. Release-preparation changes affect release notes, changelog and this audit only. The release path is PR CI, merge to main, then tag v4.3.8 and the existing Release workflow, which repeats tests, verifies signing/packaging and publishes the assets.
+
+
+## Release gate caught RAW orderly-shutdown races
+
+PR #14 CI run 42599310452 failed TestOrderlyClientCancellationReleasesSlot before merge/tag/publication. The unchanged android.6 fixture reproduced locally with 3 failures in 100 starts/stops. A delayed context.AfterFunc could overwrite the goodbye write deadline; a separate reader iteration could overwrite the cancellation read deadline with a future deadline and delay teardown until the TURN abort window.
+
+The first isolated stop/join-only fix passed deterministic tests but still failed 1/100 real TURN/server slot trials, so it was not accepted alone. Combined stop/join plus a cancellation check after installing the read deadline passed 500 local slot trials; independent core review passed a separate 300 trials. Two forced-order regressions each failed consistently on the corresponding old behavior. The bundle is updated to RAW 1.0.1-beta.android.7 with pinned source inputs; stop/join remains idempotent, active blocked writes still receive immediate cancellation, and the wire/server protocol and best-effort delivery contract are unchanged.
+
+A 100-repetition cancellation/reconnect race gate is added to PR CI, signing and release workflows. Full package, Android-native and signed/live acceptance are still required before publication. Historical android.6 acceptance above is not substituted for validation of the changed shutdown code.

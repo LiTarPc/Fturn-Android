@@ -5,8 +5,9 @@
 - Add complete background browser proof solving and authorization for RAW and TURN; keep manual verification when required by VK.
 - Enable advanced CAPTCHA by default and expose its persistent switch in ordinary Application settings.
 - End incoming SOCKS5 UDP associations when control TCP closes, resets, or is cancelled; clean up early handshake failures.
+- Fix RAW shutdown deadline races that could prevent the server slot from being released on quick reconnect; add deterministic regressions and a 100-run race gate.
 - Start TURN's DTLS handshake budget after credentials and channel preparation; retain the primary failure cause.
-- Pin RAW 1.0.1-beta.android.6 and TURN 4.2.4-test.4 source snapshots; verify original-certificate APK packaging and source metadata.
+- Pin RAW 1.0.1-beta.android.7 and TURN 4.2.4-test.4 source snapshots; verify original-certificate APK packaging and source metadata.
 - Physical-device functional checks include 22 passing SOCKS sharing checks across both modes. See docs/releases/v4.3.8.md for the tested scope and remaining DNS/transport observations.
 
 ## 4.2.5 (2026-10-22)

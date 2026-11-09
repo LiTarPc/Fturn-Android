@@ -32,3 +32,12 @@ SOURCE.json pins source inputs with Go 1.26.10. Target android/arm64, API24+.
 A local fixture/native build is not proof that VK accepts automatic verification.
 Real Android service WebView E2E, race CI and controlled natural provider testing
 are separate acceptance gates. This snapshot is not a public stable release.
+
+Android.7 adds an Android-local lifecycle patch on SOURCE snapshot
+ca2faaea7acc3b42cda0e2b315892694c51b7d6872b9b33b65b23acace9f5dbb.
+An in-flight cancellation deadline callback is stopped/joined before the goodbye
+write reopens its deadline. Reader cancellation is checked after installing the
+read deadline, preventing teardown from waiting until TURN's forced abort.
+Five deterministic regressions cover both races, repeated stop/join, normal
+reads and immediate interruption of blocked writes. Goodbye remains best effort
+on a failed transport; the server protocol and lease expiry are unchanged.

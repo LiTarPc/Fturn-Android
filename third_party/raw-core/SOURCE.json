@@ -1,9 +1,9 @@
 {
-  "coreVersion": "1.0.1-beta.android.6",
+  "coreVersion": "1.0.1-beta.android.7",
   "goToolchain": "go1.26.10",
   "sourceBaseCommit": "4b1a2bd3384e9fde84152419c5c6241760a2b643",
-  "sourceSnapshotSha256": "ca2faaea7acc3b42cda0e2b315892694c51b7d6872b9b33b65b23acace9f5dbb",
-  "description": "Advanced browser PoW candidate. Based on verified android.5 SOURCE e9e2ef9300d9ffd3a840d409e29a120da64e9d171a81e66e2d3ee309a29dd740; upstream hackdiaz-dev/free-turn-proxy v4.1.0 commit 465486ba96c4c2ff93443682ec900510b2e0ff9e. Explicit opt-in config, authenticated IPC v2 capture purpose, bounded fresh manual fallback, privacy and existing transport fixes preserved. Candidate pending real WebView E2E and race acceptance.",
+  "sourceSnapshotSha256": "5a62f97521be0cc579c17a05a4fcb3e2cd2ee9c6e8c9c763f788b6fb37ae112e",
+  "description": "Android.7 RAW shutdown lifecycle fix on the verified advanced browser PoW android.6 snapshot. Stop/join the cancellation deadline callback before goodbye, and check cancellation after resetting read deadlines before ReadFrom. Preserve prompt active-write interruption, bounded TURN teardown, protocol/wire format and all advanced CAPTCHA/transport behavior. Source base commit remains the original android.6 handoff; this Android-local patch and regression tests are pinned below.",
   "files": [
     {
       "path": "LICENSE",
@@ -31,7 +31,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "7cefd4ca1c3634541187abae4b6792e7e7aa488567785a77a17c925afad311b6"
+      "sha256": "e50e627518f5e2811f58cbffe19e0a53a2d0724d22e0c2aa3568f9e869427e48"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -663,7 +663,15 @@
     },
     {
       "path": "internal/rawvpn/client.go",
-      "sha256": "085653f93e8c17b0388eeef8947fd70c16da30a2ad2bfef01ed91d0d73d00732"
+      "sha256": "5c549ad35b72e639d0406a95d5875c54df0948585ee6a8210e8c2335720524d0"
+    },
+    {
+      "path": "internal/rawvpn/client_cancel.go",
+      "sha256": "ce790d5af7f86e112ffbe5b9f59269b1049cac1abef2298f53008a86ed2dba4d"
+    },
+    {
+      "path": "internal/rawvpn/client_cancel_test.go",
+      "sha256": "f0208bd60d8f8be4a9f02253f99f4143e18a1efa1aee29a50d56d11e30460da7"
     },
     {
       "path": "internal/rawvpn/clients.go",
@@ -1609,5 +1617,6 @@
       "path": "third_party/turn/stun_conn.go",
       "sha256": "d9386a1d1a08c608a975726b1ac453d9c7076c81fdeae467f6beab4109873da6"
     }
-  ]
+  ],
+  "androidPatchBaseSnapshotSha256": "ca2faaea7acc3b42cda0e2b315892694c51b7d6872b9b33b65b23acace9f5dbb"
 }
