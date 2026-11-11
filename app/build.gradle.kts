@@ -95,7 +95,7 @@ android {
         resValue("string", "raw_core_version", rawCoreVersion)
         resValue("string", "freeturn_core_version", freeturnCoreVersion.removePrefix("v"))
         // Native VPN integration targets Android API 24 or newer.
-        testInstrumentationRunner = "com.freeturn.app.testing.CaptchaFixtureInstrumentation"
+        testInstrumentationRunner = providers.gradleProperty("vpnFixtureRunner").orElse("com.freeturn.app.testing.CaptchaFixtureInstrumentation").get()
         minSdk = 24
         targetSdk = 37
         versionName = "4.3.8" // x-release-please-version
@@ -146,9 +146,9 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = if (rawBuild) ".raw" else ".debug"
-            versionNameSuffix = if (rawBuild) "-raw-debug" else "-debug"
-            resValue("string", "app_name", if (rawBuild) "Fturn RAW" else "Fturn Тест")
+            applicationIdSuffix = if (rawBuild) ".raw.sb1144" else ".sb1144"
+            versionNameSuffix = if (rawBuild) "-raw-sb1.14.4-debug" else "-sb1.14.4-debug"
+            resValue("string", "app_name", if (rawBuild) "Fturn RAW SB 1.14.4" else "Fturn SB 1.14.4")
             resValue("string", "shortcut_target_package", if (rawBuild) "com.litar.freeturn.raw" else "com.litar.freeturn.debug")
         }
         release {

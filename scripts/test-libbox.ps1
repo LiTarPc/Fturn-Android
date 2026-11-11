@@ -1,10 +1,11 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $nativeRoot = Join-Path $projectRoot '.native'
-$sourceRoot = Join-Path $nativeRoot 'sing-box-1.12.0'
+$sourceRoot = Join-Path $nativeRoot 'sing-box-1.14.4'
 $env:GOPATH = Join-Path $nativeRoot 'go'
 $env:GOCACHE = Join-Path $nativeRoot 'go-cache'
 $env:GOTELEMETRY = 'off'
+$env:GOTOOLCHAIN = 'go1.26.10'
 $env:FTURN_VLESS_FIXTURES = Join-Path $projectRoot 'app/build/vless-fixtures'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'tests/vless_relay_test.go') -Destination (Join-Path $sourceRoot 'experimental/libbox/fturn_vless_relay_test.go') -Force
 Push-Location $sourceRoot

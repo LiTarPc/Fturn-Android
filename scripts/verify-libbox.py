@@ -21,7 +21,7 @@ if b"./fturn-sing" not in library or MONITOR not in library or SERVER_MONITOR no
     raise SystemExit("Stale libbox: SOCKS UDP control monitor missing. Run scripts/build-libbox.ps1 (Windows) or scripts/build-libbox.sh (Linux).")
 report = {"aarSha256": hashlib.sha256(args.aar.read_bytes()).hexdigest(),
           "aarBinarySha256": hashlib.sha256(library).hexdigest(),
-          "privateSingReplacement": True, "outgoingUdpControlMonitor": True, "incomingUdpControlMonitor": True}
+          "expectedSingBoxVersion": "1.14.4", "privateSingReplacement": True, "outgoingUdpControlMonitor": True, "incomingUdpControlMonitor": True}
 if args.report:
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

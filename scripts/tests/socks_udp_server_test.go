@@ -138,7 +138,7 @@ func fturnServerStart(t *testing.T, failResponse bool) *fturnServerFixture {
 		if failResponse {
 			c = &fturnFailResponse{Conn: server}
 		}
-		err := HandleConnectionEx(ctx, c, bufio.NewReader(c), nil, h, pl, M.SocksaddrFromNet(server.RemoteAddr()), func(error) { h.closes.Add(1) })
+		err := HandleConnectionEx(ctx, c, bufio.NewReader(c), nil, h, pl, 0, M.SocksaddrFromNet(server.RemoteAddr()), func(error) { h.closes.Add(1) })
 		if err != nil {
 			c.Close()
 		}

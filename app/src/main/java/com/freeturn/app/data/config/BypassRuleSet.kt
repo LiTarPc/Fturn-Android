@@ -36,7 +36,7 @@ data class BypassRuleSet(val name: String, val format: String, val content: Stri
             require(bytes.isNotEmpty() && bytes.size <= MAX_BYTES) { "Пустой или слишком большой файл правил" }
             val binary = bytes.size >= 4 && bytes[0] == 83.toByte() && bytes[1] == 82.toByte() && bytes[2] == 83.toByte()
             val normalized = if (binary) {
-                require(bytes[3].toInt() in 1..3) { "Эта версия .srs не поддерживается sing-box 1.12 (нужна версия 1–3)" }
+                require(bytes[3].toInt() in 1..3) { "В этой тестовой сборке разрешены .srs версии 1–3" }
                 // Bound decompression and the first rule count before handing data to native code.
                 val plain = InflaterInputStream(bytes.inputStream().apply { skip(4) }).use { readBounded(it, 16 * 1024 * 1024) }
                 var count = 0L
