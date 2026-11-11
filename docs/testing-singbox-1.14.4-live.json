@@ -1,0 +1,246 @@
+{
+  "date": "2026-11-11",
+  "device": "Honor 8X JSN-L21 Android 10 ARM64",
+  "app": "4.3.8-sb1.14.4-debug",
+  "singBox": "1.14.4",
+  "jvmTests": 211,
+  "nativeVlessScenarios": 13,
+  "protocols": {
+    "VLESS": [
+      {
+        "cycle": 1,
+        "bypass": false,
+        "startupMillis": 19816,
+        "singleVpnNotification": true,
+        "trafficRxAdvanced": true,
+        "trafficTxAdvanced": true,
+        "activeInBackground": true,
+        "stopped": true,
+        "tun": {
+          "passed": 14,
+          "total": 14,
+          "failed": []
+        },
+        "socks": {
+          "passed": 17,
+          "total": 17,
+          "failed": []
+        },
+        "ruHttpStatuses": {
+          "tun": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 417,
+            "https_ru_vk.com": 200
+          },
+          "socks": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 417,
+            "https_ru_vk.com": 200
+          }
+        }
+      },
+      {
+        "cycle": 2,
+        "bypass": true,
+        "startupMillis": 19066,
+        "singleVpnNotification": true,
+        "trafficRxAdvanced": true,
+        "trafficTxAdvanced": true,
+        "activeInBackground": true,
+        "stopped": true,
+        "tun": {
+          "passed": 14,
+          "total": 14,
+          "failed": []
+        },
+        "socks": {
+          "passed": 17,
+          "total": 17,
+          "failed": []
+        },
+        "ruHttpStatuses": {
+          "tun": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 200,
+            "https_ru_vk.com": 200
+          },
+          "socks": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 200,
+            "https_ru_vk.com": 200
+          }
+        }
+      }
+    ],
+    "WireGuard": [
+      {
+        "cycle": 1,
+        "bypass": false,
+        "startupMillis": 19061,
+        "singleVpnNotification": true,
+        "trafficRxAdvanced": true,
+        "trafficTxAdvanced": true,
+        "activeInBackground": true,
+        "stopped": true,
+        "tun": {
+          "passed": 14,
+          "total": 14,
+          "failed": []
+        },
+        "socks": {
+          "passed": 17,
+          "total": 17,
+          "failed": []
+        },
+        "ruHttpStatuses": {
+          "tun": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 417,
+            "https_ru_vk.com": 200
+          },
+          "socks": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 417,
+            "https_ru_vk.com": 200
+          }
+        }
+      },
+      {
+        "cycle": 2,
+        "bypass": true,
+        "startupMillis": 20325,
+        "singleVpnNotification": true,
+        "trafficRxAdvanced": true,
+        "trafficTxAdvanced": true,
+        "activeInBackground": true,
+        "stopped": true,
+        "tun": {
+          "passed": 14,
+          "total": 14,
+          "failed": []
+        },
+        "socks": {
+          "passed": 17,
+          "total": 17,
+          "failed": []
+        },
+        "ruHttpStatuses": {
+          "tun": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 200,
+            "https_ru_vk.com": 200
+          },
+          "socks": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 200,
+            "https_ru_vk.com": 200
+          }
+        }
+      }
+    ],
+    "VLESS-srs": [
+      {
+        "cycle": 1,
+        "bypass": true,
+        "startupMillis": 21579,
+        "singleVpnNotification": true,
+        "trafficRxAdvanced": true,
+        "trafficTxAdvanced": true,
+        "activeInBackground": true,
+        "stopped": true,
+        "tun": {
+          "passed": 2,
+          "total": 2,
+          "failed": []
+        },
+        "socks": {
+          "passed": 2,
+          "total": 2,
+          "failed": []
+        }
+      }
+    ]
+  },
+  "lanSocks": {
+    "VLESS-route": {
+      "passed": 18,
+      "total": 18
+    },
+    "WireGuard-route": {
+      "passed": 18,
+      "total": 18
+    }
+  },
+  "adbSocks": {
+    "VLESS-1": {
+      "passed": 10,
+      "total": 11,
+      "failed": [
+        "https_ru_vk.com"
+      ]
+    },
+    "VLESS-2": {
+      "passed": 11,
+      "total": 11,
+      "failed": []
+    },
+    "WireGuard-1": {
+      "passed": 10,
+      "total": 11,
+      "failed": [
+        "https_ru_vk.com"
+      ]
+    },
+    "WireGuard-2": {
+      "passed": 11,
+      "total": 11,
+      "failed": []
+    }
+  },
+  "routeControls": {
+    "VLESS-control": [
+      {
+        "bypass": false,
+        "passed": true,
+        "controlledEndpointReached": false
+      },
+      {
+        "bypass": true,
+        "passed": true,
+        "controlledEndpointReached": true
+      }
+    ],
+    "WireGuard-control": [
+      {
+        "bypass": false,
+        "passed": true,
+        "controlledEndpointReached": false
+      },
+      {
+        "bypass": true,
+        "passed": true,
+        "controlledEndpointReached": true
+      }
+    ]
+  },
+  "raw": {
+    "RAW": "encrypted handshake timed out before sing-box start",
+    "RAW-alt": "encrypted handshake timed out before sing-box start"
+  },
+  "limitations": [
+    "Public-IP comparison did not distinguish routes in this network; controlled loopback SOCKS route verified the rule engine instead.",
+    "Not a complete DoH/DoT or browser DNS leak audit.",
+    "No long-duration soak or network handover test.",
+    "Remote RAW availability and matching server configuration remain unconfirmed."
+  ],
+  "functionalWarnings": [
+    "Pochta.ru returned HTTP 417 without bypass on both VLESS and WireGuard, although TLS/HTTP transport succeeded. With bypass it returned HTTP 200.",
+    "VK mobile redirect timed out in the PC/ADB TCP tests without bypass; all 11 PC/ADB transport checks passed with bypass."
+  ],
+  "cleanup": {
+    "vpnStopped": true,
+    "preferencesRestoredByteForByte": true,
+    "temporaryPhoneInputsAndUsbForwardsRemoved": true,
+    "controlServerStopped": true
+  }
+}
