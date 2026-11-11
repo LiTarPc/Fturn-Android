@@ -159,6 +159,74 @@
           "failed": []
         }
       }
+    ],
+    "RAW-current": [
+      {
+        "cycle": 1,
+        "bypass": false,
+        "startupMillis": 21567,
+        "singleVpnNotification": true,
+        "trafficRxAdvanced": true,
+        "trafficTxAdvanced": true,
+        "activeInBackground": true,
+        "stopped": true,
+        "tun": {
+          "passed": 15,
+          "total": 15,
+          "failed": []
+        },
+        "socks": {
+          "passed": 17,
+          "total": 18,
+          "failed": [
+            "concurrent_https_2"
+          ]
+        },
+        "ruHttpStatuses": {
+          "tun": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 417,
+            "https_ru_vk.com": 200
+          },
+          "socks": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 417,
+            "https_ru_vk.com": 200
+          }
+        }
+      },
+      {
+        "cycle": 2,
+        "bypass": true,
+        "startupMillis": 15802,
+        "singleVpnNotification": true,
+        "trafficRxAdvanced": true,
+        "trafficTxAdvanced": true,
+        "activeInBackground": true,
+        "stopped": true,
+        "tun": {
+          "passed": 15,
+          "total": 15,
+          "failed": []
+        },
+        "socks": {
+          "passed": 18,
+          "total": 18,
+          "failed": []
+        },
+        "ruHttpStatuses": {
+          "tun": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 200,
+            "https_ru_vk.com": 200
+          },
+          "socks": {
+            "https_ru_yandex.ru": 200,
+            "https_ru_www.pochta.ru": 200,
+            "https_ru_vk.com": 200
+          }
+        }
+      }
     ]
   },
   "lanSocks": {
@@ -169,6 +237,20 @@
     "WireGuard-route": {
       "passed": 18,
       "total": 18
+    },
+    "RAW-current": {
+      "firstAttempt": {
+        "passed": 17,
+        "total": 18,
+        "failed": [
+          "udp_stun_non_dns"
+        ]
+      },
+      "repeat": {
+        "passed": 18,
+        "total": 18,
+        "failed": []
+      }
     }
   },
   "adbSocks": {
@@ -194,6 +276,16 @@
     "WireGuard-2": {
       "passed": 11,
       "total": 11,
+      "failed": []
+    },
+    "RAW-current-1": {
+      "passed": 12,
+      "total": 12,
+      "failed": []
+    },
+    "RAW-current-2": {
+      "passed": 12,
+      "total": 12,
       "failed": []
     }
   },
@@ -224,18 +316,34 @@
     ]
   },
   "raw": {
-    "RAW": "encrypted handshake timed out before sing-box start",
-    "RAW-alt": "encrypted handshake timed out before sing-box start"
+    "current": "Provided fturnraw v4 profile connected with MTU 1350; TUN and authenticated SOCKS5 verified.",
+    "mtuComparison": {
+      "sameProfileExceptMtu": true,
+      "mtu1350Before": "connected",
+      "mtu1420": "no active VPN within 180 seconds",
+      "mtu1350After": "connected twice"
+    },
+    "sourceEvidence": {
+      "server": "third_party/raw-core/internal/rawvpn/server.go:160; server rejects client address or MTU differing from provisioning",
+      "client": "third_party/raw-core/internal/rawvpn/client.go:236; verifies returned MTU"
+    },
+    "historicalProfiles": {
+      "RAW": "Earlier saved MTU 1420 failed; current same-server profile works with MTU 1350.",
+      "RAW-alt": "Earlier encrypted handshake timeout; this separate server was not retested with a new profile."
+    }
   },
   "limitations": [
     "Public-IP comparison did not distinguish routes in this network; controlled loopback SOCKS route verified the rule engine instead.",
     "Not a complete DoH/DoT or browser DNS leak audit.",
     "No long-duration soak or network handover test.",
-    "Remote RAW availability and matching server configuration remain unconfirmed."
+    "RAW-alt remains unconfirmed. RAW findings apply to the newly supplied profile and tested server provisioning."
   ],
   "functionalWarnings": [
     "Pochta.ru returned HTTP 417 without bypass on both VLESS and WireGuard, although TLS/HTTP transport succeeded. With bypass it returned HTTP 200.",
-    "VK mobile redirect timed out in the PC/ADB TCP tests without bypass; all 11 PC/ADB transport checks passed with bypass."
+    "VK mobile redirect timed out in the PC/ADB TCP tests without bypass; all 11 PC/ADB transport checks passed with bypass.",
+    "RAW first phone SOCKS cycle: one of four concurrent HTTPS requests timed out; the next full cycle passed all 18 checks.",
+    "RAW first coordinated LAN SOCKS test: STUN UDP timed out; repeated full LAN test passed all 18 checks. UDP DNS and phone STUN passed.",
+    "RAW also returned Pochta.ru HTTP 417 without RU bypass and HTTP 200 with bypass."
   ],
   "cleanup": {
     "vpnStopped": true,
