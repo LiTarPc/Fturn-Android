@@ -25,9 +25,11 @@ with zipfile.ZipFile(apk) as archive:
     assert b"./fturn-sing" in libbox
     assert b"github.com/sagernet/sing/protocol/socks.(*Client).DialContext.func1" in libbox
     assert b"github.com/sagernet/sing/protocol/socks.newFturnServerAssociateConn" in libbox
+    assert b"github.com/sagernet/sing-box/protocol/fturnfou.NewInbound" in libbox
+    assert b"github.com/sagernet/sing-box/protocol/fturnfou.(*Inbound).handleLease" in libbox
     (out / "libbox-provenance.json").write_text(json.dumps({
         "apkBinarySha256": hashlib.sha256(libbox).hexdigest(),
-        "privateSingReplacement": True, "outgoingUdpControlMonitor": True, "incomingUdpControlMonitor": True}, indent=2) + "\n")
+        "privateSingReplacement": True, "outgoingUdpControlMonitor": True, "incomingUdpControlMonitor": True, "routerIPv4Tunnel": True, "routerAutomaticPairing": True}, indent=2) + "\n")
     assert not any(name.endswith(("/libwg-go.so", "/libwg-quick.so", "/libwg.so")) for name in names)
     for name, binary in [("freeturn", "libfreeturn.so"), ("raw", "libfturnraw.so")]:
         pin = dict(line.split("=", 1) for line in Path(name + "-core.properties").read_text().splitlines()
@@ -48,3 +50,9 @@ shutil.copy2("third_party/raw-core-NOTICES.txt", out / "RAW-CORE-THIRD-PARTY-NOT
 shutil.copy2("third_party/freeturn-core/LICENSE", out / "FREETURN-CORE-LICENSE.txt")
 
 shutil.copy2("third_party/freeturn-core/third_party/licenses/free-turn-proxy-HBL.txt", out / "BROWSER-POW-UPSTREAM-LICENSE.txt")
+
+# Router users need the matching helper and instructions alongside the APK.
+import tarfile
+with tarfile.open(out / ("fturn-router-openwrt-helper-" + version + ".tar.gz"), "w:gz") as package:
+    for filename in ["scripts/router/fturn-fou-auto.sh", "scripts/router/fturn-fou-auto.init", "docs/router-ip-auto.md", "docs/router-ip-tunnel.md"]:
+        package.add(filename, arcname=filename)

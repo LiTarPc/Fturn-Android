@@ -1,12 +1,12 @@
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $nativeRoot = Join-Path $projectRoot '.native'
-$sourceRoot = Join-Path $nativeRoot 'sing-box-1.12.0'
+$sourceRoot = Join-Path $nativeRoot 'sing-box-1.14.4'
 New-Item -ItemType Directory -Force $nativeRoot | Out-Null
 if (!(Test-Path $sourceRoot)) {
     $archive = Join-Path $nativeRoot 'sing-box.zip'
-    Invoke-WebRequest 'https://codeload.github.com/SagerNet/sing-box/zip/refs/tags/v1.12.0' -OutFile $archive
-    if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '5F0728F8C7054B4B03ABD50C28CC8A0F8B02D9EB18936A33C86A5DD16855227C') { throw 'sing-box source checksum mismatch' }
+    Invoke-WebRequest 'https://codeload.github.com/SagerNet/sing-box/zip/refs/tags/v1.14.4' -OutFile $archive
+    if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne '9037718F85B67A004517C6A9190B98C68483DE643F57C62EB6C889E01BEAE4BC') { throw 'sing-box source checksum mismatch' }
     Expand-Archive -LiteralPath $archive -DestinationPath $nativeRoot -Force
 }
 & python (Join-Path $PSScriptRoot 'patch-libbox.py') $sourceRoot
@@ -14,7 +14,7 @@ if ($LASTEXITCODE) { throw 'libbox compatibility patch failed' }
 $env:GOPATH = Join-Path $nativeRoot 'go'
 $env:GOCACHE = Join-Path $nativeRoot 'go-cache'
 $env:GOTELEMETRY = 'off'
-$env:GOTOOLCHAIN = 'go1.24.5'
+$env:GOTOOLCHAIN = 'go1.26.10'
 $env:ANDROID_HOME = Join-Path $env:LOCALAPPDATA 'Android\Sdk'
 $env:ANDROID_NDK_HOME = Join-Path $env:ANDROID_HOME 'ndk\28.2.13676358'
 # gomobile 0.1.7 cannot discover SDK platform names with minor versions (android-37.0).
@@ -33,15 +33,14 @@ Push-Location $sourceRoot
 try {
     & python (Join-Path $PSScriptRoot 'patch-sing-socks.py') $sourceRoot
     if ($LASTEXITCODE) { throw 'SOCKS UDP control lifecycle patch failed' }
-    & go mod edit '-require=github.com/klauspost/compress@v1.18.3'
-    & go mod download github.com/klauspost/compress
-    if ($LASTEXITCODE) { throw 'compress dependency verification failed' }
+    & python (Join-Path $PSScriptRoot 'patch-fou.py') $sourceRoot
+    if ($LASTEXITCODE) { throw 'FOU inbound patch failed' }
     & go install github.com/sagernet/gomobile/cmd/gomobile
     if ($LASTEXITCODE) { throw 'gomobile installation failed' }
     & go install github.com/sagernet/gomobile/cmd/gobind
     if ($LASTEXITCODE) { throw 'gobind installation failed' }
     $env:PATH = (Join-Path $env:GOPATH 'bin') + ';' + $env:PATH
-    & gomobile bind -target android/arm64 -androidapi 24 -javapkg io.nekohasekai -libname box -trimpath -ldflags '-X github.com/sagernet/sing-box/constant.Version=1.12.0 -s -w' -tags 'with_gvisor,with_low_memory,with_clash_api,with_wireguard,with_utls,with_grpc' ./experimental/libbox
+    & gomobile bind -target android/arm64 -androidapi 24 -javapkg io.nekohasekai -libname box -trimpath -ldflags '-checklinkname=0 -X github.com/sagernet/sing-box/constant.Version=1.14.4 -s -w' -tags 'with_gvisor,with_low_memory,with_clash_api,with_wireguard,with_utls,with_grpc' ./experimental/libbox
     if ($LASTEXITCODE) { throw 'libbox build failed' }
     New-Item -ItemType Directory -Force (Join-Path $projectRoot 'app\libs') | Out-Null
     Copy-Item -LiteralPath 'libbox.aar' -Destination (Join-Path $projectRoot 'app\libs\libbox.aar') -Force

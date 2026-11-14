@@ -1,7 +1,7 @@
 # VLESS over FreeTurn
 
-The Android client embeds sing-box 1.12.0 through its official gomobile `libbox` API.
-WireGuard and VLESS use the same sing-box VPN service. The WireGuard Android dependency is retained only for wg-quick configuration parsing; its GoBackend service and native libraries are excluded from the APK. FreeTurn core is pinned to v4.2.3 by default in freeturn-core.properties (Android app 4.2.5).
+The Android client embeds sing-box 1.14.4 through its official gomobile `libbox` API.
+WireGuard and VLESS use the same sing-box VPN service. The WireGuard Android dependency is retained only for wg-quick configuration parsing; its GoBackend service and native libraries are excluded from the APK. The FreeTurn core version and source snapshot are pinned independently in freeturn-core.properties.
 
 Supported import: `freeturn://` followed by Base64URL or standard Base64 JSON, or
 the bare Base64 JSON. `sb` contains one VLESS URI. Current 4.1.0 source supports TCP
@@ -16,7 +16,7 @@ TLS server_name defaults to the imported host, never to the substituted loopback
 endpoint. Explicit SNI, ALPN, uTLS fingerprint, REALITY key/short ID, Vision flow,
 WebSocket Host/path/early data and gRPC service_name are mapped to native options.
 WebSocket Host defaults to the original URI authority, including its port.
-AndroidCAStore public PEM roots are provided to the native platform interface;
+sing-box 1.14 loads AndroidCAStore roots through its native JNI certificate provider;
 TLS certificate verification stays enabled unless insecure/allowInsecure is
 explicitly true for TLS. REALITY uses its own pinned public key verification.
 Unknown/duplicate aliases and incompatible parameter combinations fail at import.
@@ -34,7 +34,7 @@ excluded, and native outgoing sockets are protected from VPN routing.
 
 ## Build
 
-Prerequisites: Go, Java 17 or newer, Android SDK and NDK 28.2.13676358.
+Prerequisites: Go 1.26.10, Java 17 or newer, Android SDK and NDK 28.2.13676358.
 
 Windows:
 
@@ -51,14 +51,14 @@ bash scripts/build-libbox.sh
 ```
 
 The source archive version and checksum are pinned in the build scripts.
-The compress dependency is pinned to 1.18.3 and verified by Go module checksums. The with_utls and with_grpc tags enable REALITY/fingerprints and standard gRPC.
+Dependencies follow the pinned 1.14.4 go.mod/go.sum, including compress 1.19.1; no older compress version is forced. The with_utls and with_grpc tags enable REALITY/fingerprints and standard gRPC.
 A small tracked scripts/patch-libbox.py compatibility patch separates WebSocket
 URL paths from query strings; it is bounded to the pinned source and idempotent.
 Native sources, caches, and generated `app/libs/libbox.aar` are ignored by Git. CI builds
 the library before Gradle. `-PcoreFetch=all` also supplies the existing FreeTurn
 binary required for an installable debug APK.
 
-sing-box is GPL-3.0-or-later: https://github.com/SagerNet/sing-box/tree/v1.12.0
+sing-box is GPL-3.0-or-later: https://github.com/SagerNet/sing-box/tree/v1.14.4
 Its license is retained in `third_party/sing-box-LICENSE`.
 Native integration follows the public interfaces in `experimental/libbox` for
 that exact version. Updating sing-box requires reviewing those interfaces and

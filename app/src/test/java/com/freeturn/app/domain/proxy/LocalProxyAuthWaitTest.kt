@@ -15,11 +15,11 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LocalProxyAuthWaitTest {
-    private class Launcher(private val waiting: Boolean) : ProxyServiceLauncher {
+    private class Launcher(private val waiting: Boolean, private val phase: CaptchaUiState.Phase = CaptchaUiState.Phase.WAITING_USER) : ProxyServiceLauncher {
         var stops = 0
         override fun start() {
             ProxyServiceState.setRunning(true)
-            ProxyServiceState.setCaptchaUi(if (waiting) CaptchaUiState(CaptchaUiState.Phase.WAITING_USER) else CaptchaUiState())
+            ProxyServiceState.setCaptchaUi(if (waiting) CaptchaUiState(phase) else CaptchaUiState())
         }
         override fun stop() { stops++; ProxyServiceState.setRunning(false); ProxyServiceState.setCaptchaUi(CaptchaUiState()) }
     }
@@ -79,6 +79,35 @@ class LocalProxyAuthWaitTest {
             manager.startProxy(config.copy(isRawMode = true, rawCommand = "client -version"))
             assertEquals(CaptchaUiState.Phase.IDLE, ProxyServiceState.captchaUi.value.phase)
             assertTrue(manager.proxyState.value is ProxyState.Running)
+        } finally { reset(); Dispatchers.resetMain() }
+    }
+
+    @Test fun automaticAuthorizationCannotDisableTheGlobalStartupDeadline() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            for (phase in listOf(CaptchaUiState.Phase.RESUMING, CaptchaUiState.Phase.BROWSER)) {
+                reset()
+                val launcher = Launcher(true, phase)
+                val manager = LocalProxyManager(launcher, backgroundScope)
+                val start = launch { manager.startProxy(config) }
+                runCurrent(); advanceTimeBy(300_001); runCurrent(); start.join()
+                assertEquals(1, launcher.stops)
+                assertFalse(ProxyServiceState.isRunning.value)
+                assertTrue(manager.proxyState.value is ProxyState.Error)
+            }
+        } finally { reset(); Dispatchers.resetMain() }
+    }
+    @Test fun visibleManualVerificationKeepsTheCoreForTheUser() = runTest {
+        Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
+        try {
+            reset()
+            val launcher = Launcher(true, CaptchaUiState.Phase.MANUAL)
+            val manager = LocalProxyManager(launcher, backgroundScope)
+            val start = launch { manager.startProxy(config) }
+            runCurrent(); advanceTimeBy(600_001); runCurrent(); start.join()
+            assertEquals(0, launcher.stops)
+            assertTrue(ProxyServiceState.isRunning.value)
+            manager.stopProxy()
         } finally { reset(); Dispatchers.resetMain() }
     }
 

@@ -106,7 +106,8 @@ data class FreeturnLink(
                 manualCaptcha = o.optBoolean("mcap", false),
                 name = o.optString("name"),
                 wgConf = o.optString("wg"),
-                links = o.optString("links"),
+                // Current Fturn uses links; turn-proxy-android shares the same value as vk.
+                links = o.optString("links").trim().ifBlank { o.optString("vk").trim() },
                 sbUri = sbUri
             )
         }
