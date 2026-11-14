@@ -54,10 +54,12 @@ class FullConnectionInstrumentation : Instrumentation() {
             }
             val input = JSONObject(File(ctx.filesDir, "full-check-private.json").readText())
             val profiles = input.getJSONArray("profiles")
-            val item = (0 until profiles.length()).map { profiles.getJSONObject(it) }.single { it.getString("label") == label }
-            val source = if (item.has("serverJson")) ServerJson.decodeListStrict(JSONArray().put(item.getJSONObject("serverJson")).toString()).single()
-                else server(FreeturnLink.parse(item.getString("shareLink")).getOrThrow(), label)
             val original = prefs.serversSnapshot.first()
+            val useActive = arguments.getString("activeProfile") == "true"
+            val item = if (useActive) null else (0 until profiles.length()).map { profiles.getJSONObject(it) }.single { it.getString("label") == label }
+            val source = if (useActive) original.list.single { it.id == original.activeId }
+                else if (item!!.has("serverJson")) ServerJson.decodeListStrict(JSONArray().put(item.getJSONObject("serverJson")).toString()).single()
+                else server(FreeturnLink.parse(item.getString("shareLink")).getOrThrow(), label)
             initialActive = original.activeId
             initialHotspot = prefs.hotspotConfig()
             initialRouter = prefs.routerTunnelConfig()
@@ -82,7 +84,7 @@ class FullConnectionInstrumentation : Instrumentation() {
                 label.endsWith("-control") -> listOf(BypassRuleSet.fromBytes("controlled.zone", (input.getJSONObject("control").getString("host") + "/32").toByteArray()))
                 else -> source.client.bypassRuleSets
             }
-            val base = source.copy(id = id, name = item.optString("displayName", "QA " + label), client = source.client.copy(bypassRuleSets = suppliedRules,
+            val base = source.copy(id = id, name = item?.optString("displayName", "QA " + label) ?: ("QA active " + label), client = source.client.copy(bypassRuleSets = suppliedRules,
                 splitTunnelMode = SplitTunnelMode.EXCLUDE, splitTunnelUseDefaults = false, splitTunnelApps = ""))
             prefs.addServer(base, activate = true)
             check(ServerJson.decodeListStrict(ServerJson.encodeList(listOf(base))).single() == base) { "Profile persistence roundtrip" }
