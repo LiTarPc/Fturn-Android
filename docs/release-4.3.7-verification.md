@@ -1,3 +1,5 @@
+> Исторический отчёт о предыдущем выпуске. Текущие инструкции находятся в [документации 4.3.9](README.md).
+
 # Fturn 4.3.7 candidate verification (2026-10-31)
 
 Status: signed candidate installed and short real-traffic checks passed. Passive long observation is pending; no stable promotion has been performed.

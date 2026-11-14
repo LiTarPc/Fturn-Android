@@ -1,3 +1,5 @@
+> Исторический отчёт о предыдущем выпуске. Текущие инструкции находятся в [документации 4.3.9](README.md).
+
 # Fturn 4.3.5 installed verification (2026-10-28)
 
 Source commit: 56f4d6a088cb38f104cc4cb895fa3f5cf19c2ba0.

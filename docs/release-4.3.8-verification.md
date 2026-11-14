@@ -1,3 +1,5 @@
+> Исторический отчёт о предыдущем выпуске. Текущие инструкции находятся в [документации 4.3.9](README.md).
+
 # 4.3.8 candidate verification
 
 This document records the 4.3.8 verification history. Stable publication was authorized by the user on 2026-11-09 after the functional checks below; mandatory CI and release gates must pass before publication.

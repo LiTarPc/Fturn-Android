@@ -12,6 +12,6 @@ Push-Location $sourceRoot
 try {
     & go test -v -tags 'with_gvisor,with_wireguard' ./protocol/fturnfou -count=20 -timeout=120s
     if ($LASTEXITCODE) { throw 'FOU transport tests failed' }
-    & go test -v -tags 'with_gvisor,with_low_memory,with_clash_api,with_wireguard,with_utls,with_grpc' ./experimental/libbox -run '^TestFturnVlessRelay$' -timeout 120s -count=1
+    & go test -v -ldflags '-checklinkname=0' -tags 'with_gvisor,with_low_memory,with_clash_api,with_wireguard,with_utls,with_grpc' ./experimental/libbox -run '^TestFturnVlessRelay$' -timeout 120s -count=1
     if ($LASTEXITCODE) { throw 'Native VLESS relay tests failed' }
 } finally { Pop-Location }

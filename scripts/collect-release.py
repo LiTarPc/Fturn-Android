@@ -54,5 +54,5 @@ shutil.copy2("third_party/freeturn-core/third_party/licenses/free-turn-proxy-HBL
 # Router users need the matching helper and instructions alongside the APK.
 import tarfile
 with tarfile.open(out / ("fturn-router-openwrt-helper-" + version + ".tar.gz"), "w:gz") as package:
-    for filename in ["scripts/router/fturn-fou-auto.sh", "scripts/router/fturn-fou-auto.init", "docs/router-ip-auto.md", "docs/router-ip-tunnel.md"]:
+    for filename in ["scripts/router/fturn-fou-auto.sh", "scripts/router/fturn-fou-auto.init", "scripts/router/fturn-hotspot-upstream", "docs/router-ip-auto.md", "docs/router-ip-tunnel.md", "docs/sharing.md"]:
         package.add(filename, arcname=filename)

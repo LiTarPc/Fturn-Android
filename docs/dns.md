@@ -1,41 +1,34 @@
-# DNS selection and failover alerts
+# DNS и маршрутизация
 
-The connection DNS options feed the core's bootstrap/outbound resolver; website
-DNS is separate and remains inside the VPN profile. UDP/53 is a transport and can
-also be the carrier's DNS, rather than evidence of a public resolver by itself.
+В Fturn есть две разные задачи DNS:
 
-Carrier DNS is read from the selected physical Network's LinkProperties. The
-active physical default wins, including cellular while standby Wi-Fi exists.
-If the default is a VPN, eligible validated underlays are preferred; VPN and lost
-networks are excluded. Do not borrow a standby network's DNS when the chosen
-network has an empty DNS list. The same policy supplies sing-box's underlay and
-handover identity to avoid mismatched physical interfaces.
+1. **Запуск соединения.** Ядру нужно найти адреса VK, TURN и других служебных узлов ещё до готовности VPN.
+2. **Работа подключённых приложений.** Их обычные DNS-запросы должны обрабатываться через выбранный VPN-профиль.
 
-In auto mode the pinned WG/VLESS core 4.2.3 and RAW core 1.0.0 emit
-`[DNS] UDP/53 unreachable; sticky-switching to DoH` only when the UDP probe fails
-and DoH is selected. The shared parser turns this exact transition into an alert.
-A successful UDP probe, explicit DoH mode, or unrelated failed request does not
-create a transition alert. Missing carrier DNS is reported separately when the
-core starts with its reserve resolver configuration. Manual DNS overrides carrier
-DNS; intentional DoH does not produce a missing-carrier warning.
+## DNS для запуска ядра
 
-The foreground app shows a long text toast, plus a silent persistent notice in
-the notification drawer. In the background the separate high-importance DNS
-channel carries the notice. Android notification permissions/channel preferences
-remain authoritative. One alert per transition kind is retained across watchdog
-core retries. Starting a new logical connection or changing physical network
-resets this deduplication. Stopping the VPN removes the DNS notification.
+Приложение получает DNS текущей физической сети Android: Wi-Fi или мобильного подключения. DNS уже работающего VPN не используется в качестве физического источника. Пользовательские DNS имеют приоритет, если они заданы в настройках профиля.
 
-Validation: 162 JVM tests pass, including six physical-network selection
-scenarios, three alert-deduplication cases and three core DNS log parsing cases.
-Debug/release compilation and device checks are reported separately.
+Доступны режимы автоматического выбора, обычного DNS и DoH. В автоматическом режиме ядро может перейти на DoH, если проверка UDP DNS не прошла. Fturn показывает уведомление о таком переходе. Явный выбор DoH не считается аварийным переключением.
 
-## Comparing CAPTCHA behavior across devices
+Отсутствие DNS в выбранной физической сети сообщается отдельно. В этой ситуации приложение не должно без объяснения подставлять DNS другой, не выбранной сети.
 
-The ordinary core derives its browser-profile fingerprint seed from ClientID and
-loads a persisted profile generation and auth cooldown. Matching app versions,
-phone models and shared server profiles therefore do not establish matching
-local auth state. Swapping SIMs alone does not change that state. This is a
-candidate explanation, not a diagnosis without paired connection logs.
-Source: https://github.com/LiTarPc/fturn-core/blob/v4.2.3/internal/session/provider.go
-and https://github.com/LiTarPc/fturn-core/blob/v4.2.3/internal/provider/vk/internal/vkauth/client.go.
+## DNS приложений и клиентов раздачи
+
+Обычные запросы на порт 53 внутри VPN перехватываются и отправляются через выбранный профиль. Для текущей схемы WireGuard/VLESS/RAW используется передача DNS по TCP через VPN. Внутри VPN AAAA-запросы не получают IPv6-адресов, а подключения к IPv6-адресам отклоняются.
+
+Исключённое из VPN приложение работает напрямую, включая свой DNS. Собственный DoH/DoT приложения — обычное сетевое соединение этого приложения; перехват порта 53 его не преобразует.
+
+При SOCKS5-раздаче клиенту также важно разрешать имена через прокси. Иначе часть DNS-запросов может остаться в сети самого клиента.
+
+## Обход сайтов и выбор приложений
+
+Выбор приложений определяет, какой трафик вообще входит в VPN. Правила IP-подсетей применяются затем, внутри VPN-движка. Исключённое приложение не возвращается в туннель из-за правила обхода сайтов.
+
+Совпавшие с включённым списком обхода IP-подсети идут напрямую. Остальной трафик использует профиль, с учётом AllowedIPs для WireGuard. Страна IP-адреса не является надёжным признаком языка или назначения сайта.
+
+## Что означает уведомление о DoH
+
+Оно сообщает о смене способа служебного DNS, а не доказывает поломку всего VPN. Если после уведомления нет подключения, проверьте, доступен ли этот DNS-транспорт в текущей сети, затем сохраните журнал с началом подключения и ошибкой.
+
+После смены Wi-Fi/мобильной сети параметры физического подключения выбираются заново. Повторные перезапуски одного ядра не должны создавать бесконечные одинаковые уведомления об одном событии.
