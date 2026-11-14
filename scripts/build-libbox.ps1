@@ -33,6 +33,8 @@ Push-Location $sourceRoot
 try {
     & python (Join-Path $PSScriptRoot 'patch-sing-socks.py') $sourceRoot
     if ($LASTEXITCODE) { throw 'SOCKS UDP control lifecycle patch failed' }
+    & python (Join-Path $PSScriptRoot 'patch-fou.py') $sourceRoot
+    if ($LASTEXITCODE) { throw 'FOU inbound patch failed' }
     & go install github.com/sagernet/gomobile/cmd/gomobile
     if ($LASTEXITCODE) { throw 'gomobile installation failed' }
     & go install github.com/sagernet/gomobile/cmd/gobind

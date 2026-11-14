@@ -26,6 +26,7 @@ if ! find "$ANDROID_HOME/platforms" -mindepth 1 -maxdepth 1 -type d | grep -Eq '
 fi
 cd "$native_root/sing-box-1.14.4"
 python3 "$project_root/scripts/patch-sing-socks.py" "$PWD"
+python3 "$project_root/scripts/patch-fou.py" "$PWD"
 go install github.com/sagernet/gomobile/cmd/gomobile
 go install github.com/sagernet/gomobile/cmd/gobind
 gomobile bind -target android/arm64 -androidapi 24 -javapkg io.nekohasekai -libname box -trimpath \

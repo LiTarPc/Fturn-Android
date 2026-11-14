@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -31,9 +32,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -79,6 +85,14 @@ fun ImportSheet(
 
     val link = state.link ?: return
     val fallbackName = stringResource(R.string.import_default_name)
+    val callLinkFocus = remember(link) { FocusRequester() }
+    val keyboard = LocalSoftwareKeyboardController.current
+    LaunchedEffect(link) {
+        if (state.needsCallLink) {
+            callLinkFocus.requestFocus()
+            keyboard?.show()
+        }
+    }
 
     val sheetState = rememberBottomSheetState(
         initialValue = SheetValue.Hidden,
@@ -113,6 +127,7 @@ fun ImportSheet(
                 .fillMaxWidth()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = Spacing.xxl)
+                .imePadding()
                 .navigationBarsPadding()
                 .padding(bottom = Spacing.lg),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -144,7 +159,7 @@ fun ImportSheet(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            if (nerdMode) {
+            if (state.needsCallLink || nerdMode) {
                 OutlinedTextField(
                     value = state.vkLink,
                     onValueChange = viewModel::setVkLink,
@@ -152,7 +167,7 @@ fun ImportSheet(
                     supportingText = { Text(stringResource(R.string.import_vk_link_helper)) },
                     singleLine = true,
                     enabled = !state.saving,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth().focusRequester(callLinkFocus)
                 )
             }
 

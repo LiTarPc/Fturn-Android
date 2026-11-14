@@ -98,7 +98,7 @@ android {
         testInstrumentationRunner = providers.gradleProperty("vpnFixtureRunner").orElse("com.freeturn.app.testing.CaptchaFixtureInstrumentation").get()
         minSdk = 24
         targetSdk = 37
-        versionName = "4.3.8" // x-release-please-version
+        versionName = "4.3.9" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()
@@ -146,10 +146,10 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix = if (rawBuild) ".raw.sb1144" else ".sb1144"
-            versionNameSuffix = if (rawBuild) "-raw-sb1.14.4-debug" else "-sb1.14.4-debug"
-            resValue("string", "app_name", if (rawBuild) "Fturn RAW SB 1.14.4" else "Fturn SB 1.14.4")
-            resValue("string", "shortcut_target_package", if (rawBuild) "com.litar.freeturn.raw" else "com.litar.freeturn.debug")
+            applicationIdSuffix = if (rawBuild) ".raw.routerip" else ".routerip"
+            versionNameSuffix = if (rawBuild) "-raw-router-ip-debug" else "-router-ip-debug"
+            resValue("string", "app_name", if (rawBuild) "Fturn RAW IP-туннель TEST" else "Fturn IP-туннель TEST")
+            resValue("string", "shortcut_target_package", if (rawBuild) "com.litar.freeturn.raw.routerip" else "com.litar.freeturn.routerip")
         }
         release {
             if (providers.gradleProperty("previewBuild").orNull == "true") versionNameSuffix = "-debug"

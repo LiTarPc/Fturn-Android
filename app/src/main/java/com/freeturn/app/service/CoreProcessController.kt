@@ -208,6 +208,8 @@ class CoreProcessController(
             cmdArgs.addAll(CoreArgs.client(cfg, srv, selectedCarrierDns, prefs.ownClientId()))
         }
 
+        var authorizationGuard: com.freeturn.app.domain.captcha.AuthorizationProgressWatchdog? = null
+        val authorizationTimedOut = AtomicBoolean(false)
         var exitCode = -1
         val startedAt = System.currentTimeMillis()
         var startupEmitted = false
@@ -254,6 +256,22 @@ class CoreProcessController(
                     if (userStopped.get()) it.destroyCompat()
                 }
             }
+            val captchaGeneration = captchaEnvironment["FREETURN_RAW_CAPTCHA_GENERATION"].orEmpty()
+            authorizationGuard = com.freeturn.app.domain.captcha.AuthorizationProgressWatchdog(
+                scope = scope,
+                state = ProxyServiceState.captchaUi,
+                generation = captchaGeneration,
+                isCurrentProcess = { !userStopped.get() && process.get() === proc },
+                hasConnection = { ProxyServiceState.connectionStats.value.active > 0 },
+                onConnected = { captcha.connectionAvailable(captchaGeneration) },
+                onStalled = {
+                    if (authorizationTimedOut.compareAndSet(false, true)) {
+                        ProxyServiceState.addLog("[AUTH] event=resume_timeout action=restart_core timeout_s=120")
+                        ProxyServiceState.setStartupResult(null)
+                        proc.destroyCompat()
+                    }
+                },
+            )
             if (carrierSelected && !userStopped.get()) {
                 if (selectedCarrierDns == null) {
                     ProxyServiceState.addLog(context.getString(R.string.notif_dns_carrier_missing))
@@ -325,6 +343,9 @@ class CoreProcessController(
                         else -> if (tracker.apply(event)) statsChanged = true
                     }
                     if (statsChanged) publishStats()
+                    if (events.any { it is CoreLogEvent.StreamEstablished || it is CoreLogEvent.TcpActive && it.active > 0 }) {
+                        captcha.connectionAvailable(captchaGeneration)
+                    }
 
                     if (!startupEmitted) {
                         val hasFatal = events.any { it is CoreLogEvent.FatalStartup }
@@ -384,7 +405,7 @@ class CoreProcessController(
                     proc.waitForCompat(5, TimeUnit.MINUTES)
                 }) proc.exitValue() else -1
             ProxyServiceState.addLog("Процесс остановлен (код $exitCode)")
-            if (!startupEmitted) {
+            if (!startupEmitted && !authorizationTimedOut.get()) {
                 ProxyServiceState.setStartupResult(StartupResult.Failed(
                     "Процесс завершился без вывода (код: $exitCode)"))
             }
@@ -400,6 +421,7 @@ class CoreProcessController(
             }
         } finally {
             withContext(NonCancellable) {
+                authorizationGuard?.close()
                 captcha.end()
                 ProxyServiceState.setCaptchaSession(null)
                 notifier.cancelCaptcha()
@@ -422,6 +444,7 @@ class CoreProcessController(
                         ProxyServiceState.setRunning(false)
                         onStopRequested()
                     }
+                    authorizationTimedOut.get() -> scheduleWatchdogRestart()
                     exitCode == 0 -> {
                         val uptime = System.currentTimeMillis() - startedAt
                         if (uptime < 5_000L) {

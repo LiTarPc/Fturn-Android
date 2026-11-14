@@ -54,6 +54,11 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         logRedactor = VpnLogRedactor(cfg)
         try {
             val hotspot = kotlinx.coroutines.runBlocking { prefs.hotspotConfig() }
+            val router = kotlinx.coroutines.runBlocking { prefs.routerTunnelConfig() }
+            if (router.enabled) {
+                router.validate()
+                require(!hotspot.enabled || router.port != hotspot.port && (!router.automatic || hotspot.port != com.freeturn.app.data.config.RouterTunnelConfig.CONTROL_PORT)) { "UDP-порт IP-туннеля совпадает с портом SOCKS5" }
+            }
             if (cfg.rawVpnActive) {
                 com.freeturn.app.data.config.RawVpnConfig.validate(cfg)
                 requireNotNull(rawBackend) { "RAW backend is not prepared" }
@@ -65,10 +70,10 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
                 fixAndroidStack = true
             })
             val sets = if (cfg.bypassRulesEnabled) com.freeturn.app.data.BypassRuleStore(this).materialize(cfg.bypassRuleSets) else org.json.JSONArray()
-            val download = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port, rawBackend?.port ?: 0))
+            val download = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port, rawBackend?.port ?: 0, if (router.enabled) router.port else 0, if (router.enabled && router.automatic) com.freeturn.app.data.config.RouterTunnelConfig.CONTROL_PORT else 0))
             ruleDownloadEndpoint = download
-            val json = hotspot.configure(com.freeturn.app.data.RuleDownloadTunnel.configure(
-                SingBoxConfig.fromClient(cfg, sets, rawBackend), download))
+            val json = router.configure(hotspot.configure(com.freeturn.app.data.RuleDownloadTunnel.configure(
+                SingBoxConfig.fromClient(cfg, sets, rawBackend), download)))
             box = Libbox.newCommandServer(object : CommandServerHandler {
                 override fun serviceStop() { stopService(Intent(this@SingBoxVpnService, ProxyService::class.java)) }
                 override fun serviceReload() { throw UnsupportedOperationException("Reconnect to reload the VPN") }
@@ -98,6 +103,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
             logClient!!.connect()
             com.freeturn.app.data.RuleDownloadTunnel.publish(download)
             if (hotspot.enabled) ProxyServiceState.addLog("SOCKS5 Hotspot: 0.0.0.0:${hotspot.port}, TCP/UDP, логин ${com.freeturn.app.data.config.HotspotConfig.USER}")
+            if (router.enabled) ProxyServiceState.addLog("FOU: локальный IPv4-туннель роутера запущен, UDP ${router.port}, MTU ${router.mtu}")
             ProxyServiceState.setTunnelActive(true)
             ProxyServiceState.addLog("sing-box: ${cfg.tunnelTransport} VPN запущен через локальный FreeTurn (IPv4)")
         } catch (e: Exception) {

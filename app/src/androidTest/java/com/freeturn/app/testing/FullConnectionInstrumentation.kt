@@ -38,6 +38,8 @@ class FullConnectionInstrumentation : Instrumentation() {
         var manager: LocalProxyManager? = null
         var initialActive: String? = null
         var initialHotspot: HotspotConfig? = null
+        var initialRouter: RouterTunnelConfig? = null
+        val routerOnly = arguments.getString("routerOnly") == "true"
         var starting: Job? = null
         try { runBlocking {
             check(io.nekohasekai.libbox.Libbox.version() == "1.14.4")
@@ -58,8 +60,16 @@ class FullConnectionInstrumentation : Instrumentation() {
             val original = prefs.serversSnapshot.first()
             initialActive = original.activeId
             initialHotspot = prefs.hotspotConfig()
-            prefs.setHotspotConfig(11080, input.getString("hotspotPassword"))
-            prefs.setHotspotProxyEnabled(true)
+            initialRouter = prefs.routerTunnelConfig()
+            if (routerOnly) {
+                val router = RouterTunnelConfig.decode(input.getJSONObject("routerTunnel").toString())
+                check(router.enabled) { "Missing validated test router configuration" }
+                prefs.setRouterTunnelConfig(router)
+            } else {
+                prefs.setRouterTunnelConfig(initialRouter!!.copy(enabled = false))
+            }
+            prefs.setHotspotConfig(input.optInt("hotspotPort", 11080), input.getString("hotspotPassword"))
+            prefs.setHotspotProxyEnabled(!routerOnly)
             prefs.setPrivacyMode(true)
             prefs.setSuppressUpdatePrompt(true)
             prefs.setSuppressTgPrompt(true)
@@ -72,11 +82,24 @@ class FullConnectionInstrumentation : Instrumentation() {
                 label.endsWith("-control") -> listOf(BypassRuleSet.fromBytes("controlled.zone", (input.getJSONObject("control").getString("host") + "/32").toByteArray()))
                 else -> source.client.bypassRuleSets
             }
-            val base = source.copy(id = id, name = "QA " + label, client = source.client.copy(bypassRuleSets = suppliedRules,
+            val base = source.copy(id = id, name = item.optString("displayName", "QA " + label), client = source.client.copy(bypassRuleSets = suppliedRules,
                 splitTunnelMode = SplitTunnelMode.EXCLUDE, splitTunnelUseDefaults = false, splitTunnelApps = ""))
             prefs.addServer(base, activate = true)
             check(ServerJson.decodeListStrict(ServerJson.encodeList(listOf(base))).single() == base) { "Profile persistence roundtrip" }
             status("PASS $label import and persistence")
+            if (arguments.getString("prepareOnly") == "true") {
+                // Keep only profiles created by this explicit test runner in its isolated APK.
+                original.list.filter { it.id.startsWith("qa-sb1144-") && it.id != id }.forEach { prefs.deleteServer(it.id) }
+                val handoffRouter = if (routerOnly) RouterTunnelConfig.decode(input.getJSONObject("routerTunnel").toString()).takeIf { it.automatic } ?: RouterTunnelConfig() else RouterTunnelConfig()
+                prefs.setRouterTunnelConfig(handoffRouter)
+                initialRouter = handoffRouter
+                initialHotspot = prefs.hotspotConfig()
+                initialActive = id
+                code = Activity.RESULT_OK
+                status("PASS handoff profile and router-compatible SOCKS configured; automatic FOU waits for a paired router")
+                return@runBlocking
+            }
+
             val activity = startActivitySync(Intent(ctx, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             manager = GlobalContext.get().get<LocalProxyManager>()
             val cycles = arguments.getString("cycles", "2").toInt().coerceIn(1, 3)
@@ -108,7 +131,7 @@ class FullConnectionInstrumentation : Instrumentation() {
                 val notices = ctx.getSystemService(NotificationManager::class.java).activeNotifications
                 report.put("singleVpnNotification", notices.count { it.id == 1 } == 1)
                 val before = ProxyServiceState.trafficSnapshot.value
-                for (mode in listOf("tun", "socks")) {
+                for (mode in if (routerOnly) emptyList() else listOf("tun", "socks")) {
                     if (label.endsWith("-control") && mode == "tun") continue // Loopback never enters Android TUN.
                     val command = if (mode == "socks") "/system/bin/env FTURN_SOCKS_PASSWORD=${input.getString("hotspotPassword")} /data/local/tmp/fturn-sb1144-network-probe -scope socks -socks 127.0.0.1:11080"
                         else "/data/local/tmp/fturn-sb1144-network-probe -scope tun"
@@ -135,9 +158,17 @@ class FullConnectionInstrumentation : Instrumentation() {
                 val proceed = File(ctx.filesDir, "full-check-continue")
                 proceed.delete()
                 ready.writeText("$label:${cycle+1}")
-                status("READY_EXTERNAL_SOCKS $label cycle=${cycle+1}")
+                status("${if (routerOnly) "READY_EXTERNAL_ROUTER" else "READY_EXTERNAL_SOCKS"} $label cycle=${cycle+1}")
                 val deadline = android.os.SystemClock.elapsedRealtime()+180_000
                 while (!proceed.exists() && android.os.SystemClock.elapsedRealtime()<deadline) delay(250)
+                if (routerOnly) {
+                    check(proceed.exists()) { "External FOU acceptance did not complete" }
+                    val traffic = ProxyServiceState.trafficSnapshot.value
+                    report.put("routerRxAdvanced", traffic.rxBytes > before.rxBytes)
+                    report.put("routerTxAdvanced", traffic.txBytes > before.txBytes)
+                    check(traffic.rxBytes > before.rxBytes && traffic.txBytes > before.txBytes) { "FOU traffic did not cross the selected VPN core" }
+                    status("PASS $label router traffic crossed VPN")
+                }
                 proceed.delete(); ready.delete()
                 manager!!.stopProxy()
                 starting?.cancelAndJoin()
@@ -154,6 +185,7 @@ class FullConnectionInstrumentation : Instrumentation() {
                 runCatching { manager?.stopProxy() }
                 starting?.cancelAndJoin()
                 runCatching { ProxyServiceState.awaitTeardown() }
+                initialRouter?.let { old -> runCatching { prefs.setRouterTunnelConfig(old) } }
                 initialHotspot?.let { old -> runCatching { prefs.setHotspotConfig(old.port, old.password); prefs.setHotspotProxyEnabled(old.enabled) } }
                 runCatching { prefs.setActiveServerId(initialActive) }
             }
