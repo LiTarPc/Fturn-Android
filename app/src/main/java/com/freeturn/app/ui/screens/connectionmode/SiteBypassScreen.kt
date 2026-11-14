@@ -80,6 +80,7 @@ fun SiteBypassScreen(settings: SettingsViewModel, proxy: ProxyViewModel,
                 }
                 SectionLabel(stringResource(R.string.vpn_global_label))
                 HotspotOptionsCard(settings)
+                com.freeturn.app.ui.screens.settings.RouterTunnelOptionsCard(settings)
             }
         }
     }

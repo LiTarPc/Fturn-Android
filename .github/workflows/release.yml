@@ -52,7 +52,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.24.5'
+          go-version: '1.26.11'
           cache: false
 
       - name: Build sing-box Android library
@@ -63,45 +63,55 @@ jobs:
       - name: SOCKS UDP control lifecycle regression under race detector
         run: bash scripts/test-socks-control.sh
 
+      - name: Router FOU automatic pairing and packet lifecycle race regressions
+        env:
+          GOTOOLCHAIN: go1.26.11
+          GOTELEMETRY: 'off'
+          GOPATH: ${{ github.workspace }}/.native/go
+          GOCACHE: ${{ github.workspace }}/.native/go-cache
+        run: go -C .native/sing-box-1.14.4 test -race -tags 'with_gvisor,with_wireguard' ./protocol/fturnfou -count=20 -timeout=120s
+
       - name: RAW bridge tests
         working-directory: third_party/raw-core
         env:
-          GOTOOLCHAIN: go1.26.10
+          GOTOOLCHAIN: go1.26.11
           GOTELEMETRY: 'off'
         run: go test -mod=readonly ./internal/bypass ./internal/captchaipc ./internal/provider/vk/... ./internal/rawsocks ./internal/rawvpn ./internal/transport/turndial
 
       - name: RAW authorization concurrency under race detector
         working-directory: third_party/raw-core
         env:
-          GOTOOLCHAIN: go1.26.10
+          GOTOOLCHAIN: go1.26.11
           GOTELEMETRY: 'off'
         run: go test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... ./internal/rawsocks ./internal/rawvpn -count=1 -timeout=6m
 
       - name: TURN client regression tests
         working-directory: third_party/freeturn-core
         env:
-          GOTOOLCHAIN: go1.26.10
+          GOTOOLCHAIN: go1.26.11
           GOTELEMETRY: 'off'
         run: go test -mod=readonly ./internal/netconn ./internal/transport/turndial ./internal/proxy/tcprelay ./internal/proxy/udprelay ./internal/session ./internal/config ./internal/captchaipc ./internal/provider/vk/...
 
       - name: RAW cancellation and immediate reconnect race regression
         env:
-          GOTOOLCHAIN: go1.26.10
+          GOTOOLCHAIN: go1.26.11
           GOTELEMETRY: 'off'
         run: go -C third_party/raw-core test -race -mod=readonly ./internal/rawvpn ./internal/transport/turndial -run '^Test(CancellationDeadline|StoppingCancellationDeadline|ReadClientPacket|OrderlyClientCancellation|WriteDeadline|ChangingPending)' -count=100 -timeout=5m
 
       - name: Browser proof and authorization race regressions
         env:
-          GOTOOLCHAIN: go1.26.10
+          GOTOOLCHAIN: go1.26.11
           GOTELEMETRY: 'off'
         run: |
           go -C third_party/raw-core test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... -count=1 -timeout=10m
           go -C third_party/freeturn-core test -race -mod=readonly ./internal/captchaipc ./internal/provider/vk/... -count=1 -timeout=10m
           node third_party/raw-core/internal/provider/vk/internal/captcha/manual/inject_fixture_test.cjs
+          node scripts/tests/captcha_resource_paths.mjs
+          node third_party/raw-core/internal/provider/vk/internal/captcha/manual/resource_paths_test.mjs
 
       - name: Delayed authorization and DTLS integration race regressions
         env:
-          GOTOOLCHAIN: go1.26.10
+          GOTOOLCHAIN: go1.26.11
           GOTELEMETRY: 'off'
         run: go -C third_party/freeturn-core test -race -mod=readonly -tags integration ./internal/proxy/tcprelay ./internal/proxy/udprelay ./internal/transport/dtlsdial -count=1 -timeout=10m
 

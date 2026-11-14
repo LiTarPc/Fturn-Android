@@ -228,7 +228,7 @@ class CaptchaFixtureInstrumentation : Instrumentation() {
                 }
             }
             stage = "vpn_library_smoke"
-            check(io.nekohasekai.libbox.Libbox.version() == "1.12.0", "unexpected native VPN library version")
+            check(io.nekohasekai.libbox.Libbox.version() == "1.14.4", "unexpected native VPN library version")
             io.nekohasekai.libbox.Libbox.checkConfig("""{"log":{"disabled":true},"outbounds":[{"type":"direct"}]}""")
             record("patched_vpn_library_loads_and_validates_config_without_starting_vpn")
             stage = "diagnostic_privacy"

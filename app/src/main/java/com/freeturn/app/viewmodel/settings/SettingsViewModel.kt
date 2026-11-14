@@ -81,6 +81,10 @@ class SettingsViewModel(
     val nerdMode: StateFlow<Boolean> = prefs.nerdModeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
+    val routerTunnel: StateFlow<com.freeturn.app.data.config.RouterTunnelConfig> = prefs.routerTunnelFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.freeturn.app.data.config.RouterTunnelConfig())
+    suspend fun saveRouterTunnel(config: com.freeturn.app.data.config.RouterTunnelConfig) = prefs.setRouterTunnelConfig(config)
+
     val hotspotProxyEnabled: StateFlow<Boolean> = prefs.hotspotProxyEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 

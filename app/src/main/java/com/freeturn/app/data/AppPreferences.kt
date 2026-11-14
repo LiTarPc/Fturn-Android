@@ -52,6 +52,7 @@ class AppPreferences(context: Context) {
         val HOTSPOT_PROXY_ENABLED = booleanPreferencesKey("hotspot_proxy_enabled")
         val HOTSPOT_PORT = intPreferencesKey("hotspot_port")
         val HOTSPOT_PASSWORD = stringPreferencesKey("hotspot_password")
+        val ROUTER_TUNNEL = stringPreferencesKey("router_tunnel")
     }
 
     private fun <T> prefFlow(transform: (Preferences) -> T): Flow<T> =
@@ -119,6 +120,15 @@ class AppPreferences(context: Context) {
     // Один раз за установку: на MIUI/HyperOS isIgnoringBatteryOptimizations остаётся false
     // даже после "не ограничивать" - без флага диалог всплывал бы каждый запуск.
     val batteryPromptShownFlow: Flow<Boolean> = prefFlow { prefs -> prefs[BATTERY_PROMPT_SHOWN] ?: false }
+
+    val routerTunnelFlow: Flow<com.freeturn.app.data.config.RouterTunnelConfig> = prefFlow {
+        com.freeturn.app.data.config.RouterTunnelConfig.decode(it[ROUTER_TUNNEL])
+    }
+    suspend fun routerTunnelConfig() = routerTunnelFlow.first()
+    suspend fun setRouterTunnelConfig(config: com.freeturn.app.data.config.RouterTunnelConfig) {
+        if (config.enabled) config.validate()
+        context.dataStore.edit { it[ROUTER_TUNNEL] = config.encode() }
+    }
 
     val hotspotProxyEnabledFlow: Flow<Boolean> = prefFlow { prefs -> prefs[HOTSPOT_PROXY_ENABLED] ?: false }
     val hotspotConfigFlow: Flow<com.freeturn.app.data.config.HotspotConfig> = prefFlow {
@@ -318,7 +328,8 @@ class AppPreferences(context: Context) {
             suppressUpdatePrompt = suppressUpdatePromptFlow.first(),
             suppressTgPrompt = suppressTgPromptFlow.first(),
             hotspotProxyEnabled = hotspotProxyEnabledFlow.first(),
-            hotspotPort = hotspotConfig().port, hotspotPassword = hotspotConfig().password
+            hotspotPort = hotspotConfig().port, hotspotPassword = hotspotConfig().password,
+            routerTunnel = routerTunnelConfig().encode()
         )
     }
 
@@ -350,6 +361,7 @@ class AppPreferences(context: Context) {
             prefs[HOTSPOT_PROXY_ENABLED] = data.hotspotProxyEnabled
             prefs[HOTSPOT_PORT] = data.hotspotPort
             prefs[HOTSPOT_PASSWORD] = data.hotspotPassword
+            prefs[ROUTER_TUNNEL] = com.freeturn.app.data.config.RouterTunnelConfig.decode(data.routerTunnel).copy(enabled = false).encode()
         }
         return data.servers.size
     }

@@ -322,6 +322,15 @@ class CaptchaCoordinator(context: Context, private val onState: (CaptchaUiState)
         }
     }
 
+    /** A newly established channel is real transport progress, not merely a captured browser proof. */
+    fun connectionAvailable(generation: String) = main.launch {
+        val current = session ?: return@launch
+        if (current.generation != generation || ui.phase != CaptchaUiState.Phase.RESUMING) return@launch
+        clearPage()
+        publish(CaptchaUiState(generation = current.generation))
+        ProxyServiceState.addLog("[AUTH] event=resume_completed reason=channel_ready")
+    }
+
     private fun destroyView() {
         val old = view; view = null
         if (old != null) {

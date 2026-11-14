@@ -1,3 +1,5 @@
+> Исторический отчёт о предыдущем выпуске. Текущие инструкции находятся в [документации 4.3.9](README.md).
+
 # Fturn 4.3.2 release-candidate verification
 
 Status: APK tested on the phone; verification through the user's router is pending. The user cannot move the phone back to the router at this stage. This report does not establish that every intermittent Internet or Chrome QUIC failure is resolved.

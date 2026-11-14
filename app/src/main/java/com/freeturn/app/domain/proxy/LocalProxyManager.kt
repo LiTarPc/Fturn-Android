@@ -181,9 +181,9 @@ class LocalProxyManager(
 
         when (result) {
             null -> {
-                // The service owns an explicit challenge/user wait; a startup timeout must
+                // The service owns an explicit manual challenge/user wait; a startup timeout must
                 // not discard its state or recreate authorization every five minutes.
-                if (ProxyServiceState.isRunning.value && ProxyServiceState.captchaUi.value.isWaiting) return
+                if (ProxyServiceState.isRunning.value && ProxyServiceState.captchaUi.value.awaitsUser) return
                 stopProxy()
                 setErrorWithAutoReset("Прокси не запустился")
             }

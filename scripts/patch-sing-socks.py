@@ -8,10 +8,10 @@ import subprocess
 import sys
 
 MODULE = "github.com/sagernet/sing"
-VERSION = "v0.7.0-beta.2"
-SUM = "h1:UImAKtHGQX205lGYYXKA2qnEeVSml+hKS1oaOwvA14c="
-CLIENT_SHA256 = "9a732dff2ee50aa339bf60697471363265d8ec5294dfd437fa37e0f4cb9716e1"
-HANDSHAKE_SHA256 = "bb6c93ecdbed4fd9207d8792bdd72f7e42845e54f0355fdbaa609cdad4108ff0"
+VERSION = "v0.9.7-0.20261023115459-5dc452e537bf"
+SUM = "h1:qWlGERjsI0F1I9e1W5Z/ARk/9KEN7xIas6e2QHEypUM="
+CLIENT_SHA256 = "85015fbfec7c5d7783c07c435bc71f4b38ac46c44dc4f1678c94f841b9ad7e01"
+HANDSHAKE_SHA256 = "519634a01cba3041477aac4c5a767424b9167708a96af90bdf746a970aad3be3"
 ROOT = Path(__file__).resolve().parent.parent
 source = Path(sys.argv[1]).resolve()
 config = json.loads(subprocess.check_output(["go", "mod", "edit", "-json"], cwd=source, text=True))
@@ -52,10 +52,13 @@ server_text = server_text[:start] + """\t\t\tpacketCtx, association := newFturnS
 \t\t\t}()
 \t\t\terr = socks5.WriteResponse(conn, socks5.Response{
 \t\t\t\tReplyCode: socks5.ReplyCodeSuccess,
-\t\t\t\tBind: M.SocksaddrFromNet(udpConn.LocalAddr()),
+\t\t\t\tBind: M.SocksaddrFromNet(udpConn.LocalAddr()).Unwrap(),
 \t\t\t})
 \t\t\tif err != nil {
 \t\t\t\treturn E.Cause(err, "socks5: write response")
+\t\t\t}
+\t\t\tif udpTimeout > 0 {
+\t\t\t\t_ = udpConn.SetReadDeadline(time.Now().Add(udpTimeout))
 \t\t\t}
 \t\t\tfirstPacket := buf.NewPacket()
 \t\t\tdestination, err := association.ReadPacket(firstPacket)
@@ -63,7 +66,12 @@ server_text = server_text[:start] + """\t\t\tpacketCtx, association := newFturnS
 \t\t\t\tfirstPacket.Release()
 \t\t\t\treturn E.Cause(err, "socks5: read first packet")
 \t\t\t}
-\t\t\tsocksPacketConn := bufio.NewCachedPacketConn(association, firstPacket, destination)
+\t\t\tvar socksPacketConn N.PacketConn = association
+\t\t\tif udpTimeout > 0 {
+\t\t\t\t_ = udpConn.SetReadDeadline(time.Time{})
+\t\t\t\tpacketCtx, socksPacketConn = canceler.NewPacketConn(packetCtx, socksPacketConn, udpTimeout)
+\t\t\t}
+\t\t\tsocksPacketConn = bufio.NewCachedPacketConn(socksPacketConn, firstPacket, destination)
 \t\t\t// The router owns the cached packet and onClose after this point.
 \t\t\t// The control monitor closes only the lower transport and context.
 \t\t\thandedOff = true

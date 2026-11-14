@@ -1,3 +1,5 @@
+> Исторический отчёт о предыдущем выпуске. Текущие инструкции находятся в [документации 4.3.9](README.md).
+
 # Fturn 4.3.4 diagnostic journal verification
 
 ## Implementation

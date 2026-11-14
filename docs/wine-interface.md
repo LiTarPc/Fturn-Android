@@ -1,3 +1,5 @@
+> Историческая или служебная запись. Для настройки Fturn 4.3.9 используйте [актуальное руководство](README.md); версии и результаты ниже относятся к описываемым сборкам.
+
 # Light wine interface
 
 The app offers Light, Dark and System appearance under Settings → Application.

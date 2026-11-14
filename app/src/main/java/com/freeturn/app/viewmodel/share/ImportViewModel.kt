@@ -35,6 +35,9 @@ data class ImportUiState(
     val saveError: Boolean = false,
     val saved: Boolean = false
 ) {
+    /** Remains visible while typing when the imported profile did not include a call link. */
+    val needsCallLink: Boolean get() = link != null && link.links.isBlank()
+
     val canConfirm: Boolean
         get() = link != null && !saving && !saved && vkLink.isNotBlank()
 }

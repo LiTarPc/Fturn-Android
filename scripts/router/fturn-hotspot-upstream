@@ -1,0 +1,10 @@
+#!/bin/sh
+status=$(ubus call network.interface.usbwan status 2>/dev/null) || exit 1
+[ "$(printf '%s' "$status" | jsonfilter -e '@.up')" = true ] || exit 1
+gateway=$(printf '%s' "$status" | jsonfilter -e '@.route[0].nexthop')
+address=$(printf '%s' "$status" | jsonfilter -e '@["ipv4-address"][0].address')
+index=$(cat /sys/class/net/usb0/ifindex 2>/dev/null) || exit 1
+case "$gateway" in ''|*[!0-9.]*) exit 1;; esac
+case "$address" in ''|*[!0-9.]*) exit 1;; esac
+case "$index" in ''|*[!0-9]*) exit 1;; esac
+printf '%s %s %s\n' "$gateway" "$address" "$index"

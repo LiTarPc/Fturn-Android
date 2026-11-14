@@ -23,6 +23,7 @@ data class BackupData(
     val appTheme: String = com.freeturn.app.data.config.AppTheme.SYSTEM,
     val hotspotPort: Int = 1080,
     val hotspotPassword: String = "",
+    val routerTunnel: String = "",
     val browserCaptcha: Boolean = true
 )
 
@@ -46,6 +47,7 @@ object SettingsBackup {
         put("hotspotProxyEnabled", data.hotspotProxyEnabled)
         put("hotspotPort", data.hotspotPort)
         put("hotspotPassword", data.hotspotPassword)
+        put("routerTunnel", data.routerTunnel)
     }.toString()
 
     fun decode(json: String): BackupData {
@@ -78,6 +80,7 @@ object SettingsBackup {
             restartServerOnSwitch = o.optBoolean("restartServerOnSwitch", false),
             suppressUpdatePrompt = o.optBoolean("suppressUpdatePrompt", false),
             suppressTgPrompt = o.optBoolean("suppressTgPrompt", false),
+            routerTunnel = o.optString("routerTunnel"),
             hotspotProxyEnabled = o.optBoolean("hotspotProxyEnabled", false),
             hotspotPort = o.optInt("hotspotPort", 1080).takeIf { it in 1024..65535 } ?: 1080,
             hotspotPassword = o.optString("hotspotPassword").takeIf { it.toByteArray(Charsets.UTF_8).size in 8..255 } ?: ""

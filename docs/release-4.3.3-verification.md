@@ -1,3 +1,5 @@
+> Исторический отчёт о предыдущем выпуске. Текущие инструкции находятся в [документации 4.3.9](README.md).
+
 # Fturn 4.3.3 verification - 28 October 2026
 
 Status: signed candidate installed and checked through the actual Windows ->

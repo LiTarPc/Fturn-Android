@@ -1,47 +1,27 @@
-# Outbound SOCKS UDP control lifecycle
+# Жизненный цикл SOCKS5 UDP
 
-The Android routing engine is sing-box 1.12.0 with sing v0.7.0-beta.2. Its SOCKS
-client originally kept waiting on the UDP socket after the proxy closed the TCP
-control connection. An idle RAW association could therefore be reclaimed by the
-RAW bridge while sing-box retained an unusable outgoing packet connection.
+Fturn 4.3.9 использует sing-box 1.14.4 с закреплённой зависимостью sing и локальными исправлениями в `scripts/patch-sing-socks.py`. Проверяются исходные хеши, создаётся отдельная копия зависимости в `.native/sing-box-1.14.4/fturn-sing`; общий кэш модулей не изменяется.
 
-`scripts/patch-sing-socks.py` adds a TCP control reader only after a successful
-outgoing UDP ASSOCIATE handshake. Control EOF or a read error closes that
-association's UDP and TCP sockets. This wakes packet readers and lets sing-box's
-existing packet connection cleanup remove the old connection. A subsequent
-association can then be created. This does not replay a lost UDP datagram or
-silently reuse an expired association.
+## Исходящий клиент
 
-TCP CONNECT and the shared server-side `NewAssociatePacketConn` constructor are
-unchanged. Explicit Close also closes TCP, so the monitor exits. Closing from
-both paths concurrently is covered by regression tests.
+После успешного UDP ASSOCIATE отдельный наблюдатель следит за управляющим TCP. EOF или ошибка закрывает связанные TCP/UDP-сокеты, чтобы ожидание UDP завершилось и маршрутизатор мог создать новую ассоциацию. Явный Close также завершает наблюдатель.
 
-The build verifies the pinned upstream module checksum and exact client source
-hash, creates a private copy under `.native/sing-box-1.12.0/fturn-sing`, applies
-the bounded patch, and sets a local go.mod replacement. The shared Go module
-cache is unchanged. Both Windows and Linux libbox build scripts apply the patch.
-The patch is compatible with the RAW association idle cleanup candidate; it does
-not establish the cause of the historical router incident.
+Это не повтор потерянной датаграммы и не сохранение уже истёкшей ассоциации. TCP CONNECT сохраняет свой обычный путь.
 
-## Verification
+## Входящая раздача
 
-Run after the pinned sing-box source has been downloaded:
+Наблюдение за управляющим TCP начинается до ожидания первой UDP-датаграммы. Закрытие TCP, сброс и отмена контекста закрывают нижние транспорты однократно. Ошибки ответа и раннего чтения освобождают ресурсы.
 
-```powershell
-./scripts/test-socks-control.ps1
+После передачи ассоциации маршрутизатору владение кэшированным первым пакетом остаётся у него. Общий конструктор UDP-обёртки не получает второго читателя TCP.
+
+## Проверки
+
+```sh
+bash scripts/test-socks-control.sh
 ```
 
-The signed APK and release workflows run `scripts/test-socks-control.sh`, which
-also enables the Go race detector on Linux. Tests use the real sing SOCKS client
-against a loopback peer; they require no VPN, public server or user credentials.
+На Windows: `./scripts/test-socks-control.ps1`. Перед запуском требуется подготовленный исходник sing-box из build-libbox. Linux workflow включает race detector.
 
-Checks cover normal TCP EOF and reset while UDP remains open and receives no new
-packets, `Read` and `ReadPacket` unblocking, repeated create/exchange/close cycles,
-concurrent explicit/server Close, unchanged TCP payload delivery, and unchanged
-server-side ownership of the control stream.
+Проверяются EOF/RST до первого пакета и после обмена, отмена, разблокирование чтения, повторные создания/закрытия, конкурирующий Close и сохранение TCP-передачи. Это локальные регрессии без аккаунта VK. Сетевые проверки раздачи и их пределы фиксируются отдельно в отчёте выпуска.
 
-On 2026-10-29 the original client failed all four EOF/reset reader cases by
-waiting for its read deadline. The patched client passed three consecutive runs
-on Windows and three consecutive runs on HONOR TFY-LX1 / Android 13 using a
-standalone ARM64 test binary. The sing-box SOCKS outbound package also compiled
-against the patched dependency. Full APK verification is a separate check.
+[Пользовательская настройка SOCKS5](sharing.md) · [Исторический разбор](archive/socks-udp-control-history.md)

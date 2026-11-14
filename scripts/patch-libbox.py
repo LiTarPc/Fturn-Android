@@ -1,4 +1,4 @@
-"""Apply bounded compatibility fixes to the pinned sing-box 1.12.0 source."""
+"""Apply bounded compatibility fixes to the pinned sing-box 1.14.4 source."""
 from pathlib import Path
 import sys
 
@@ -15,4 +15,4 @@ if replacement not in text:
     if text.count(original) != 1:
         raise SystemExit("Unexpected sing-box WebSocket source; review compatibility patch")
     source.write_text(text.replace(original, replacement), encoding="utf-8", newline="\n")
-print("sing-box 1.12.0: WebSocket URL query compatibility patch applied")
+print("sing-box 1.14.4: WebSocket URL query compatibility patch applied")

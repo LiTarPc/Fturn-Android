@@ -26,7 +26,8 @@ import java.util.Collections
 class SingBoxVpnService : VpnService(), PlatformInterface {
     inner class LocalBinder : Binder() { val service get() = this@SingBoxVpnService }
     private val binder = LocalBinder()
-    private var box: BoxService? = null
+    private var box: CommandServer? = null
+    private var logClient: CommandClient? = null
     private var ruleDownloadEndpoint: com.freeturn.app.data.RuleDownloadTunnel.Endpoint? = null
     private var tun: ParcelFileDescriptor? = null
     private val prefs: com.freeturn.app.data.AppPreferences by inject()
@@ -53,6 +54,11 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         logRedactor = VpnLogRedactor(cfg)
         try {
             val hotspot = kotlinx.coroutines.runBlocking { prefs.hotspotConfig() }
+            val router = kotlinx.coroutines.runBlocking { prefs.routerTunnelConfig() }
+            if (router.enabled) {
+                router.validate()
+                require(!hotspot.enabled || router.port != hotspot.port && (!router.automatic || hotspot.port != com.freeturn.app.data.config.RouterTunnelConfig.CONTROL_PORT)) { "UDP-порт IP-туннеля совпадает с портом SOCKS5" }
+            }
             if (cfg.rawVpnActive) {
                 com.freeturn.app.data.config.RawVpnConfig.validate(cfg)
                 requireNotNull(rawBackend) { "RAW backend is not prepared" }
@@ -64,14 +70,40 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
                 fixAndroidStack = true
             })
             val sets = if (cfg.bypassRulesEnabled) com.freeturn.app.data.BypassRuleStore(this).materialize(cfg.bypassRuleSets) else org.json.JSONArray()
-            val download = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port, rawBackend?.port ?: 0))
+            val download = com.freeturn.app.data.RuleDownloadTunnel.prepare(setOf(hotspot.port, rawBackend?.port ?: 0, if (router.enabled) router.port else 0, if (router.enabled && router.automatic) com.freeturn.app.data.config.RouterTunnelConfig.CONTROL_PORT else 0))
             ruleDownloadEndpoint = download
-            val json = hotspot.configure(com.freeturn.app.data.RuleDownloadTunnel.configure(
-                SingBoxConfig.fromClient(cfg, sets, rawBackend), download))
-            box = Libbox.newService(json, this)
+            val json = router.configure(hotspot.configure(com.freeturn.app.data.RuleDownloadTunnel.configure(
+                SingBoxConfig.fromClient(cfg, sets, rawBackend), download)))
+            box = Libbox.newCommandServer(object : CommandServerHandler {
+                override fun serviceStop() { stopService(Intent(this@SingBoxVpnService, ProxyService::class.java)) }
+                override fun serviceReload() { throw UnsupportedOperationException("Reconnect to reload the VPN") }
+                override fun getSystemProxyStatus() = SystemProxyStatus().apply { available = false; enabled = false }
+                override fun setSystemProxyEnabled(enabled: Boolean) { throw UnsupportedOperationException("System proxy is unavailable") }
+                override fun triggerNativeCrash() { throw UnsupportedOperationException("Native crash trigger is disabled") }
+                override fun writeDebugMessage(message: String?) { writeLog(message) }
+                override fun connectSSHAgent(): Int = throw UnsupportedOperationException("SSH agent is unavailable")
+            }, this)
             box!!.start()
+            box!!.startOrReloadService(json, OverrideOptions())
+            logClient = Libbox.newCommandClient(object : CommandClientHandler {
+                override fun connected() = Unit
+                override fun disconnected(message: String?) { writeLog(message) }
+                override fun setDefaultLogLevel(level: Int) = Unit
+                override fun clearLogs() = Unit
+                override fun writeLogs(messages: LogIterator?) {
+                    while (messages?.hasNext() == true) writeLog(messages.next().message)
+                }
+                override fun writeStatus(message: StatusMessage?) = Unit
+                override fun writeGroups(message: OutboundGroupIterator?) = Unit
+                override fun writeOutbounds(message: OutboundGroupItemIterator?) = Unit
+                override fun initializeClashMode(modes: StringIterator?, currentMode: String?) = Unit
+                override fun updateClashMode(newMode: String?) = Unit
+                override fun writeConnectionEvents(events: ConnectionEvents?) = Unit
+            }, CommandClientOptions().apply { addCommand(Libbox.CommandLog) })
+            logClient!!.connect()
             com.freeturn.app.data.RuleDownloadTunnel.publish(download)
             if (hotspot.enabled) ProxyServiceState.addLog("SOCKS5 Hotspot: 0.0.0.0:${hotspot.port}, TCP/UDP, логин ${com.freeturn.app.data.config.HotspotConfig.USER}")
+            if (router.enabled) ProxyServiceState.addLog("FOU: локальный IPv4-туннель роутера запущен, UDP ${router.port}, MTU ${router.mtu}")
             ProxyServiceState.setTunnelActive(true)
             ProxyServiceState.addLog("sing-box: ${cfg.tunnelTransport} VPN запущен через локальный FreeTurn (IPv4)")
         } catch (e: Exception) {
@@ -87,7 +119,14 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         ruleDownloadEndpoint = null
         val previous = box
         box = null
-        try { previous?.close() } finally {
+        val previousLogs = logClient
+        logClient = null
+        try {
+            try { previousLogs?.disconnect() } finally {
+                // Closing the command server alone leaves the tunnel and cache DB open in 1.14.
+                try { previous?.closeService() } finally { previous?.close() }
+            }
+        } finally {
             try { tun?.close() } finally {
                 tun = null
                 callback?.let { runCatching { connectivity.unregisterNetworkCallback(it) } }
@@ -120,7 +159,8 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
         addresses(options.inet4Address)
         addresses(options.inet6Address)
         builder.addRoute("0.0.0.0", 0).addRoute("::", 0)
-        builder.addDnsServer(options.getDNSServerAddress().value)
+        val dnsServers = options.getDNSServerAddress()
+        while (dnsServers.hasNext()) builder.addDnsServer(dnsServers.next())
         configureApplications(builder, cfg)
         if (Build.VERSION.SDK_INT >= 29) builder.setMetered(false)
         tun = builder.establish() ?: error("Android не создал VPN-интерфейс")
@@ -144,31 +184,44 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     override fun usePlatformAutoDetectInterfaceControl() = true
     override fun autoDetectInterfaceControl(fd: Int) { check(protect(fd)) { "Не удалось защитить сокет VPN" } }
     override fun localDNSTransport(): LocalDNSTransport? = null
-    override fun writeLog(message: String?) {
+    private fun writeLog(message: String?) {
         if (message.isNullOrBlank()) return
         ProxyServiceState.addLog("sing-box: ${logRedactor?.redact(message) ?: message}")
     }
-    override fun useProcFS() = false
     override fun findConnectionOwner(ipProtocol: Int, sourceAddress: String?, sourcePort: Int,
-        destinationAddress: String?, destinationPort: Int): Int = -1
-    override fun packageNameByUid(uid: Int) = packageManager.getPackagesForUid(uid)?.firstOrNull().orEmpty()
-    override fun uidByPackageName(packageName: String) = packageManager.getApplicationInfo(packageName, 0).uid
+        destinationAddress: String?, destinationPort: Int): ConnectionOwner {
+        if (Build.VERSION.SDK_INT >= 29) {
+            val source = java.net.InetSocketAddress(sourceAddress, sourcePort)
+            val destination = java.net.InetSocketAddress(destinationAddress, destinationPort)
+            val uid = connectivity.getConnectionOwnerUid(ipProtocol, source, destination)
+            if (uid >= 0) return ConnectionOwner().apply {
+                userId = uid
+                setAndroidPackageNames(Strings(packageManager.getPackagesForUid(uid)?.toList().orEmpty()))
+            }
+        }
+        throw UnsupportedOperationException("Connection owner is unavailable")
+    }
     override fun underNetworkExtension() = false
     override fun includeAllNetworks() = false
     override fun readWIFIState(): WIFIState? = null
-    // Go cannot read AndroidCAStore directly. Return public PEM roots for TLS verification.
-    private val androidCertificates: List<String> by lazy {
-        val store = java.security.KeyStore.getInstance("AndroidCAStore").apply { load(null) }
-        Collections.list(store.aliases()).mapNotNull { alias ->
-            store.getCertificate(alias)?.encoded?.let { der ->
-                val body = java.util.Base64.getMimeEncoder(64, byteArrayOf(10)).encodeToString(der)
-                "-----BEGIN CERTIFICATE-----\n$body\n-----END CERTIFICATE-----\n"
-            }
-        }
-    }
-    override fun systemCertificates(): StringIterator = Strings(androidCertificates)
+    // sing-box 1.14 reads AndroidCAStore through its own JNI certificate provider.
     override fun clearDNSCache() = Unit
     override fun sendNotification(notification: Notification?) = Unit
+    override fun cancelNotification(identifier: String?, typeID: Int) = Unit
+    // Fturn does not expose LAN neighbor rules, platform shells, bridges or Tailscale.
+    override fun startNeighborMonitor(listener: NeighborUpdateListener?) = Unit
+    override fun closeNeighborMonitor(listener: NeighborUpdateListener?) = Unit
+    override fun registerMyInterface(name: String?) = Unit
+    override fun usePlatformShell() = false
+    override fun checkPlatformShell(): Unit = throw UnsupportedOperationException("Platform shell is unavailable")
+    override fun openShellSession(user: PlatformUser?, command: String?, environ: StringIterator?, term: String?, rows: Int, cols: Int): ShellSession =
+        throw UnsupportedOperationException("Platform shell is unavailable")
+    override fun lookupUser(username: String?): PlatformUser = throw UnsupportedOperationException("Platform users are unavailable")
+    override fun lookupSFTPServer(): String = throw UnsupportedOperationException("SFTP is unavailable")
+    override fun readSystemSSHHostKey(): String = throw UnsupportedOperationException("SSH is unavailable")
+    override fun tailscaleHostname() = ""
+    override fun usePlatformBridge() = false
+    override fun createBridge(options: BridgeOptions?): BridgeSession = throw UnsupportedOperationException("Platform bridge is unavailable")
 
     override fun startDefaultInterfaceMonitor(listener: InterfaceUpdateListener) {
         fun physicalNetwork(lost: Network? = null): Network? =

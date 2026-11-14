@@ -41,3 +41,12 @@ read deadline, preventing teardown from waiting until TURN's forced abort.
 Five deterministic regressions cover both races, repeated stop/join, normal
 reads and immediate interruption of blocked writes. Goodbye remains best effort
 on a failed transport; the server protocol and lease expiry are unchanged.
+
+Local 1.0.1-beta.android.7-assets.1 preserves the CDN directory tree in browser-visible proxy URLs.
+Webpack publicPath, lazy JS/CSS chunks and relative font paths remain resolvable.
+Legacy generic_proxy URLs and browser capture restrictions remain supported.
+Regression tests cover the reported VK entry/chunks, actual HTTP/MIME, Request
+method/body preservation and the existing host allowlist. Not a stable release.
+
+
+2026-11-14 application 4.3.9 candidate: pinned upstream df69f213b07d958ae0d8f2d7d1693e0ad8f2163f, version 1.1.0-captcha.1, toolchain go1.26.10. New source inputs and snapshot checksum are recorded in SOURCE.json.

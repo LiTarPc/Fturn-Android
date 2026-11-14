@@ -180,7 +180,7 @@ func TestFturnVlessRelay(t *testing.T) {
 
 func fturnStartBox(t *testing.T, config map[string]any) {
 	t.Helper()
-	ctx, cancel := context.WithCancel(BaseContext(nil))
+	ctx, cancel := context.WithCancel(baseContext(nil))
 	data, err := json.Marshal(config)
 	if err != nil {
 		t.Fatal(err)
@@ -283,4 +283,22 @@ func fturnTestCertificate(t *testing.T) (string, string) {
 		t.Fatal(err)
 	}
 	return string(pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})), string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: key}))
+}
+
+// TestFturnPhoneServer is opt-in and serves only a synthetic local Android TUN probe.
+func TestFturnPhoneServer(t *testing.T) {
+ if os.Getenv("FTURN_PHONE_SERVER") != "1" { t.Skip("manual Android fixture") }
+ echo, err := net.Listen("tcp4", "127.0.0.1:19081")
+ if err != nil { t.Fatal(err) }
+ defer echo.Close()
+ go func() { for { c, e := echo.Accept(); if e != nil { return }; go func() { defer c.Close(); io.Copy(c, c) }() } }()
+ fturnStartBox(t, map[string]any{
+  "log": map[string]any{"disabled":true},
+  "inbounds": []any{map[string]any{"type":"vless", "listen":"127.0.0.1", "listen_port":19000,
+   "users": []any{map[string]any{"uuid":"11111111-2222-4333-8444-555555555555"}}}},
+  "outbounds": []any{map[string]any{"type":"direct", "tag":"direct"}},
+  "route": map[string]any{"rules": []any{map[string]any{"action":"route-options", "override_address":"127.0.0.1", "override_port":19081}}},
+ })
+ t.Log("PHONE_FIXTURE_READY")
+ time.Sleep(15*time.Minute)
 }

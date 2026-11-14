@@ -1,9 +1,11 @@
 {
-  "coreVersion": "4.2.4-test.4",
-  "goToolchain": "go1.26.10",
-  "sourceBaseCommit": "a239427a201efb6725f2288ecf1c0986cfee6a0e",
-  "sourceSnapshotSha256": "7a51d18ce90a538529f2c718bd5aeb95fb4abc8deab4ca057b4d51dd35faf233",
-  "description": "FTcore 4.2.4-test.4: browser PoW and IPC v2; DTLS handshake budget starts after credentials/TURN setup, retaining typed failure causes. Server protocol and CLI unchanged.",
+  "coreVersion": "4.2.6",
+  "goToolchain": "go1.26.11",
+  "sourceBaseCommit": "d2c8d27bf632ce4e10e8f9c4458d932a74d32359",
+  "sourceRepository": "https://github.com/LiTarPc/fturn-core",
+  "sourceSnapshotSha256": "96698a46855e87c54dd5c6b187b319735283cbcfad554c87540ede94f36f1384",
+  "previousSourceSnapshotSha256": "5dfbd76ef53d5f98e29de55f4c9182a1e5a98b3f53dcaf2de8d40fa7bb69eec3",
+  "description": "Exact pinned source inputs from upstream commit, including the manual CAPTCHA resource path fix and upstream regression tests. Stable FTcore v4.2.6, retaining Go 1.26.11 dependency security updates.",
   "files": [
     {
       "path": "LICENSE",
@@ -31,11 +33,11 @@
     },
     {
       "path": "go.mod",
-      "sha256": "70d1fb821da16c765f11de8857db7a76a8a6e8bc364c5356be7f96e7240c3693"
+      "sha256": "922fd1c6339d1d07ec5c60d42cdf8fafa444785b6dcf89fe37ed27b0e785856c"
     },
     {
       "path": "go.sum",
-      "sha256": "5166e2e36863c1b7c7cac2ee78db37edba8c2bc42e262b459b24d671cfbf4dd1"
+      "sha256": "95b01ba99c0cb94e978b3c9157da6ab0ecc0e79582fef1d5fd709e750573fa57"
     },
     {
       "path": "internal/captchaipc/PROTOCOL.md",
@@ -51,7 +53,7 @@
     },
     {
       "path": "internal/captchaipc/v2_test.go",
-      "sha256": "c8dba57eacb9f8eaa22f152303a84eca80aa40423a7065e2df0c38e092a62930"
+      "sha256": "9a80c4ad852ed7b612a93b72cfe0075dec9373b1ab0df69bb210a4584aec83b0"
     },
     {
       "path": "internal/client/dnsdial/cli.go",
@@ -287,7 +289,7 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/inject.js",
-      "sha256": "6a232fd3cf61b2a0fd048f482db6df3b98663236b83e6e5a933cd5fcee9b8741"
+      "sha256": "76b2583d5676b8ce35c210d2300c74b2f0d2e26d2a7cb27a7bd801818dea4af2"
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/limits.go",
@@ -299,11 +301,19 @@
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/manual.go",
-      "sha256": "73b4d6a0cd7040ac5b8a8a2d29de2e56d23d4ce189989c2243b5f78442e996b4"
+      "sha256": "15698c3310213471cc09ccd0b993f4b234a513109ef6fb0275bfc0a32ed27873"
     },
     {
       "path": "internal/provider/vk/internal/captcha/manual/manual_test.go",
       "sha256": "4ea5a8a4260e1e076906e66cbbf5ce3a059cf3a6c5a113dd4592ec11466395c9"
+    },
+    {
+      "path": "internal/provider/vk/internal/captcha/manual/resource_proxy.go",
+      "sha256": "67a74e32d16b073f7717cf4ec17e613908256388b27a4e3ae53c922253fa2cfc"
+    },
+    {
+      "path": "internal/provider/vk/internal/captcha/manual/resource_proxy_test.go",
+      "sha256": "4b83f69d7e03b886df6e9c168e6e434a13fb668f95eb965e15cfecce156cf48a"
     },
     {
       "path": "internal/provider/vk/internal/captcha/pow.go",
