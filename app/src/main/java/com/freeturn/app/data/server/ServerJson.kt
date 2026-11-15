@@ -150,7 +150,7 @@ internal object ServerJson {
                 vlessUri = cliO.optString("vlessUri"),
                 rawAddress = cliO.optString("rawAddress", "10.77.0.2/24"),
                 rawMtu = cliO.optInt("rawMtu", 1280),
-                rawUplink = cliO.optString("rawUplink", "packet"),
+                rawUplink = cliO.optString("rawUplink", "tcp-flow"),
                 bypassRulesEnabled = cliO.optBoolean("bypassRulesEnabled", true),
                 bypassRuleSets = cliO.optJSONArray("bypassRuleSets")?.let { rules ->
                     require(rules.length() <= BypassRuleSet.MAX_FILES)

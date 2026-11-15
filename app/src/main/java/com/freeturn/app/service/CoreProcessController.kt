@@ -249,6 +249,8 @@ class CoreProcessController(
                     val backend = checkNotNull(rawBackend)
                     pb.environment()["FREETURN_RAW_SOCKS_PORT"] = backend.port.toString()
                     pb.environment()["FREETURN_RAW_SOCKS_PASSWORD"] = backend.password
+                } else if (!cfg.vpnActive && !cfg.isRawMode) {
+                    pb.environment()["FREETURN_TRAFFIC_STATS"] = "1"
                 }
                 pb.start().also {
                     // Register before returning across a cancellable dispatcher boundary.
@@ -317,6 +319,16 @@ class CoreProcessController(
                         continue
                     }
                     val events = CoreLogParser.parse(l)
+                    val trafficTotals = events.filterIsInstance<CoreLogEvent.TrafficTotals>().lastOrNull()
+                    if (trafficTotals != null) {
+                        ProxyServiceState.recordTrafficTotals(
+                            sourceKey = proc,
+                            rxTotal = trafficTotals.rxBytes,
+                            txTotal = trafficTotals.txBytes,
+                            nowElapsedMs = SystemClock.elapsedRealtime(),
+                        )
+                        continue
+                    }
                     if (events.any { it is CoreLogEvent.CaptchaUrl }) {
                         ProxyServiceState.addLog("[AUTH] event=legacy_manual_challenge")
                     } else ProxyServiceState.addLog(l)
@@ -429,6 +441,7 @@ class CoreProcessController(
                     if (vpnStarted) singBox.stop()
                 } finally {
                     ProxyServiceState.setConnectionStats(ConnectionStats.IDLE)
+                    ProxyServiceState.clearTrafficSpeeds()
                     process.getAndSet(null)?.let { previous ->
                         previous.destroyCompat()
                         withContext(Dispatchers.IO) { previous.waitForCompat(5, TimeUnit.SECONDS) }

@@ -254,6 +254,13 @@ class CoreConnectionTrackerTest {
         assertFalse(t.apply(CoreLogEvent.CaptchaResolved))
         assertFalse(t.apply(CoreLogEvent.CaptchaUrl("http://x")))
         assertFalse(t.apply(CoreLogEvent.FatalStartup("panic: x")))
+        assertFalse(t.apply(CoreLogEvent.TrafficTotals(txBytes = 100, rxBytes = 200)))
+    }
+
+    @Test
+    fun `parses core traffic totals line`() {
+        val events = CoreLogParser.parse("2026/11/15 19:50:00 [INFO] [TRAFFIC] tx=12345 rx=987654321")
+        assertEquals(listOf<CoreLogEvent>(CoreLogEvent.TrafficTotals(txBytes = 12345L, rxBytes = 987654321L)), events)
     }
 
     @Test
