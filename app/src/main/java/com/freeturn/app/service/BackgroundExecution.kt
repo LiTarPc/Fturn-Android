@@ -22,10 +22,6 @@ internal object BackgroundExecution {
     fun notificationsEnabled(context: Context): Boolean =
         NotificationManagerCompat.from(context).areNotificationsEnabled()
 
-    val honorOrHuawei: Boolean get() = listOf(Build.MANUFACTURER, Build.BRAND).any {
-        it.equals("HONOR", ignoreCase = true) || it.equals("HUAWEI", ignoreCase = true)
-    }
-
     private fun appDetails(context: Context) = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
         "package:${context.packageName}".toUri())
 
@@ -39,14 +35,6 @@ internal object BackgroundExecution {
         }
         return open(context, intents)
     }
-
-    fun openAppSettings(context: Context) = open(context, listOf(appDetails(context)))
-
-    fun openNotificationSettings(context: Context): Boolean = open(context, buildList {
-        if (Build.VERSION.SDK_INT >= 26) add(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-            .putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
-        add(appDetails(context))
-    })
 
     private fun open(context: Context, intents: List<Intent>): Boolean {
         for (intent in intents) {
