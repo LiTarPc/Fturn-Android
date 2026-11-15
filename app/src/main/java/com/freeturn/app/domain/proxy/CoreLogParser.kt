@@ -8,6 +8,7 @@ sealed interface CoreLogEvent {
     data class TcpTotal(val total: Int) : CoreLogEvent
     data class TcpActive(val active: Int) : CoreLogEvent
     data class FatalStartup(val line: String) : CoreLogEvent
+    data class TrafficTotals(val txBytes: Long, val rxBytes: Long) : CoreLogEvent
     data object QuotaError : CoreLogEvent
     data object DnsFallbackToDoh : CoreLogEvent
 }
@@ -27,9 +28,19 @@ object CoreLogParser {
         Regex("""\[session \d+\] (?:connected|disconnected) \(active: (\d+)\)""")
     private val TCP_TOTAL_REGEX =
         Regex("""TCP mode: waiting for sessions to connect \(total: (\d+)\)""")
+    private val TRAFFIC_TOTALS_REGEX =
+        Regex("""\[TRAFFIC\]\s+tx=(\d+)\s+rx=(\d+)""")
 
     fun parse(line: String): List<CoreLogEvent> {
         val events = mutableListOf<CoreLogEvent>()
+
+        TRAFFIC_TOTALS_REGEX.find(line)?.let { match ->
+            val tx = match.groupValues[1].toLongOrNull()
+            val rx = match.groupValues[2].toLongOrNull()
+            if (tx != null && rx != null) {
+                events += CoreLogEvent.TrafficTotals(txBytes = tx, rxBytes = rx)
+            }
+        }
 
         Regex("""RAW stream (\d+) ready:""").find(line)?.let {
             events += CoreLogEvent.StreamEstablished(it.groupValues[1].toInt())

@@ -25,7 +25,7 @@ data class ClientConfig(
     val vlessUri: String = "",
     val rawAddress: String = "10.77.0.2/24",
     val rawMtu: Int = 1280,
-    val rawUplink: String = "packet",
+    val rawUplink: String = "tcp-flow",
     val bypassRulesEnabled: Boolean = true,
     val bypassRuleSets: List<BypassRuleSet> = BypassRuleSet.defaults(),
     val wireGuardTunnelName: String = TunnelTransport.DEFAULT_TUNNEL_NAME,

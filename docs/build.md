@@ -18,13 +18,13 @@ Gradle 9.5.1 загружается wrapper-скриптом. Настройте
 
 | Компонент | Источник версии | Инструмент |
 |---|---|---|
-| FTcore 4.2.6 | `freeturn-core.properties` и `third_party/freeturn-core/SOURCE.json` | Go 1.26.11 |
-| RAW 1.1.0-captcha.1 | `raw-core.properties` и `third_party/raw-core/SOURCE.json` | Go 1.26.10 |
+| FTcore 4.2.7 | `freeturn-core.properties` и `third_party/freeturn-core/SOURCE.json` | Go 1.26.11 |
+| RAW 1.1.0-captcha.2 | `raw-core.properties` и `third_party/raw-core/SOURCE.json` | Go 1.26.10 |
 | sing-box 1.14.4 | `scripts/build-libbox.*` и патчи в `scripts` | Go 1.26.10 |
 
 Оба клиентских ядра собираются из сохранённых исходников при Gradle preBuild. `SOURCE.json` проверяет каждый входной файл и общий snapshot. Версии и SHA-256 бинарников включаются в APK как `freeturn-core.json` и `raw-core.json`.
 
-Для RAW версия `1.1.0-captcha.1` отличает Android-вариант с исправлением ресурсов капчи от опубликованного upstream `1.1.0`. Его исходный commit и локальное изменение номера записаны в manifest.
+Для RAW версия `1.1.0-captcha.2` обозначает Android-вариант с исправлениями капчи, адаптивным TCP-flow и оптимизацией передачи. Исходный commit опубликован в `fturn-raw` и закреплён в manifest.
 
 ## Debug-сборка
 

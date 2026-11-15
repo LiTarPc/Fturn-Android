@@ -51,6 +51,8 @@ object ProxyServiceState {
     private val _trafficSnapshot = MutableStateFlow(TrafficSnapshot.ZERO)
     val trafficSnapshot: StateFlow<TrafficSnapshot> = _trafficSnapshot.asStateFlow()
 
+    private val trafficAccumulator = TrafficAccumulator()
+
     /** WG поднят поверх прокси: UI и нотификация говорят про туннель, а не про прокси. */
     private val _tunnelActive = MutableStateFlow(false)
     val tunnelActive: StateFlow<Boolean> = _tunnelActive.asStateFlow()
@@ -125,12 +127,30 @@ object ProxyServiceState {
         _connectionStats.value = stats
     }
 
-    fun setTrafficSnapshot(snapshot: TrafficSnapshot) {
-        _trafficSnapshot.value = snapshot
+    fun recordTrafficTotals(
+        sourceKey: Any?,
+        rxTotal: Long,
+        txTotal: Long,
+        nowElapsedMs: Long,
+        reportedDownSpeed: Long? = null,
+        reportedUpSpeed: Long? = null,
+    ) {
+        _trafficSnapshot.value = trafficAccumulator.recordTotals(
+            sourceKey = sourceKey,
+            rxTotal = rxTotal,
+            txTotal = txTotal,
+            nowElapsedMs = nowElapsedMs,
+            reportedDownSpeed = reportedDownSpeed,
+            reportedUpSpeed = reportedUpSpeed,
+        )
+    }
+
+    fun clearTrafficSpeeds() {
+        _trafficSnapshot.value = trafficAccumulator.clearSpeeds()
     }
 
     fun resetTraffic() {
-        _trafficSnapshot.value = TrafficSnapshot.ZERO
+        _trafficSnapshot.value = trafficAccumulator.reset()
     }
 
     fun setTunnelActive(value: Boolean) {

@@ -9,6 +9,7 @@ import android.net.VpnService
 import android.os.Binder
 import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
 import com.freeturn.app.data.config.ClientConfig
 import com.freeturn.app.data.config.SplitTunnelMode
 import com.freeturn.app.data.config.SingBoxConfig
@@ -34,7 +35,13 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
     private var config: ClientConfig? = null
     private var logRedactor: VpnLogRedactor? = null
     private var callback: ConnectivityManager.NetworkCallback? = null
+    private var tunnelEpoch = 0L
     private val connectivity get() = getSystemService(ConnectivityManager::class.java)
+
+    private companion object {
+        // libbox StatusInterval uses Go time.Duration (nanoseconds).
+        const val STATUS_INTERVAL_NS = 1_000_000_000L
+    }
 
     override fun onCreate() {
         super.onCreate()
@@ -85,6 +92,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
             }, this)
             box!!.start()
             box!!.startOrReloadService(json, OverrideOptions())
+            val epoch = ++tunnelEpoch
             logClient = Libbox.newCommandClient(object : CommandClientHandler {
                 override fun connected() = Unit
                 override fun disconnected(message: String?) { writeLog(message) }
@@ -93,13 +101,27 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
                 override fun writeLogs(messages: LogIterator?) {
                     while (messages?.hasNext() == true) writeLog(messages.next().message)
                 }
-                override fun writeStatus(message: StatusMessage?) = Unit
+                override fun writeStatus(message: StatusMessage?) {
+                    if (message == null || !message.trafficAvailable) return
+                    ProxyServiceState.recordTrafficTotals(
+                        sourceKey = epoch,
+                        rxTotal = message.downlinkTotal,
+                        txTotal = message.uplinkTotal,
+                        nowElapsedMs = SystemClock.elapsedRealtime(),
+                        reportedDownSpeed = message.downlink,
+                        reportedUpSpeed = message.uplink,
+                    )
+                }
                 override fun writeGroups(message: OutboundGroupIterator?) = Unit
                 override fun writeOutbounds(message: OutboundGroupItemIterator?) = Unit
                 override fun initializeClashMode(modes: StringIterator?, currentMode: String?) = Unit
                 override fun updateClashMode(newMode: String?) = Unit
                 override fun writeConnectionEvents(events: ConnectionEvents?) = Unit
-            }, CommandClientOptions().apply { addCommand(Libbox.CommandLog) })
+            }, CommandClientOptions().apply {
+                addCommand(Libbox.CommandLog)
+                addCommand(Libbox.CommandStatus)
+                statusInterval = STATUS_INTERVAL_NS
+            })
             logClient!!.connect()
             com.freeturn.app.data.RuleDownloadTunnel.publish(download)
             if (hotspot.enabled) ProxyServiceState.addLog("SOCKS5 Hotspot: 0.0.0.0:${hotspot.port}, TCP/UDP, логин ${com.freeturn.app.data.config.HotspotConfig.USER}")
@@ -133,6 +155,7 @@ class SingBoxVpnService : VpnService(), PlatformInterface {
                 callback = null
                 config = null
                 ProxyServiceState.setTunnelActive(false)
+                ProxyServiceState.clearTrafficSpeeds()
             }
         }
     }
