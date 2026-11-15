@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="background_title">Работа в фоне</string>
+    <string name="background_battery_title">Экономия батареи</string>
+    <string name="background_battery_exempt">Исключение из оптимизации батареи включено</string>
+    <string name="background_battery_limited">Система может ограничивать VPN при выключенном экране. Нажмите, чтобы разрешить работу</string>
+    <string name="background_app_title">Настройки приложения в Android</string>
+    <string name="background_app_desc">Проверьте автозапуск и разрешение на работу в фоне</string>
+    <string name="background_app_restricted">Android ограничивает работу в фоне. Откройте настройки и снимите ограничение</string>
+    <string name="background_notifications_title">Уведомление VPN</string>
+    <string name="background_notifications_desc">Разрешите уведомления, чтобы видеть состояние и кнопку «Отключить»</string>
+    <string name="background_honor_help">На Honor/Huawei: в настройках телефона откройте «Запуск приложений», отключите автоматическое управление Fturn и разрешите автозапуск, косвенный запуск и работу в фоне.</string>
+    <string name="background_stop_help">Сворачивание приложения не отключает VPN. Для остановки нажмите «Отключить» в приложении или его уведомлении. Принудительную остановку системой запретить нельзя.</string>
+    <string name="background_settings_unavailable">Не удалось открыть системный экран. Откройте настройки Android → Приложения → Fturn</string>
+</resources>

@@ -62,8 +62,14 @@ class ProxyService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ProxyActions.CAPTCHA_RESUME) {
-            if (controller.isRunning) controller.resumeCaptcha(intent.getStringExtra(ProxyActions.CAPTCHA_GENERATION).orEmpty())
-            else stopSelf()
+            // The service can be active while the child core is between retry attempts.
+            if (ProxyServiceState.isRunning.value && !controller.isUserStopped) {
+                controller.resumeCaptcha(intent.getStringExtra(ProxyActions.CAPTCHA_GENERATION).orEmpty())
+                // onStartCommand's latest return value controls process-death recovery.
+                // A notification action must not disable it for the active VPN session.
+                return START_STICKY
+            }
+            stopSelf()
             return START_NOT_STICKY
         }
         // ВАЖНО: startForeground вызываем первым для избежания ForegroundServiceDidNotStartInTimeException.
@@ -87,6 +93,7 @@ class ProxyService : Service() {
             return START_STICKY
         }
 
+        if (intent == null) ProxyServiceState.addLog("Android перезапустил фоновую службу; восстанавливаю подключение")
         ProxyServiceState.setRunning(true)
         acquireWakeLock()
         networkMonitor.register()

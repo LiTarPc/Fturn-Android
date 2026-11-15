@@ -133,6 +133,8 @@ class ProxyNotifier(private val service: Service) {
             .setContentText(text)
             .setSmallIcon(android.R.drawable.ic_menu_preferences)
             .setOngoing(true)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setOnlyAlertOnce(true)
             .setContentIntent(openAppIntent)
             .addAction(0, service.getString(R.string.notif_proxy_stop_action), stopPending)

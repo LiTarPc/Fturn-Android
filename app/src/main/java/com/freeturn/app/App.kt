@@ -8,6 +8,7 @@ import com.freeturn.app.service.ProxyWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.launchIn
@@ -33,6 +34,7 @@ class App : Application() {
                 "Android ${android.os.Build.VERSION.RELEASE} / API ${android.os.Build.VERSION.SDK_INT}; " +
                 "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}; pid=${android.os.Process.myPid()}"
         )
+        scope.launch(Dispatchers.IO) { com.freeturn.app.service.ProcessExitDiagnostics.record(this@App) }
         // ed25519/curve25519 работает через Bouncy Castle в classpath. jsch 2.x подхватывает его сам.
         startKoin {
             androidLogger()

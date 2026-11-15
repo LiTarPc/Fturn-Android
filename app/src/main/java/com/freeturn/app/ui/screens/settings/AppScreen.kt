@@ -116,6 +116,8 @@ fun AppScreen(
                     )
                 }
 
+                BackgroundSettingsCard()
+
                 SectionLabel(stringResource(R.string.app_section_interface))
                 SettingsGroup {
                     SettingsGroupItem(0, 2) {
