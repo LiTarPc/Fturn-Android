@@ -1,9 +1,9 @@
 {
   "coreVersion": "4.2.7",
   "goToolchain": "go1.26.11",
-  "sourceBaseCommit": "8e6d2cc08782c7d8dc08d1f5931334dfdf421c9e",
+  "sourceBaseCommit": "60e4eaf34d1288ceb63db22108b8711f8dafe2da",
   "sourceRepository": "https://github.com/LiTarPc/fturn-core",
-  "sourceSnapshotSha256": "a9225d4d60b499a82d8a9300c3d8f93dab10d80f4928ee1a787aa7b9beb74eb3",
+  "sourceSnapshotSha256": "adf67a47f464490db777bb82e66764672236e85d6a6f96c39d92bdc40e8cc056",
   "previousSourceSnapshotSha256": "5beb560d0c55516ffc2757136dec0b1c52020d9f745315bae3bafec44cf5ab5f",
   "description": "Published source snapshot for Android Fturn 4.4.0: traffic accounting, relay buffer improvements and RAW TCP-flow scheduling as applicable.",
   "files": [
@@ -189,7 +189,7 @@
     },
     {
       "path": "internal/netconn/pipe.go",
-      "sha256": "3e747c775ce72fde266bf3d7a0e04e8126b10bac6e8df835f14384a23646a35c"
+      "sha256": "2c286f6bab53656ccba7809995f7fec71845f6956f1dd3e9b81e14b1a8ce67d1"
     },
     {
       "path": "internal/netconn/pipe_test.go",
