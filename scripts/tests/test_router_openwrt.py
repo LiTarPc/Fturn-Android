@@ -117,7 +117,7 @@ class RouterFixture(unittest.TestCase):
             wrapper.write_bytes(('#!/bin/sh\nexec "'+posix(sys.executable)+'" "'+str(script).replace('\\','/')+'" '+command+' "$@"\n').encode());wrapper.chmod(0o755)
         timeout=self.root/'bin/timeout';timeout.write_bytes(b'#!/bin/sh\nshift\nexec "$@"\n');timeout.chmod(0o755)
         init=self.root/'etc/init.d/dnsmasq';init.write_bytes(b'#!/bin/sh\nexit 0\n');init.chmod(0o755)
-        self.env=dict(os.environ,FTURN_ROOT=posix(self.root),FTURN_TEST_DIR=str(self.root),FTURN_LIB=posix(REPO/'scripts/router'),FTURN_PATH=posix(self.root/'bin')+':/usr/bin:/bin',FTURN_SERVICE_CMD=posix(self.root/'bin/service'),MSYS_NO_PATHCONV='1')
+        self.env=dict(os.environ,FTURN_FOU_IP=posix(self.root/'bin/ip'),FTURN_FOU_TIMEOUT=posix(self.root/'bin/timeout'),FTURN_ROOT=posix(self.root),FTURN_TEST_DIR=str(self.root),FTURN_LIB=posix(REPO/'scripts/router'),FTURN_PATH=posix(self.root/'bin')+':/usr/bin:/bin',FTURN_SERVICE_CMD=posix(self.root/'bin/service'),MSYS_NO_PATHCONV='1')
     def tearDown(self):self.tmp.cleanup()
     def save(self): (self.root/'mock.json').write_text(json.dumps(self.mock))
     def load(self):self.mock=json.loads((self.root/'mock.json').read_text());return self.mock
