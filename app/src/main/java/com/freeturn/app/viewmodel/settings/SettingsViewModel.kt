@@ -85,6 +85,49 @@ class SettingsViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), com.freeturn.app.data.config.RouterTunnelConfig())
     suspend fun saveRouterTunnel(config: com.freeturn.app.data.config.RouterTunnelConfig) = prefs.setRouterTunnelConfig(config)
 
+    private val routerSetupManager = com.freeturn.app.domain.router.RouterSetupManager(appContext)
+    private val _routerSetupBusy = MutableStateFlow(false)
+    val routerSetupBusy = _routerSetupBusy.asStateFlow()
+    private val _routerSetupMessage = MutableStateFlow("")
+    val routerSetupMessage = _routerSetupMessage.asStateFlow()
+
+    fun setupRouter(host: String, port: Int, user: String, password: String, reset: Boolean = false) {
+        if (_routerSetupBusy.value) return
+        _routerSetupBusy.value = true
+        _routerSetupMessage.value = if (reset) "Сброс настроек на роутере…" else "Проверка OpenWrt и установка помощника…"
+        viewModelScope.launch {
+            try {
+                val previous = prefs.routerTunnelConfig()
+                val key = previous.pairingKey.takeIf { it.matches(Regex("[0-9a-fA-F]{64}")) }
+                    ?: com.freeturn.app.data.config.RouterTunnelConfig.newPairingKey()
+                val result = routerSetupManager.run(host.trim(), port, user.trim(), password, key, reset)
+                if (reset) prefs.setRouterTunnelConfig(com.freeturn.app.data.config.RouterTunnelConfig())
+                else prefs.setRouterTunnelConfig(previous.copy(enabled = true, automatic = true, automaticLan = true, pairingKey = key))
+                orchestrator.restartProxyIfRunning()
+                _routerSetupMessage.value = result
+            } catch (e: CancellationException) { throw e
+            } catch (e: Exception) {
+                _routerSetupMessage.value = e.message?.take(1800) ?: "Не удалось настроить роутер"
+            } finally { _routerSetupBusy.value = false }
+        }
+    }
+
+    fun resetRouterTunnel() {
+        if (_routerSetupBusy.value) return
+        _routerSetupBusy.value = true
+        viewModelScope.launch {
+            try {
+                val enabled = prefs.routerTunnelConfig().enabled
+                prefs.setRouterTunnelConfig(com.freeturn.app.data.config.RouterTunnelConfig())
+                if (enabled) orchestrator.restartProxyIfRunning()
+                _routerSetupMessage.value = "IP-туннель отключён, код привязки удалён. Помощник роутера вернёт обычную маршрутизацию после окончания привязки (до 30 секунд)."
+            } catch (e: CancellationException) { throw e
+            } catch (e: Exception) { _routerSetupMessage.value = e.message ?: "Не удалось применить сброс; переподключите VPN"
+            } finally { _routerSetupBusy.value = false }
+        }
+    }
+
+
     val hotspotProxyEnabled: StateFlow<Boolean> = prefs.hotspotProxyEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 

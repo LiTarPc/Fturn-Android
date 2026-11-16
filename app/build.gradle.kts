@@ -67,6 +67,14 @@ tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(verifyLibbox)
 // RAW debug installs have their own Android data and VPN permission.
 val rawBuild = providers.gradleProperty("rawBuild").map { it.toBooleanStrict() }.orElse(false).get()
 
+val prepareRouterSetupAssets by tasks.registering(Copy::class) {
+    from(rootProject.file("scripts/router")) {
+        include("fturn-fou-auto.sh", "fturn-fou-auto.init", "fturn-router-common.sh", "fturn-router", "install-fturn-router.sh")
+    }
+    into(layout.buildDirectory.dir("generated/routerSetupAssets/router-setup"))
+}
+tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(prepareRouterSetupAssets) }
+
 val preparePowObserverAssets by tasks.registering(Copy::class) {
     from(rootProject.file("third_party/freeturn-core/internal/provider/vk/internal/captcha/manual/inject.js")) { rename { "turn-inject.js" } }
     from(rootProject.file("third_party/raw-core/internal/provider/vk/internal/captcha/manual/inject.js")) { rename { "raw-inject.js" } }
@@ -107,6 +115,7 @@ android {
 
     sourceSets["debug"].assets.srcDir(layout.buildDirectory.dir("generated/powObserverAssets").get().asFile)
     if (powFixtureBinary.isPresent) sourceSets["debug"].jniLibs.srcDir(layout.buildDirectory.dir("generated/powFixtureJni").get().asFile)
+    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/routerSetupAssets").get().asFile)
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/rawCoreAssets").get().asFile)
     sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/freeturnCoreAssets").get().asFile)
 

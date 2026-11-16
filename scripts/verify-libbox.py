@@ -23,6 +23,8 @@ if b"github.com/sagernet/sing-box/protocol/fturnfou.NewInbound" not in library:
     raise SystemExit("Stale libbox: experimental FOU receiver missing. Rebuild libbox.")
 if b"github.com/sagernet/sing-box/protocol/fturnfou.(*Inbound).handleLease" not in library:
     raise SystemExit("Stale libbox: automatic FOU pairing is missing. Rebuild libbox.")
+if b"auto_source_prefixes" not in library:
+    raise SystemExit("Stale libbox: automatic router LAN learning missing. Rebuild libbox.")
 report = {"routerIPv4Tunnel": True, "routerAutomaticPairing": True, "aarSha256": hashlib.sha256(args.aar.read_bytes()).hexdigest(),
           "aarBinarySha256": hashlib.sha256(library).hexdigest(),
           "expectedSingBoxVersion": "1.14.4", "privateSingReplacement": True, "outgoingUdpControlMonitor": True, "incomingUdpControlMonitor": True}

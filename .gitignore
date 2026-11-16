@@ -39,3 +39,6 @@ version.txt
 
 # Kotlin compiler session cache
 .kotlin/
+
+# Python acceptance fixtures
+__pycache__/

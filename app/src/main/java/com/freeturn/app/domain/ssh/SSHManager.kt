@@ -24,26 +24,28 @@ class SSHManager {
         ip: String, port: Int, user: String, pass: String, command: String,
         knownFingerprint: String? = null,
         sshKey: String = "",
-        execTimeoutMs: Int = 30_000
-    ): String = exec(ip, port, user, pass, command, null, knownFingerprint, sshKey, execTimeoutMs)
+        execTimeoutMs: Int = 30_000,
+        socketFactory: com.jcraft.jsch.SocketFactory? = null
+    ): String = exec(ip, port, user, pass, command, null, knownFingerprint, sshKey, execTimeoutMs, socketFactory)
 
     suspend fun executeWithStdin(
         ip: String, port: Int, user: String, pass: String,
         command: String, stdin: String,
         knownFingerprint: String? = null,
         sshKey: String = "",
-        execTimeoutMs: Int = 180_000
-    ): String = exec(ip, port, user, pass, command, stdin, knownFingerprint, sshKey, execTimeoutMs)
+        execTimeoutMs: Int = 180_000,
+        socketFactory: com.jcraft.jsch.SocketFactory? = null
+    ): String = exec(ip, port, user, pass, command, stdin, knownFingerprint, sshKey, execTimeoutMs, socketFactory)
 
     private suspend fun exec(
         ip: String, port: Int, user: String, pass: String,
         command: String, stdin: String?,
-        knownFingerprint: String?, sshKey: String, execTimeoutMs: Int
+        knownFingerprint: String?, sshKey: String, execTimeoutMs: Int, socketFactory: com.jcraft.jsch.SocketFactory?
     ): String = withContext(Dispatchers.IO) {
         val tofu = TofuHostKeyRepository(knownFingerprint)
         var session: Session? = null
         try {
-            session = connectSession(ip, port, user, pass, sshKey, tofu)
+            session = connectSession(ip, port, user, pass, sshKey, tofu, socketFactory)
             lastSeenFingerprint = verifyConnectedFingerprint(knownFingerprint, tofu.capturedFingerprint)
             session.timeout = execTimeoutMs
             runCommand(session, command, stdin, execTimeoutMs)
@@ -56,11 +58,12 @@ class SSHManager {
 
     private fun connectSession(
         ip: String, port: Int, user: String, pass: String,
-        sshKey: String, tofu: TofuHostKeyRepository
+        sshKey: String, tofu: TofuHostKeyRepository, socketFactory: com.jcraft.jsch.SocketFactory?
     ): Session {
         val jsch = JSch()
         if (sshKey.isNotBlank()) addKeyIdentity(jsch, sshKey, pass)
         val session = jsch.getSession(user, ip, port)
+        if (socketFactory != null) session.setSocketFactory(socketFactory)
         if (sshKey.isBlank()) session.setPassword(pass)
         configureTofuHostKeyChecking(session, tofu)
         try {

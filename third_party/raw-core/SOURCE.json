@@ -1,11 +1,11 @@
 {
-  "coreVersion": "1.1.0-captcha.2",
+  "coreVersion": "1.1.0-captcha.3",
   "goToolchain": "go1.26.10",
-  "sourceBaseCommit": "12444b308d1727f2ab69fd93f669c448a76d576d",
+  "sourceBaseCommit": "a005f63c1fb00928736f6819eed1bdf1a17025c3",
   "sourceRepository": "https://github.com/LiTarPc/fturn-raw",
-  "sourceSnapshotSha256": "12c8a72b0a18c930a9a3193ba91dc2382df9a2e13679e4153abb10bdef152d77",
-  "previousSourceSnapshotSha256": "bcaa9168d619c4869b81a3e093afeaaf6834b28cf71614b38938a1d52b3b919b",
-  "description": "Published source snapshot for Android Fturn 4.4.0: traffic accounting, relay buffer improvements and RAW TCP-flow scheduling as applicable.",
+  "sourceSnapshotSha256": "4d1f0952872e2ac73dc0c3931c85a91c72c900dbe8ed01cf061509cc9e879355",
+  "previousSourceSnapshotSha256": "12c8a72b0a18c930a9a3193ba91dc2382df9a2e13679e4153abb10bdef152d77",
+  "description": "RAW upload affinity fix: live TCP flows retain their TURN path across ACK pauses and retransmissions; load and RTT selection remain enabled for new flows. Includes queued and in-flight upload regressions.",
   "files": [
     {
       "path": "LICENSE",
@@ -33,7 +33,7 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "8f39bd22618db497e0d0eb8f1f3795f585196e9acdf64f956ca01a7ccaf3158c"
+      "sha256": "b7cc72b0360254464489962e5ac9268178137795f3bb8a5d0a5e9b15698c9e74"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
@@ -829,7 +829,7 @@
     },
     {
       "path": "internal/rawvpn/uplink.go",
-      "sha256": "39f1e5f0edb5f197f356d4adb835c4cd989d32401afd3ae5054567690dce17ef"
+      "sha256": "f66787695332c81872ce92bf5181ea024cb6e09278db2fa3cc5687515ba6c063"
     },
     {
       "path": "internal/rawvpn/uplink_burst_test.go",
@@ -837,7 +837,11 @@
     },
     {
       "path": "internal/rawvpn/uplink_test.go",
-      "sha256": "865b85e0f538fe26083f0f0a36d8faa8b9dfb2a4f7dcd4c8a30656af833dd5a1"
+      "sha256": "44f9026a2c0de60be5ff94174f975892a9615c999772a2298c24782ca892b7cb"
+    },
+    {
+      "path": "internal/rawvpn/uplink_upload_regression_test.go",
+      "sha256": "b3f6e2951e418a108748bc226e3f5a1c3c579adc9cde1104543325700d7504d6"
     },
     {
       "path": "internal/routemgr/route_darwin.go",
