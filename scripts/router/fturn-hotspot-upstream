@@ -1,4 +1,10 @@
 #!/bin/sh
+# Retain the legacy three-field interface used by existing sharing helpers.
+if [ -r /usr/lib/fturn-router/fturn-router-common.sh ]; then
+    . /usr/lib/fturn-router/fturn-router-common.sh
+    find_upstream
+    exit $?
+fi
 status=$(ubus call network.interface.usbwan status 2>/dev/null) || exit 1
 [ "$(printf '%s' "$status" | jsonfilter -e '@.up')" = true ] || exit 1
 gateway=$(printf '%s' "$status" | jsonfilter -e '@.route[0].nexthop')
