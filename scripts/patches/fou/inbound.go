@@ -26,15 +26,16 @@ import (
 const Type = "fturn-fou"
 
 type Options struct {
-	Automatic      bool           `json:"automatic"`
-	PairingKey     string         `json:"pairing_key"`
-	ControlPort    uint16         `json:"control_port"`
-	Listen         string         `json:"listen"`
-	ListenPort     uint16         `json:"listen_port"`
-	Peer           string         `json:"peer"`
-	PeerPort       uint16         `json:"peer_port"`
-	SourcePrefixes []netip.Prefix `json:"source_prefixes"`
-	MTU            uint32         `json:"mtu"`
+	AutoSourcePrefixes bool           `json:"auto_source_prefixes"`
+	Automatic          bool           `json:"automatic"`
+	PairingKey         string         `json:"pairing_key"`
+	ControlPort        uint16         `json:"control_port"`
+	Listen             string         `json:"listen"`
+	ListenPort         uint16         `json:"listen_port"`
+	Peer               string         `json:"peer"`
+	PeerPort           uint16         `json:"peer_port"`
+	SourcePrefixes     []netip.Prefix `json:"source_prefixes"`
+	MTU                uint32         `json:"mtu"`
 }
 
 func RegisterInbound(registry *inbound.Registry) {
@@ -45,21 +46,23 @@ type Counters struct{ RX, TX, RXBytes, TXBytes, Rejected, WriteErrors atomic.Uin
 
 type Inbound struct {
 	inbound.Adapter
-	ctx       context.Context
-	router    adapter.Router
-	logger    log.ContextLogger
-	options   Options
-	peer      netip.AddrPort
-	device    wireguard.Device
-	conn      *net.UDPConn
-	once      sync.Once
-	lifecycle sync.Mutex
-	closed    bool
-	done      chan struct{}
-	workers   sync.WaitGroup
-	Counters  Counters
-	lease     atomic.Pointer[peerLease]
-	control   *autoControl
+	ctx           context.Context
+	router        adapter.Router
+	logger        log.ContextLogger
+	options       Options
+	peer          netip.AddrPort
+	device        wireguard.Device
+	conn          *net.UDPConn
+	once          sync.Once
+	lifecycle     sync.Mutex
+	closed        bool
+	done          chan struct{}
+	workers       sync.WaitGroup
+	deviceWriteMu sync.Mutex
+	writeClosed   bool
+	Counters      Counters
+	lease         atomic.Pointer[peerLease]
+	control       *autoControl
 }
 
 func validateOptions(o Options) (netip.AddrPort, error) {
@@ -202,18 +205,27 @@ func (i *Inbound) receive() {
 			return
 		}
 		expected, ready := i.currentPeer()
-		if !ready || peer != expected || !validPacket(b[:n], i.options.MTU, i.options.SourcePrefixes) {
+		if !ready || peer != expected || !validPacket(b[:n], i.options.MTU, i.leasePrefixes()) {
 			i.Counters.Rejected.Add(1)
 			continue
 		}
 		// NewDevice.Write synchronously copies packet data into gVisor-owned storage.
-		if _, e = i.device.Write([][]byte{b[:n]}, 0); e != nil {
+		if e = i.writeDevice(b[:n]); e != nil {
 			i.Counters.WriteErrors.Add(1)
 			continue
 		}
 		i.Counters.RX.Add(1)
 		i.Counters.RXBytes.Add(uint64(n))
 	}
+}
+func (i *Inbound) writeDevice(packet []byte) error {
+	i.deviceWriteMu.Lock()
+	defer i.deviceWriteMu.Unlock()
+	if i.writeClosed {
+		return net.ErrClosed
+	}
+	_, err := i.device.Write([][]byte{packet}, 0)
+	return err
 }
 func (i *Inbound) send() {
 	defer i.workers.Done()
@@ -251,9 +263,12 @@ func (i *Inbound) Close() error {
 		if i.conn != nil {
 			i.conn.Close()
 		}
+		i.deviceWriteMu.Lock()
+		i.writeClosed = true
 		if i.device != nil {
 			i.device.Close()
 		}
+		i.deviceWriteMu.Unlock()
 		i.workers.Wait()
 		i.logger.Info("FOU stopped: rx=", i.Counters.RX.Load(), " tx=", i.Counters.TX.Load(), " rx_bytes=", i.Counters.RXBytes.Load(), " tx_bytes=", i.Counters.TXBytes.Load(), " rejected=", i.Counters.Rejected.Load(), " write_errors=", i.Counters.WriteErrors.Load())
 	})

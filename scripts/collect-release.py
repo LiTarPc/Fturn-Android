@@ -22,6 +22,7 @@ with zipfile.ZipFile(apk) as archive:
         assert required in names, required
     assert archive.read("assets/rules/ru-aggregated.zone").strip()
     libbox = archive.read("lib/arm64-v8a/libbox.so")
+    assert b"auto_source_prefixes" in libbox
     assert b"./fturn-sing" in libbox
     assert b"github.com/sagernet/sing/protocol/socks.(*Client).DialContext.func1" in libbox
     assert b"github.com/sagernet/sing/protocol/socks.newFturnServerAssociateConn" in libbox
@@ -54,5 +55,5 @@ shutil.copy2("third_party/freeturn-core/third_party/licenses/free-turn-proxy-HBL
 # Router users need the matching helper and instructions alongside the APK.
 import tarfile
 with tarfile.open(out / ("fturn-router-openwrt-helper-" + version + ".tar.gz"), "w:gz") as package:
-    for filename in ["scripts/router/fturn-fou-auto.sh", "scripts/router/fturn-fou-auto.init", "scripts/router/fturn-hotspot-upstream", "docs/router-ip-auto.md", "docs/router-ip-tunnel.md", "docs/sharing.md"]:
+    for filename in ["scripts/router/install-fturn-router.sh", "scripts/router/fturn-router", "scripts/router/fturn-router-common.sh", "scripts/router/fturn-fou-auto.sh", "scripts/router/fturn-fou-auto.init", "scripts/router/fturn-hotspot-upstream", "docs/router-ip-auto.md", "docs/router-ip-tunnel.md", "docs/sharing.md"]:
         package.add(filename, arcname=filename)

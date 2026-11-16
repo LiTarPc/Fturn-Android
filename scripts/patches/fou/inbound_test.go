@@ -282,3 +282,11 @@ func TestConcurrentStartAndCloseReleasesPort(t *testing.T) {
 	}
 	check.Close()
 }
+
+// Late UDP delivery must never call a closed gVisor device (its dispatcher is nil).
+func TestWriteAfterCloseIsRejected(t *testing.T) {
+	i := &Inbound{writeClosed: true}
+	if err := i.writeDevice(packet("192.168.1.2")); err != net.ErrClosed {
+		t.Fatal(err)
+	}
+}

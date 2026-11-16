@@ -1,0 +1,33 @@
+#!/bin/sh
+set -u
+LIB=${FTURN_LIB:-/usr/lib/fturn-router}
+. "$LIB/fturn-router-common.sh"
+case "${1:-status}" in
+ status) "$ROOT/usr/sbin/fturn-fou-auto" --status;;
+ doctor)
+    test -r "$ROOT/etc/openwrt_release" || { fail 'OpenWrt required'; exit 1; }
+    for tool in ubus jsonfilter ip timeout nc flock; do command -v "$tool" || exit 1; done
+    firewall_backend || exit 1
+    find_lan || { fail 'No unique active LAN; set /etc/fturn-router/lan_network'; exit 1; }
+    find_upstream || echo 'USB DHCP/phone not ready yet'
+    echo FTURNCHECK_OK;;
+ reset)
+    # Leave installed packages and unrelated router settings intact.
+    service_ctl fturn-fou-auto stop || exit 1
+    service_ctl fturn-fou-auto disable || exit 1
+    cleanup || exit 1
+    if [ -r "$RUN/dhcp-device" ]; then ubus call network.interface.fturn_usb down >/dev/null 2>&1 || true; fi
+    if [ -r "$CONF/dhcp.before" ] && [ -r "$CONF/dhcp.installed.sha256" ]; then
+        current=$(sha256sum "$ROOT/etc/config/dhcp" | awk '{print $1}')
+        if [ "$current" = "$(cat "$CONF/dhcp.installed.sha256")" ]; then
+            cp "$CONF/dhcp.before" "$ROOT/etc/config/dhcp" || exit 1
+            service_ctl dnsmasq restart || exit 1
+        else
+            fail 'DHCP was edited after installation; saved backup kept in /etc/fturn-router/dhcp.before'
+            exit 1
+        fi
+    fi
+    rm -f "$CONF/key" "$CONF/dhcp.before" "$CONF/dhcp.installed.sha256" "$RUN/dhcp-device"
+    echo FTURNRESET_OK;;
+ *) fail 'Usage: fturn-router status|doctor|reset'; exit 2;;
+esac

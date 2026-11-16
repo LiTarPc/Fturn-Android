@@ -4,3 +4,6 @@
 third_party/raw-core/** text eol=lf
 
 third_party/freeturn-core/** text eol=lf
+
+# Executable helpers must also retain LF when their names have no extension.
+scripts/router/** text eol=lf

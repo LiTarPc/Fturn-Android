@@ -62,4 +62,19 @@ class RouterTunnelConfigTest {
         assertEquals(1280, decoded.mtu)
     }
 
+    @Test fun `automatic LAN is explicit and older saved auto settings keep fixed prefix`() {
+        val key = "ab".repeat(32)
+        val config = RouterTunnelConfig(enabled = true, automatic = true, pairingKey = key)
+        val input = JSONObject(config.configure("{\"inbounds\":[]}")).getJSONArray("inbounds").getJSONObject(0)
+        assertTrue(input.getBoolean("auto_source_prefixes"))
+        assertEquals(config, RouterTunnelConfig.decode(config.encode()))
+        val old = JSONObject(config.encode()).apply { remove("automaticLan") }
+        assertFalse(RouterTunnelConfig.decode(old.toString()).automaticLan)
+        val reset = RouterTunnelConfig()
+        assertFalse(reset.enabled)
+        assertEquals("", reset.pairingKey)
+        assertEquals("", reset.listen)
+        assertEquals("", reset.peer)
+    }
+
 }
