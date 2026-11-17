@@ -98,7 +98,7 @@ android {
         testInstrumentationRunner = providers.gradleProperty("vpnFixtureRunner").orElse("com.freeturn.app.testing.CaptchaFixtureInstrumentation").get()
         minSdk = 24
         targetSdk = 37
-        versionName = "4.4.0" // x-release-please-version
+        versionName = "4.4.1" // x-release-please-version
         // Производный от versionName (M*10000+m*100+p) - release-please бампит только строку версии
         versionCode = versionName!!.split(".").let { (ma, mi, pa) ->
             ma.toInt() * 10000 + mi.toInt() * 100 + pa.substringBefore("-").toInt()

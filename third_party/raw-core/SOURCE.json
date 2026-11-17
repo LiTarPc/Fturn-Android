@@ -1,11 +1,11 @@
 {
-  "coreVersion": "1.1.0-captcha.2",
+  "coreVersion": "1.1.1",
   "goToolchain": "go1.26.10",
-  "sourceBaseCommit": "12444b308d1727f2ab69fd93f669c448a76d576d",
+  "sourceBaseCommit": "773383a55d2016c5811fd513d63f8bddcfd7a12a",
   "sourceRepository": "https://github.com/LiTarPc/fturn-raw",
-  "sourceSnapshotSha256": "12c8a72b0a18c930a9a3193ba91dc2382df9a2e13679e4153abb10bdef152d77",
-  "previousSourceSnapshotSha256": "bcaa9168d619c4869b81a3e093afeaaf6834b28cf71614b38938a1d52b3b919b",
-  "description": "Published source snapshot for Android Fturn 4.4.0: traffic accounting, relay buffer improvements and RAW TCP-flow scheduling as applicable.",
+  "sourceSnapshotSha256": "75ac31f61c77236959a4c79b916e8420958b08d04ec9c080eb7a7f7504fc794b",
+  "previousSourceSnapshotSha256": "12c8a72b0a18c930a9a3193ba91dc2382df9a2e13679e4153abb10bdef152d77",
+  "description": "RAW 1.1.1 based on captcha.2: proactive TCP-flow migration requires payload and an empty local queue.",
   "files": [
     {
       "path": "LICENSE",
@@ -33,11 +33,11 @@
     },
     {
       "path": "internal/buildinfo/core-version.txt",
-      "sha256": "8f39bd22618db497e0d0eb8f1f3795f585196e9acdf64f956ca01a7ccaf3158c"
+      "sha256": "cc52f678848b814373757b460383bf61960e4943c203735adde0a350b3e50989"
     },
     {
       "path": "internal/buildinfo/server-version.txt",
-      "sha256": "1575e1af4a95f12f70b4ee6a6adce8160953d93ea17dc2611b90883ccc3ad3b8"
+      "sha256": "cc52f678848b814373757b460383bf61960e4943c203735adde0a350b3e50989"
     },
     {
       "path": "internal/buildinfo/server.go",
@@ -677,7 +677,7 @@
     },
     {
       "path": "internal/rawvpn/client.go",
-      "sha256": "386165983afc61e941f0065fec387c8a8a11a8139f71d5e759277a9fb3f9bbc3"
+      "sha256": "cf096812ebe7115c045a3b6bb045d75b14eb03bdf40bbd32e3ee46c71f58a297"
     },
     {
       "path": "internal/rawvpn/client_cancel.go",
@@ -829,11 +829,15 @@
     },
     {
       "path": "internal/rawvpn/uplink.go",
-      "sha256": "39f1e5f0edb5f197f356d4adb835c4cd989d32401afd3ae5054567690dce17ef"
+      "sha256": "e3cf69fdc52794966c82ad3d81f847a77bbb802b0a8a8a7a746bcd95af15ecbb"
     },
     {
       "path": "internal/rawvpn/uplink_burst_test.go",
       "sha256": "864eb0961604a44b197cf4cd82fe2eb1fbc729ba978582e2d360e7968c200326"
+    },
+    {
+      "path": "internal/rawvpn/uplink_guard_test.go",
+      "sha256": "717c2b20868d6e7e59e937eef9e4737e769734c640139c471d100e4a74835069"
     },
     {
       "path": "internal/rawvpn/uplink_test.go",
