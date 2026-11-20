@@ -13,7 +13,8 @@ data class RouterTunnelConfig(
     val sourceCidr: String = "192.168.1.0/24",
     val mtu: Int = 1350,
     val automatic: Boolean = false,
-    val pairingKey: String = ""
+    val pairingKey: String = "",
+    val automaticLan: Boolean = true
 ) {
     fun validate() {
         if (automatic) {
@@ -36,13 +37,13 @@ data class RouterTunnelConfig(
         return JSONObject(json).apply {
             getJSONArray("inbounds").put(JSONObject().put("type", "fturn-fou").put("tag", "router-in")
                 .put("listen", listen).put("listen_port", port).put("peer", peer).put("peer_port", peerPort)
-                .put("automatic", automatic).put("pairing_key", if (automatic) pairingKey else "").put("control_port", CONTROL_PORT)
+                .put("auto_source_prefixes", automatic && automaticLan).put("automatic", automatic).put("pairing_key", if (automatic) pairingKey else "").put("control_port", CONTROL_PORT)
                 .put("source_prefixes", JSONArray().put(sourceCidr)).put("mtu", mtu))
         }.toString()
     }
 
     fun encode(): String = JSONObject().put("enabled", enabled).put("listen", listen).put("peer", peer)
-        .put("port", port).put("peerPort", peerPort).put("sourceCidr", sourceCidr).put("mtu", mtu).put("automatic", automatic).put("pairingKey", pairingKey).toString()
+        .put("port", port).put("peerPort", peerPort).put("sourceCidr", sourceCidr).put("mtu", mtu).put("automatic", automatic).put("pairingKey", pairingKey).put("automaticLan", automaticLan).toString()
 
     companion object {
         const val CONTROL_PORT = 40081
@@ -53,7 +54,7 @@ data class RouterTunnelConfig(
             return runCatching {
                 val o = JSONObject(raw)
                 RouterTunnelConfig(o.optBoolean("enabled", false), o.optString("listen"), o.optString("peer"),
-                    o.optInt("port", 40080), o.optInt("peerPort", 40080), o.optString("sourceCidr", "192.168.1.0/24"), o.optInt("mtu", 1350), o.optBoolean("automatic", false), o.optString("pairingKey"))
+                    o.optInt("port", 40080), o.optInt("peerPort", 40080), o.optString("sourceCidr", "192.168.1.0/24"), o.optInt("mtu", 1350), o.optBoolean("automatic", false), o.optString("pairingKey"), o.optBoolean("automaticLan", false))
                     .also { if (it.enabled) it.validate() }
             }.getOrElse { RouterTunnelConfig() }
         }

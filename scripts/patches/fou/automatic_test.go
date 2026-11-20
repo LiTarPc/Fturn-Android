@@ -84,3 +84,53 @@ func TestAutomaticOptionsRequireSecretAndSeparatePorts(t *testing.T) {
 		t.Fatal("conflicting port accepted")
 	}
 }
+
+func TestAuthenticatedAutomaticLANAndLegacyFallback(t *testing.T) {
+	key := strings.Repeat("ab", 32)
+	fallback := netip.MustParsePrefix("192.168.1.0/24")
+	i := &Inbound{options: Options{Automatic: true, AutoSourcePrefixes: true, PairingKey: key, PeerPort: 40080, SourcePrefixes: []netip.Prefix{fallback}}, logger: log.NewNOPFactory().Logger()}
+	request := func(header, token string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest("POST", "http://usb/v1/lease", nil)
+		r.Header.Set("Authorization", "Bearer "+token)
+		r.Header.Set("X-Fturn-LAN", header)
+		r.RemoteAddr = "192.168.42.2:1234"
+		r = r.WithContext(context.WithValue(r.Context(), http.LocalAddrContextKey, &net.TCPAddr{IP: net.ParseIP("192.168.42.1"), Port: 40081}))
+		w := httptest.NewRecorder()
+		i.handleLease(w, r)
+		return w
+	}
+	if w := request("10.23.4.0/24", strings.Repeat("cd", 32)); w.Code != 401 {
+		t.Fatal(w.Code)
+	}
+	if i.lease.Load() != nil {
+		t.Fatal("unauthenticated LAN changed lease")
+	}
+	for _, bad := range []string{"0.0.0.0/0", "8.8.8.0/24", "172.16.0.0/8", "192.168.3.7/24", "fd00::/64"} {
+		if w := request(bad, key); w.Code != 400 {
+			t.Fatalf("accepted %s: %d", bad, w.Code)
+		}
+	}
+	w := request("10.23.4.0/24", key)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "10.23.4.0/24") {
+		t.Fatal(w.Code, w.Body.String())
+	}
+	if got := i.leasePrefixes(); len(got) != 1 || got[0].String() != "10.23.4.0/24" {
+		t.Fatal(got)
+	}
+	if time.Until(i.lease.Load().expires) < 29*time.Second {
+		t.Fatal("insufficient control retry budget")
+	}
+	if w := request("", key); w.Code != 200 {
+		t.Fatal(w.Code)
+	}
+	if got := i.leasePrefixes(); len(got) != 1 || got[0] != fallback {
+		t.Fatal("legacy fallback lost", got)
+	}
+	i.options.AutoSourcePrefixes = false
+	if w := request("10.23.4.0/24", key); w.Code != 200 {
+		t.Fatal(w.Code)
+	}
+	if i.leasePrefixes()[0] != fallback {
+		t.Fatal("manual prefix changed")
+	}
+}

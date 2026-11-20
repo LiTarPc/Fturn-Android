@@ -15,12 +15,13 @@ import (
 	"time"
 )
 
-const autoLeaseDuration = 12 * time.Second
+const autoLeaseDuration = 30 * time.Second
 
 type peerLease struct {
-	peer    netip.AddrPort
-	local   netip.Addr
-	expires time.Time
+	prefixes []netip.Prefix
+	peer     netip.AddrPort
+	local    netip.Addr
+	expires  time.Time
 }
 type autoControl struct {
 	server   *http.Server
@@ -39,6 +40,27 @@ func (i *Inbound) currentPeer() (netip.AddrPort, bool) {
 		return netip.AddrPort{}, false
 	}
 	return lease.peer, true
+}
+
+// Prefixes are learned only from the authenticated lease owner.
+func (i *Inbound) leasePrefixes() []netip.Prefix {
+	if i.options.Automatic && i.options.AutoSourcePrefixes {
+		if lease := i.lease.Load(); lease != nil {
+			return lease.prefixes
+		}
+	}
+	return i.options.SourcePrefixes
+}
+func parseLANPrefix(value string) (netip.Prefix, bool) {
+	p, err := netip.ParsePrefix(value)
+	if err != nil || !p.Addr().Is4() || !p.Addr().IsPrivate() || p.Bits() < 8 || p.Masked() != p {
+		return netip.Prefix{}, false
+	}
+	b := p.Addr().As4()
+	n := uint32(b[0])<<24 | uint32(b[1])<<16 | uint32(b[2])<<8 | uint32(b[3])
+	n |= ^uint32(0) >> p.Bits()
+	last := netip.AddrFrom4([4]byte{byte(n >> 24), byte(n >> 16), byte(n >> 8), byte(n)})
+	return p, last.IsPrivate()
 }
 func (i *Inbound) startAutoControl() (*autoControl, error) {
 	listener, e := net.Listen("tcp4", net.JoinHostPort("0.0.0.0", strconv.Itoa(int(i.options.ControlPort))))
@@ -76,6 +98,15 @@ func (i *Inbound) handleLease(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "private USB endpoints required", 400)
 		return
 	}
+	prefixes := i.options.SourcePrefixes
+	if i.options.AutoSourcePrefixes && r.Header.Get("X-Fturn-LAN") != "" {
+		prefix, valid := parseLANPrefix(r.Header.Get("X-Fturn-LAN"))
+		if !valid {
+			http.Error(w, "invalid private LAN prefix", 400)
+			return
+		}
+		prefixes = []netip.Prefix{prefix}
+	}
 	// A router can renew its own lease. Another peer must wait for expiry.
 	previous := i.lease.Load()
 	next := netip.AddrPortFrom(peer.Addr(), i.options.PeerPort)
@@ -83,7 +114,7 @@ func (i *Inbound) handleLease(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "router already connected", 409)
 		return
 	}
-	i.lease.Store(&peerLease{peer: next, local: localAddr.Addr(), expires: time.Now().Add(autoLeaseDuration)})
+	i.lease.Store(&peerLease{peer: next, local: localAddr.Addr(), expires: time.Now().Add(autoLeaseDuration), prefixes: prefixes})
 	if previous == nil || previous.peer != next || previous.local != localAddr.Addr() || !time.Now().Before(previous.expires) {
 		i.logger.Info("FOU auto: router=", next.Addr(), " phone=", localAddr.Addr(), " MTU=", i.options.MTU)
 	}
@@ -97,5 +128,5 @@ func (i *Inbound) handleLease(w http.ResponseWriter, r *http.Request) {
 		MTU          uint32         `json:"mtu"`
 		Prefixes     []netip.Prefix `json:"source_prefixes"`
 		LeaseSeconds int            `json:"lease_seconds"`
-	}{1, localAddr.Addr().String(), next.Addr().String(), i.options.ListenPort, i.options.PeerPort, i.options.MTU, i.options.SourcePrefixes, 12})
+	}{1, localAddr.Addr().String(), next.Addr().String(), i.options.ListenPort, i.options.PeerPort, i.options.MTU, prefixes, int(autoLeaseDuration / time.Second)})
 }
