@@ -54,7 +54,7 @@ def serve(conn,hostkey):
     if not chunk:break
     data.extend(chunk)
     if len(data)>1_000_000:raise ValueError('oversized fixture payload')
-   script=data.decode();reset=script=='test -x /usr/sbin/fturn-router || exit 1\n/usr/sbin/fturn-router reset\n'
+   script=data.decode();reset=script=='test -x /usr/sbin/fturn-router || { echo FTURN_HELPER_MISSING; exit 1; }\n/usr/sbin/fturn-router reset\n'
    if not reset and not validate_install(script):raise ValueError('payload differs from bundled APK assets')
    if reset:script=script.replace('/usr/sbin/fturn-router',posix(root/'usr/sbin/fturn-router'))
    else:script=script.replace('/tmp/fturn-setup.XXXXXX',posix(root/'tmp/fturn-setup.XXXXXX'))

@@ -103,11 +103,11 @@ class SettingsViewModel(
                 val result = routerSetupManager.run(host.trim(), port, user.trim(), password, key, reset)
                 if (reset) prefs.setRouterTunnelConfig(com.freeturn.app.data.config.RouterTunnelConfig())
                 else prefs.setRouterTunnelConfig(previous.copy(enabled = true, automatic = true, automaticLan = true, pairingKey = key))
-                orchestrator.restartProxyIfRunning()
-                _routerSetupMessage.value = result
+                _routerSetupMessage.value = routerResultAfterVpnRestart(result)
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) {
-                _routerSetupMessage.value = e.message?.take(1800) ?: "Не удалось настроить роутер"
+                _routerSetupMessage.value = e.message?.take(1800)
+                    ?: if (reset) "Не удалось сбросить настройки на роутере" else "Не удалось настроить роутер"
             } finally { _routerSetupBusy.value = false }
         }
     }
@@ -119,14 +119,24 @@ class SettingsViewModel(
             try {
                 val enabled = prefs.routerTunnelConfig().enabled
                 prefs.setRouterTunnelConfig(com.freeturn.app.data.config.RouterTunnelConfig())
-                if (enabled) orchestrator.restartProxyIfRunning()
-                _routerSetupMessage.value = "IP-туннель отключён, код привязки удалён. Помощник роутера вернёт обычную маршрутизацию после окончания привязки (до 30 секунд)."
+                val result = "IP-туннель отключён, код привязки удалён. Помощник роутера вернёт обычную маршрутизацию после окончания привязки (до 30 секунд)."
+                _routerSetupMessage.value = if (enabled) routerResultAfterVpnRestart(result) else result
             } catch (e: CancellationException) { throw e
             } catch (e: Exception) { _routerSetupMessage.value = e.message ?: "Не удалось применить сброс; переподключите VPN"
             } finally { _routerSetupBusy.value = false }
         }
     }
 
+
+    private suspend fun routerResultAfterVpnRestart(result: String): String = try {
+        orchestrator.restartProxyIfRunning()
+        result
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        com.freeturn.app.domain.diagnostics.DiagnosticLogs.append("[ROUTER] VPN restart failed: ${e.javaClass.simpleName}")
+        "$result Не удалось автоматически переподключить VPN. Переподключите его вручную."
+    }
 
     val hotspotProxyEnabled: StateFlow<Boolean> = prefs.hotspotProxyEnabledFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)

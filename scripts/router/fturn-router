@@ -13,21 +13,26 @@ case "${1:-status}" in
     echo FTURNCHECK_OK;;
  reset)
     # Leave installed packages and unrelated router settings intact.
-    service_ctl fturn-fou-auto stop || exit 1
-    service_ctl fturn-fou-auto disable || exit 1
-    cleanup || exit 1
+    if ! service_ctl fturn-fou-auto stop && service_ctl fturn-fou-auto running >/dev/null 2>&1; then
+        fail 'Could not stop the Fturn service'; exit 1
+    fi
+    if ! service_ctl fturn-fou-auto disable && service_ctl fturn-fou-auto enabled >/dev/null 2>&1; then
+        fail 'Could not disable Fturn autostart'; exit 1
+    fi
+    cleanup || { fail 'Could not remove the Fturn tunnel'; exit 1; }
     if [ -r "$RUN/dhcp-device" ]; then ubus call network.interface.fturn_usb down >/dev/null 2>&1 || true; fi
     if [ -r "$CONF/dhcp.before" ] && [ -r "$CONF/dhcp.installed.sha256" ]; then
         current=$(sha256sum "$ROOT/etc/config/dhcp" | awk '{print $1}')
+        original=$(sha256sum "$CONF/dhcp.before" | awk '{print $1}')
         if [ "$current" = "$(cat "$CONF/dhcp.installed.sha256")" ]; then
-            cp "$CONF/dhcp.before" "$ROOT/etc/config/dhcp" || exit 1
-            service_ctl dnsmasq restart || exit 1
-        else
+            cp "$CONF/dhcp.before" "$ROOT/etc/config/dhcp" || { fail 'Could not restore the DNS configuration'; exit 1; }
+        elif [ -z "$original" ] || [ "$current" != "$original" ]; then
             fail 'DHCP was edited after installation; saved backup kept in /etc/fturn-router/dhcp.before'
             exit 1
         fi
+        service_ctl dnsmasq restart || { fail 'DNS configuration was restored, but dnsmasq could not restart. Retry reset.'; exit 1; }
     fi
-    rm -f "$CONF/key" "$CONF/dhcp.before" "$CONF/dhcp.installed.sha256" "$RUN/dhcp-device"
+    rm -f "$CONF/key" "$CONF/dhcp.before" "$CONF/dhcp.installed.sha256" "$RUN/dhcp-device" || { fail 'Could not clear the Fturn pairing'; exit 1; }
     echo FTURNRESET_OK;;
  *) fail 'Usage: fturn-router status|doctor|reset'; exit 2;;
 esac
