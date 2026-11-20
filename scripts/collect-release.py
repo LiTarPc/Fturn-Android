@@ -16,7 +16,11 @@ assert element["versionCode"] == major * 10000 + minor * 100 + patch
 apk = Path("app/build/outputs/apk/release") / element["outputFile"]
 out = Path("dist")
 out.mkdir(exist_ok=True)
+router_setup_files = ["install-fturn-router.sh", "fturn-router", "fturn-router-common.sh",
+                      "fturn-fou-auto.sh", "fturn-fou-auto.init"]
 with zipfile.ZipFile(apk) as archive:
+    for filename in router_setup_files:
+        assert archive.read("assets/router-setup/" + filename) == Path("scripts/router", filename).read_bytes(), filename
     names = archive.namelist()
     for required in ["assets/rules/ru-aggregated.zone", "lib/arm64-v8a/libbox.so"]:
         assert required in names, required
@@ -55,5 +59,6 @@ shutil.copy2("third_party/freeturn-core/third_party/licenses/free-turn-proxy-HBL
 # Router users need the matching helper and instructions alongside the APK.
 import tarfile
 with tarfile.open(out / ("fturn-router-openwrt-helper-" + version + ".tar.gz"), "w:gz") as package:
-    for filename in ["scripts/router/install-fturn-router.sh", "scripts/router/fturn-router", "scripts/router/fturn-router-common.sh", "scripts/router/fturn-fou-auto.sh", "scripts/router/fturn-fou-auto.init", "scripts/router/fturn-hotspot-upstream", "docs/router-ip-auto.md", "docs/router-ip-tunnel.md", "docs/sharing.md"]:
+    for filename in [*('scripts/router/' + name for name in router_setup_files), "scripts/router/fturn-hotspot-upstream",
+                     "docs/router-ip-auto.md", "docs/router-ip-tunnel.md", "docs/sharing.md"]:
         package.add(filename, arcname=filename)
